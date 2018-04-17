@@ -65,7 +65,7 @@ contract CharacterCard {
 
   /// @notice All the emitted cards
   /// @dev Core of the Character Card as ERC721 token
-  /// @dev maps Card ID => Card Data Structure
+  /// @dev Maps Card ID => Card Data Structure
   mapping(uint16 => Card) public cards;
 
   /// @notice Total number of cards owned by each account
@@ -79,26 +79,29 @@ contract CharacterCard {
   /// @notice Defines a privileged addresses with additional
   /// permissions on the smart contract, like minting cards,
   /// transferring on behalf and so on
-  /// @dev maps an address to the permissions bitmask (role), where each bit
+  /// @dev Maps an address to the permissions bitmask (role), where each bit
   /// represents a permissions; bitmask 0xFFFFFFFF represents all possible permissions
   mapping(address => uint32) public userRoles;
 
-  /// @notice card creator is responsible for creating cards
-  /// @dev role ROLE_CARD_CREATOR allows minting cards
+  /// @notice Card creator is responsible for creating cards
+  /// @dev Role ROLE_CARD_CREATOR allows minting cards
   uint32 public constant ROLE_CARD_CREATOR = 0x00000001;
 
-  /// @notice card game provider is responsible for enabling the game protocol
-  /// @dev role ROLE_COMBAT_PROVIDER allows modifying gamesPlayed,
+  /// @notice Card game provider is responsible for enabling the game protocol
+  /// @dev Role ROLE_COMBAT_PROVIDER allows modifying gamesPlayed,
   /// wins, loses, state, lastGamePlayed, attributes
   uint32 public constant ROLE_COMBAT_PROVIDER = 0x00000002;
 
-  /// @notice exchange is responsible for trading cards on behalf of card holders
-  /// @dev role ROLE_EXCHANGE allows executing transferFor on behalf of card holders
+  /// @notice Exchange is responsible for trading cards on behalf of card holders
+  /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of card holders
   uint32 public constant ROLE_EXCHANGE = 0x00000004;
 
-  /// @notice role manager is responsible for assigning the roles
-  /// @dev role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
+  /// @notice Role manager is responsible for assigning the roles
+  /// @dev Role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
   uint32 public constant ROLE_ROLE_MANAGER = 0x00000008;
+
+  /// @dev Bitmask represents all the possible permissions (super admin role)
+  uint32 public constant FULL_PRIVILEGES_MASK = 0xFFFFFFFF;
 
   /// @dev event names are self-explanatory:
   /// @dev fired in mint()
@@ -112,33 +115,50 @@ contract CharacterCard {
     address creator = msg.sender;
 
     // creator has full privileges
-    userRoles[creator] = 0xFFFFFFFF;
+    userRoles[creator] = FULL_PRIVILEGES_MASK;
   }
 
-  function addOperator(address operator, uint32 roles) public {
-    // check that an `operator` doesn't exist yet
-    require(userRoles[operator] == 0);
-
+  /**
+   * @dev Adds a new `operator` - an address which has
+   *      some extended privileges over the character card smart contract,
+   *      for example card minting, transferring on behalf, etc.
+   * @dev Newly added `operator` cannot have any permissions which
+   *      transaction sender doesn't have.
+   * @dev Requires transaction sender to have `ROLE_ROLE_MANAGER` permission.
+   * @dev Cannot update existing operator. Throws if `operator` already exists.
+   * @param operator address of the operator to add
+   * @param role bitmask representing a set of permissions which
+   *      newly created operator will have
+   */
+  function addOperator(address operator, uint32 role) public {
     // call sender gracefully - `manager`
     address manager = msg.sender;
 
-    // read manager's permissions (roles)
+    // read manager's permissions (role)
     uint32 p = userRoles[manager];
+
+    // check that `operator` doesn't exist
+    require(userRoles[operator] == 0);
 
     // manager must have a ROLE_ROLE_MANAGER role
     require(hasRole(p, ROLE_ROLE_MANAGER));
 
-    // recalculate the roles to set:
-    // we cannot create an operator more powerful then calling manager
-    roles &= p;
+    // recalculate permissions (role) to set:
+    // we cannot create an operator more powerful then calling `manager`
+    role &= p;
 
-    // check if we still have some roles to set
-    require(roles != 0);
+    // check if we still have some permissions (role) to set
+    require(role != 0);
 
     // create an operator by persisting his permissions (roles) to storage
-    userRoles[operator] = roles;
+    userRoles[operator] = role;
   }
 
+  /**
+   * @dev Deletes an existing `operator`.
+   * @dev Requires sender to have `ROLE_ROLE_MANAGER` permission.
+   * @param operator address of the operator to delete
+   */
   function removeOperator(address operator) public {
     // check if an `operator` exists
     require(userRoles[operator] != 0);
@@ -152,15 +172,74 @@ contract CharacterCard {
     delete userRoles[operator];
   }
 
-/*
-  function addRoles(address operator, uint32 roles) public {
+  /**
+   * @dev Updates an existing `operator`, adding a specified role to it.
+   * @dev Note that `operator` cannot receive permission which
+   *      transaction sender doesn't have.
+   * @dev Requires transaction sender to have `ROLE_ROLE_MANAGER` permission.
+   * @dev Cannot create a new operator. Throws if `operator` doesn't exist.
+   * @dev Existing permissions of the `operator` are preserved
+   * @param operator address of the operator to update
+   * @param role bitmask representing a set of permissions which
+   *      `operator` will have
+   */
+  function addRole(address operator, uint32 role) public {
+    // call sender gracefully - `manager`
+    address manager = msg.sender;
 
+    // read manager's permissions (role)
+    uint32 p = userRoles[manager];
+
+    // check that `operator` exists
+    require(userRoles[operator] != 0);
+
+    // manager must have a ROLE_ROLE_MANAGER role
+    require(hasRole(p, ROLE_ROLE_MANAGER));
+
+    // recalculate permissions (role) to add:
+    // we cannot make an operator more powerful then calling `manager`
+    role &= p;
+
+    // check if we still have some permissions (role) to add
+    require(role != 0);
+
+    // update operator's permissions (roles) in the storage
+    userRoles[operator] |= role;
   }
 
-  function removeRoles(address operator, uint32 roles) public {
+  /**
+   * @dev Updates an existing `operator`, removing a specified role from it.
+   * @dev Note that  permissions which transaction sender doesn't have
+   *      cannot be removed.
+   * @dev Requires transaction sender to have `ROLE_ROLE_MANAGER` permission.
+   * @dev Cannot remove all permissions. Throws on such an attempt.
+   * @param operator address of the operator to update
+   * @param role bitmask representing a set of permissions which
+   *      will be removed from the `operator`
+   */
+  function removeRole(address operator, uint32 role) public {
+    // call sender gracefully - `manager`
+    address manager = msg.sender;
 
+    // read manager's permissions (role)
+    uint32 p = userRoles[manager];
+
+    // check that we're not removing all the `operator`s permissions
+    require(userRoles[operator] ^ role != 0);
+
+    // manager must have a ROLE_ROLE_MANAGER role
+    require(hasRole(p, ROLE_ROLE_MANAGER));
+
+    // recalculate permissions (role) to remove:
+    // we cannot revoke permissions which calling `manager` doesn't have
+    role &= p;
+
+    // check if we still have some permissions (role) to revoke
+    require(role != 0);
+
+    // update operator's permissions (roles) in the storage
+    userRoles[operator] &= FULL_PRIVILEGES_MASK ^ role;
   }
-*/
 
   /**
    * @notice Gets an amount of cards owned by the given address
@@ -208,7 +287,7 @@ contract CharacterCard {
 
   /**
    * @dev Creates new card with `cardId` ID specified and
-   * assigns to an address `to` an ownership of that card.
+   *      assigns to an address `to` an ownership of that card.
    * @param cardId ID of the card to create
    * @param to an address to assign created card ownership to
    */
@@ -252,9 +331,9 @@ contract CharacterCard {
 
   /**
    * @notice Transfers ownership rights of a card defined
-   * by the `cardId` to a new owner specified by address `to`
+   *      by the `cardId` to a new owner specified by address `to`
    * @dev Requires the sender of the transaction to be an owner
-   * of the card specified (`cardId`)
+   *      of the card specified (`cardId`)
    * @param to new owner address
    * @param cardId ID of the card to transfer ownership rights for
    */
@@ -267,7 +346,7 @@ contract CharacterCard {
     require(to != from);
 
     // get the card from the storage
-    // TODO: check if modifying card in the storage is cheaper
+    // TODO: check if modifying a card in the storage is cheaper
     Card memory card = cards[cardId];
 
     // validate card ownership (and existence)
