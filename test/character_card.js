@@ -1,3 +1,9 @@
+// role constants copied from CharacterCard.sol as is
+const ROLE_CARD_CREATOR = 0x00000001;
+const ROLE_COMBAT_PROVIDER = 0x00000002;
+const ROLE_EXCHANGE = 0x00000004;
+const ROLE_ROLE_MANAGER = 0x00000008;
+
 const CharacterCard = artifacts.require("./CharacterCard.sol");
 
 contract('CharacterCard', function(accounts) {
@@ -7,6 +13,75 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0, await card.balanceOf(accounts[0]), "initial card balance must be zero");
 		assert(!await card.exists(0x1), "card 0x1 should not exist initially");
 		await assertThrowsAsync(async function() {await card.ownerOf(0x1);});
+	});
+
+	it("roles: add an operator", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], 0x1);
+		assert(await card.isOperator(accounts[1]), accounts[1] + " must be an operator but its not");
+	});
+	it("roles: operator adds another operator", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_ROLE_MANAGER | 0x1);
+		await card.addOperator.sendTransaction(accounts[2], 0x1, {from: accounts[1]});
+		assert(await card.isOperator(accounts[2]), accounts[2] + " must be an operator but its not");
+	});
+	it("roles: remove operator", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], 0x1);
+		assert(await card.isOperator(accounts[1]), accounts[1] + " must be an operator but its not");
+		await card.removeOperator(accounts[1]);
+		assert(!await card.isOperator(accounts[1]), accounts[1] + " must not be an operator but it is");
+	});
+	it("roles: operator removes another operator", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_ROLE_MANAGER);
+		await card.addOperator(accounts[2], 0x1);
+		assert(await card.isOperator(accounts[2]), accounts[2] + " must be an operator but its not");
+		await card.removeOperator.sendTransaction(accounts[2], {from: accounts[1]});
+		assert(!await card.isOperator(accounts[2]), accounts[2] + " must not be an operator but it is");
+	});
+	it("roles: impossible to add more powerful operator", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_ROLE_MANAGER);
+		await assertThrowsAsync(async function() {
+			await card.addOperator.sendTransaction(accounts[2], ROLE_CARD_CREATOR, {from: account[1]});
+		});
+	});
+	it("roles: adding an operator requires ROLE_ROLE_MANAGER permission", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
+		await assertThrowsAsync(async function() {
+			await card.addOperator.sendTransaction(accounts[2], ROLE_CARD_CREATOR, {from: accounts[1]});
+		});
+	});
+	it("roles: removing operator requires ROLE_ROLE_MANAGER permission", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
+		await card.addOperator(accounts[2], ROLE_CARD_CREATOR);
+		await assertThrowsAsync(async function() {
+			await card.removeOperator.sendTransaction(accounts[2], {from: accounts[1]});
+		});
+	});
+	it("roles: impossible to add an operator without permissions", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.addOperator(accounts[1], 0);});
+	});
+	it("roles: impossible to remove non-existing operator", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.removeOperator(accounts[1]);});
+	});
+	it("roles: impossible to add operator which already exists", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.addOperator(accounts[0], 0x1);});
+	});
+	it("roles: ROLE_CARD_SELLER role is enough to mint a card", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
+		await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});
+		assert.equal(1, await card.totalSupply(), "card was not minted, totalSupply is not 1");
+		assert.equal(1, await card.balanceOf(accounts[1]), "card was not minted, balanceOf " + accounts[1] + " is not 1");
+		assert(await card.exists(0x1), "card was not minted, card 0x1 doesn't exist");
 	});
 
 	it("mint: mint a card", async function() {
@@ -20,11 +95,15 @@ contract('CharacterCard', function(accounts) {
 	it("mint: impossible to mint the same card twice", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
-		await assertThrowsAsync(async function() {await card.mint(0x1, accounts[0])});
+		await assertThrowsAsync(async function() {await card.mint(0x1, accounts[0]);});
 	});
 	it("mint: impossible to mint a card to a zero address", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.mint(0x1, 0)});
+		await assertThrowsAsync(async function() {await card.mint(0x1, 0);});
+	});
+	it("mint: impossible to mint a card without appropriate permission", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});});
 	});
 
 	it("transfer: transfer a card", async function() {

@@ -5,6 +5,7 @@ pragma solidity 0.4.18;
  * @dev Card is an ERC721 non-fungible token, which maps Card ID,
  * a number in range 1..5000 to a set of card properties -
  * attributes (mostly immutable by their nature) and state variables (mutable)
+ * @dev A card supports minting but not burning, a card cannot be destroyed
  */
 contract CharacterCard {
 
@@ -75,18 +76,91 @@ contract CharacterCard {
   /// @dev ERC20 compatible field for totalSupply()
   uint16 public totalSupply;
 
+  /// @notice Defines a privileged addresses with additional
+  /// permissions on the smart contract, like minting cards,
+  /// transferring on behalf and so on
+  /// @dev maps an address to the permissions bitmask (role), where each bit
+  /// represents a permissions; bitmask 0xFFFFFFFF represents all possible permissions
+  mapping(address => uint32) public userRoles;
+
+  /// @notice card creator is responsible for creating cards
+  /// @dev role ROLE_CARD_CREATOR allows minting cards
+  uint32 public constant ROLE_CARD_CREATOR = 0x00000001;
+
+  /// @notice card game provider is responsible for enabling the game protocol
+  /// @dev role ROLE_COMBAT_PROVIDER allows modifying gamesPlayed,
+  /// wins, loses, state, lastGamePlayed, attributes
+  uint32 public constant ROLE_COMBAT_PROVIDER = 0x00000002;
+
+  /// @notice exchange is responsible for trading cards on behalf of card holders
+  /// @dev role ROLE_EXCHANGE allows executing transferFor on behalf of card holders
+  uint32 public constant ROLE_EXCHANGE = 0x00000004;
+
+  /// @notice role manager is responsible for assigning the roles
+  /// @dev role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
+  uint32 public constant ROLE_ROLE_MANAGER = 0x00000008;
+
   /// @dev event names are self-explanatory:
   /// @dev fired in mint()
   event Minted(uint16 indexed cardId, address indexed to);
-  /// @dev fired in burn()
-  event Burnt(uint16 indexed cardId, address indexed from);
   /// @dev fired in transfer()
   event Transfer(address indexed from, address indexed to, uint16 cardId);
 
   /// @dev Creates a card as a ERC721 token
   function CharacterCard() public {
+    // call sender gracefully - contract `creator`
+    address creator = msg.sender;
+
+    // creator has full privileges
+    userRoles[creator] = 0xFFFFFFFF;
+  }
+
+  function addOperator(address operator, uint32 roles) public {
+    // check that an `operator` doesn't exist yet
+    require(userRoles[operator] == 0);
+
+    // call sender gracefully - `manager`
+    address manager = msg.sender;
+
+    // read manager's permissions (roles)
+    uint32 p = userRoles[manager];
+
+    // manager must have a ROLE_ROLE_MANAGER role
+    require(hasRole(p, ROLE_ROLE_MANAGER));
+
+    // recalculate the roles to set:
+    // we cannot create an operator more powerful then calling manager
+    roles &= p;
+
+    // check if we still have some roles to set
+    require(roles != 0);
+
+    // create an operator by persisting his permissions (roles) to storage
+    userRoles[operator] = roles;
+  }
+
+  function removeOperator(address operator) public {
+    // check if an `operator` exists
+    require(userRoles[operator] != 0);
+
+    // check if caller has ROLE_ROLE_MANAGER
+    require(isSenderInRole(ROLE_ROLE_MANAGER));
+
+    // TODO: do we need to check if we're removing last operator and leaving smart contract without operators at all
+
+    // perform operator deletion
+    delete userRoles[operator];
+  }
+
+/*
+  function addRoles(address operator, uint32 roles) public {
 
   }
+
+  function removeRoles(address operator, uint32 roles) public {
+
+  }
+*/
 
   /**
    * @notice Gets an amount of cards owned by the given address
@@ -139,7 +213,9 @@ contract CharacterCard {
    * @param to an address to assign created card ownership to
    */
   function mint(uint16 cardId, address to) public {
-    // TODO: check that sender has permissions to mint a card
+    // check if caller has sufficient permissions to mint a card
+    require(isSenderInRole(ROLE_CARD_CREATOR));
+
     // validate destination address
     require(to != address(0));
 
@@ -212,4 +288,35 @@ contract CharacterCard {
     // fire an event
     Transfer(from, to, cardId);
   }
+
+  /// @notice Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
+  function isSenderInRole(uint32 roleRequired) public constant returns(bool) {
+    // call sender gracefully - `user`
+    address user = msg.sender;
+
+    // delegate call to __isUserInRole
+    return isUserInRole(user, roleRequired);
+  }
+
+  /// @notice Checks if `user` has all the required permissions `rolesRequired`
+  function isUserInRole(address user, uint32 roleRequired) public constant returns(bool) {
+    // read user's permissions (role)
+    uint32 userRole = userRoles[user];
+
+    // delegate call to __hasRole
+    return hasRole(userRole, roleRequired);
+  }
+
+  /// @notice Checks if user role `userRole` contain all the permissions required `roleRequired`
+  function hasRole(uint32 userRole, uint32 roleRequired) public pure returns(bool) {
+    // check the bitmask for the role required and return the result
+    return userRole & roleRequired == roleRequired;
+  }
+
+  /// @notice Checks if `user` has at least one special permission on the contract
+  function isOperator(address user) public constant returns(bool) {
+    // read `user` address role and check if its not zero
+    return userRoles[user] != 0;
+  }
+
 }
