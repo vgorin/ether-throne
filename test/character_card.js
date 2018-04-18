@@ -184,6 +184,10 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});});
 	});
+	it("mint: impossible to mint a card with zero ID", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.mint(0x0, accounts[0])});
+	});
 
 	it("transfer: transfer a card", async function() {
 		const card = await CharacterCard.new();
@@ -409,6 +413,23 @@ contract('CharacterCard', function(accounts) {
 	it("approveForAll: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.approveForAll(accounts[0], 1);});
+	});
+
+	it("collections: iterate over the collection of cards", async function() {
+		const card = await CharacterCard.new();
+		const N = 13;
+		for(let i = 1; i <= N; i++) {
+			await card.mint(i, accounts[0]);
+		}
+		assert.equal(N, await card.balanceOf(accounts[0]), "wrong initial balance");
+		for(let i = 0; i < N; i++) {
+			const cardId = await card.collections(accounts[0], i);
+			assert.equal(i + 1, cardId, "wrong card ID at pos " + i);
+			const c = await card.cards(cardId);
+			assert.equal(cardId.toNumber(), c[0], "wrong card.id in card " + i);
+			assert.equal(i, c[1], "wrong card.index in card " + i);
+			assert.equal(accounts[0], c[12], "wrong card.owner in card " + i)
+		}
 	});
 });
 
