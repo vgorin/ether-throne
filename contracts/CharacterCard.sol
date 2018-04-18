@@ -68,6 +68,14 @@ contract CharacterCard {
   /// @dev Maps Card ID => Card Data Structure
   mapping(uint16 => Card) public cards;
 
+  /// @dev Mapping from a card ID to an address approved to
+  /// transfer ownership rights for this card
+  mapping(uint16 => address) public approvals;
+
+  /// @dev Mapping from owner to operator approvals
+  /// card owner => approved card operator => approvals left (zero means no approval)
+  mapping(address => mapping(address => uint256)) public operators;
+
   /// @notice Total number of cards owned by each account
   /// @dev ERC20 compatible structure for balances
   mapping(address => uint16) private balances;
@@ -103,11 +111,18 @@ contract CharacterCard {
   /// @dev Bitmask represents all the possible permissions (super admin role)
   uint32 public constant FULL_PRIVILEGES_MASK = 0xFFFFFFFF;
 
+  /// @dev The number is used as unlimited approvals number
+  uint256 public constant UNLIMITED_APPROVALS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+
   /// @dev event names are self-explanatory:
   /// @dev fired in mint()
   event Minted(uint16 indexed cardId, address indexed to);
-  /// @dev fired in transfer()
+  /// @dev fired in transfer(), transferFor()
   event Transfer(address indexed from, address indexed to, uint16 cardId);
+  /// @dev fired in approve()
+  event Approval(uint16 indexed cardId, address indexed approved);
+  /// @dev fired in approveForAll()
+  event ApprovalForAll(address indexed owner, address indexed operator, uint256 approved);
 
   /// @dev Creates a card as a ERC721 token
   function CharacterCard() public {
@@ -341,31 +356,122 @@ contract CharacterCard {
     // call sender gracefully - `from`
     address from = msg.sender;
 
-    // validate destination address
-    require(to != address(0));
+    // delegate call to unsafe `__transfer`
+    __transfer(from, to, cardId);
+  }
+
+  /**
+   * @notice A.k.a "transfer on behalf"
+   * @notice Transfers ownership rights of a card defined
+   *      by the `cardId` to a new owner specified by address `to`
+   * @notice Allows transferring ownership rights by an trading operator
+   *      on behalf of card owner. Allows building an exchange of cards.
+   * @dev Transfers the ownership of a given card ID to another address
+   * @dev Requires the transaction sender to be the owner, approved, or operator
+   * @param from current owner of the card
+   * @param to address to receive the ownership of the card
+   * @param cardId ID of the card to be transferred
+   */
+  function transferFrom(address from, address to, uint16 cardId) public {
+    // call sender gracefully - `operator`
+    address operator = msg.sender;
+    // find if an approved address exists for this card
+    address approved = approvals[cardId];
+
+    // we assume `from` is an owner of the card,
+    // this will be explicitly checked in `__transfer`
+
+    // fetch how much approvals left for an operator
+    uint256 approvalsLeft = operators[from][operator];
+
+    // operator must have an approval to transfer this particular card
+    // or operator must be approved to transfer all the cards
+    // or, if nothing satisfies, this is equal to regular transfer,
+    // where `from` is basically a transaction sender and owner of the card
+    if(operator == approved || approvalsLeft > 0) {
+      // update operator's approvals left + emit an event
+      __decreaseOperatorApprovalsLeft(from, operator);
+    }
+    else {
+      // transaction sender doesn't have any special permissions
+      // we will treat him as a card owner and sender and try to perform
+      // a regular transfer, update `from` to be `operator` (transaction sender):
+      from = operator;
+    }
+
+    // delegate call to unsafe `__transfer`
+    __transfer(from, to, cardId);
+  }
+
+  /**
+   * @notice Approves an address to transfer the given card on behalf of its owner.
+   *      Can also be used to revoke an approval by setting `to` address to zero.
+   * @dev The zero `to` address revokes an approval for a given card.
+   * @dev There can only be one approved address per card at a given time.
+   * @dev This function can only be called by the card owner.
+   * @param to address to be approved to transfer the card on behalf of its owner
+   * @param cardId ID of the card to be approved for transfer on behalf
+   */
+  function approve(address to, uint16 cardId) public {
+    // call sender nicely - `from`
+    address from = msg.sender;
+    // get card owner address (also ensures that card exists)
+    address owner = ownerOf(cardId);
+
+    // caller must own this card
+    require(from == owner);
+    // approval for owner himself is pointless, do not allow
+    require(to != owner);
+    // either we're removing approval, or setting it
+    require(approvals[cardId] != 0 || to != address(0));
+
+    // set an approval (deletes an approval if to == 0)
+    approvals[cardId] = to;
+
+    // emit en event
+    Approval(cardId, to);
+  }
+
+  /**
+   * @notice Removes an approved address, which was previously added by `approve`
+   *      for the given card. Equivalent to calling approve(0, cardId)
+   * @dev Same as calling approve(0, cardId)
+   * @param cardId ID of the card to be remove approved address for
+   */
+  function revokeApproval(uint16 cardId) public {
+    // delegate call to approve
+    approve(address(0), cardId);
+  }
+
+  /**
+   * @dev Sets or unsets the approval of a given operator
+   * @dev An operator is allowed to transfer *all* cards of the sender on their behalf
+   * @param to operator address to set the approval
+   * @param approved representing the status of the approval to be set
+   */
+  function approveForAll(address to, bool approved) public {
+    // set maximum possible approval, 2^256 – 1, unlimited de facto
+    approveForAll(to, approved ? UNLIMITED_APPROVALS : 0);
+  }
+
+  /**
+   * @dev Sets or unsets the approval of a given operator
+   * @dev An operator is allowed to transfer *all* cards of the sender on their behalf
+   * @param to operator address to set the approval
+   * @param approved representing the number of approvals left to be set
+   */
+  function approveForAll(address to, uint256 approved) public {
+    // call sender nicely - `from`
+    address from = msg.sender;
+
+    // approval for owner himself is pointless, do not allow
     require(to != from);
 
-    // get the card from the storage
-    // TODO: check if modifying a card in the storage is cheaper
-    Card memory card = cards[cardId];
+    // set an approval
+    operators[from][to] = approved;
 
-    // validate card ownership (and existence)
-    require(card.owner == from);
-
-    // update ownership modified time
-    card.ownershipModified = uint32(block.number);
-    // update ownership itself
-    card.owner = to;
-
-    // persist card back into the storage
-    cards[cardId] = card;
-
-    // update new and old owner balances
-    balances[from]--;
-    balances[to]++;
-
-    // fire an event
-    Transfer(from, to, cardId);
+    // emit an event
+    ApprovalForAll(from, to, approved);
   }
 
   /// @notice Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
@@ -373,7 +479,7 @@ contract CharacterCard {
     // call sender gracefully - `user`
     address user = msg.sender;
 
-    // delegate call to __isUserInRole
+    // delegate call to isUserInRole
     return isUserInRole(user, roleRequired);
   }
 
@@ -382,7 +488,7 @@ contract CharacterCard {
     // read user's permissions (role)
     uint32 userRole = userRoles[user];
 
-    // delegate call to __hasRole
+    // delegate call to hasRole
     return hasRole(userRole, roleRequired);
   }
 
@@ -398,4 +504,74 @@ contract CharacterCard {
     return userRoles[user] != 0;
   }
 
+  /// @dev Performs a transfer of a card `cardId` from address `from` to address `to`
+  /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
+  ///      checks only for card existence and that ownership belongs to `from`
+  /// @dev Is save to call from `transfer(to, cardId)` since it doesn't need any additional checks
+  /// @dev Has to be private only
+  function __transfer(address from, address to, uint16 cardId) private {
+    // validate source and destination address
+    require(from != address(0));
+    require(to != address(0));
+    require(to != from);
+
+    // get the card from the storage
+    // TODO: check if modifying a card in the storage is cheaper
+    Card memory card = cards[cardId];
+
+    // get card's owner address
+    address owner = card.owner;
+
+    // validate card existence
+    require(owner != address(0));
+    // validate card ownership
+    require(owner == from);
+
+    // TODO: check if a card is not locked (for example in game)
+
+    // clear approved address for this particular card + emit event
+    __clearApprovalFor(cardId);
+
+    // update new and old owner balances
+    balances[from]--;
+    balances[to]++;
+
+    // update ownership modified time
+    card.ownershipModified = uint32(block.number);
+    // update ownership itself
+    card.owner = to;
+
+    // persist card back into the storage
+    cards[cardId] = card;
+
+    // fire an event
+    Transfer(from, to, cardId);
+  }
+
+  /// @dev Clears approved address for a particular card
+  function __clearApprovalFor(uint16 cardId) private {
+    // check if approval exists - we don't want to fire an event in vain
+    if(approvals[cardId] != address(0)) {
+      // clear approval
+      delete approvals[cardId];
+
+      // emit event
+      Approval(cardId, address(0));
+    }
+  }
+
+  /// @dev Decreases operator's approvals left
+  function __decreaseOperatorApprovalsLeft(address owner, address operator) private {
+    // read how much approvals this operator has
+    uint256 approvalsLeft = operators[owner][operator];
+
+    // check if approvals exist – we don't want to fire an event in vain
+    if (approvalsLeft > 0) {
+      // update approvals left
+      operators[owner][operator] = --approvalsLeft;
+
+      // emit an event
+      ApprovalForAll(owner, operator, approvalsLeft);
+    }
+  }
 }
