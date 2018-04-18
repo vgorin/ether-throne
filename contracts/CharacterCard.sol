@@ -189,10 +189,12 @@ contract CharacterCard {
     // check if an `operator` exists
     require(userRoles[operator] != 0);
 
+    // do not allow transaction sender to remove himself
+    // TODO: do we need this?
+    require(operator != msg.sender);
+
     // check if caller has ROLE_ROLE_MANAGER
     require(isSenderInRole(ROLE_ROLE_MANAGER));
-
-    // TODO: do we need to check if we're removing last operator and leaving smart contract without operators at all
 
     // perform operator deletion
     delete userRoles[operator];

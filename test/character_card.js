@@ -88,6 +88,10 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(1, await card.balanceOf(accounts[1]), "card was not minted, balanceOf " + accounts[1] + " is not 1");
 		assert(await card.exists(0x1), "card was not minted, card 0x1 doesn't exist");
 	});
+	it("roles: operator cannot remove himself", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.removeOperator(accounts[0]);});
+	});
 
 	it("permissions: add role", async function() {
 		const card = await CharacterCard.new();
