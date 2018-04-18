@@ -6,6 +6,10 @@ const ROLE_ROLE_MANAGER = 0x00000008;
 
 const CharacterCard = artifacts.require("./CharacterCard.sol");
 
+// used only for overloaded shadowed functions
+// more info: https://beresnev.pro/test-overloaded-solidity-functions-via-truffle/
+const web3Abi = require('web3-eth-abi');
+
 contract('CharacterCard', function(accounts) {
 	it("initial state", async function() {
 		const card = await CharacterCard.new();
@@ -286,6 +290,60 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.approveForAll(accounts[1], 1);
 		assert.equal(1, await card.operators(accounts[0], accounts[1]), "wrong approvals left value after it was set to 1");
+	});
+	it("approveForAll: create an operator with unlimited approvals", async function() {
+		/*
+		 * approveForAll(address, bool) is an overloaded function and is shadowed by
+		 * approveForAll(address, uint256)
+		 *
+		 * to call approveForAll(address, bool) which sets approval left to maximum possible uint256
+		 * value, we use a trick described here:
+		 * https://beresnev.pro/test-overloaded-solidity-functions-via-truffle/
+		 */
+		// create a card instance
+		const cardInstance = await CharacterCard.new();
+
+		// ABI of  approveForAll(address to, bool approved)
+		const overloadedApproveForAllAbi = {
+			"constant": false,
+			"inputs": [
+				{
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"name": "approved",
+					"type": "bool"
+				}
+			],
+			"name": "approveForAll",
+			"outputs": [],
+			"payable": false,
+			"stateMutability": "nonpayable",
+			"type": "function"
+		};
+		// encode the real data to the call, like
+		// approveForAll(accounts[1], true)
+		const approveForAllMethodTransactionData = web3Abi.encodeFunctionCall(
+			overloadedApproveForAllAbi,
+			[
+				accounts[1],
+				true
+			]
+		);
+
+		// send raw transaction data
+		await CharacterCard.web3.eth.sendTransaction({from: accounts[0], to: cardInstance.address, data: approveForAllMethodTransactionData, value: 0});
+
+		// check the result is greater then zero
+		assert(await cardInstance.operators(accounts[0], accounts[1]) > 0, "approvals left must be greater then zero");
+
+		// check the value set is indeed maximum possible uint256
+		assert.equal(
+			"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", // maximum uint256
+			(await cardInstance.operators(accounts[0], accounts[1])).toString(16).toUpperCase(),
+			"approvals left must be set to maximum uint256"
+		);
 	});
 	it("approveForAll: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
