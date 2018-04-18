@@ -324,6 +324,9 @@ contract CharacterCard {
     // validate destination address
     require(to != address(0));
 
+    // validate card ID is not zero
+    require(cardId != 0);
+
     // check if card doesn't exist
     require(!exists(cardId));
 
@@ -405,7 +408,7 @@ contract CharacterCard {
     // or operator must be approved to transfer all the cards
     // or, if nothing satisfies, this is equal to regular transfer,
     // where `from` is basically a transaction sender and owner of the card
-    if(operator == approved || approvalsLeft > 0) {
+    if(operator == approved || approvalsLeft != 0) {
       // update operator's approvals left + emit an event
       __decreaseOperatorApprovalsLeft(from, operator);
     }
@@ -577,7 +580,7 @@ contract CharacterCard {
     uint256 approvalsLeft = operators[owner][operator];
 
     // check if approvals exist – we don't want to fire an event in vain
-    if (approvalsLeft > 0) {
+    if (approvalsLeft != 0) {
       // update approvals left
       operators[owner][operator] = --approvalsLeft;
 
@@ -597,7 +600,7 @@ contract CharacterCard {
     uint16[] storage t = collections[to];
 
     // collection `f` cannot be empty, if it is - it's a bug
-    assert(f.length > 0);
+    assert(f.length != 0);
 
     // index of the card within collection `f`
     uint16 i = card.index;
