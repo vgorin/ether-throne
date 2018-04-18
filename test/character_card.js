@@ -17,6 +17,7 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0, await card.balanceOf(accounts[0]), "initial card balance must be zero");
 		assert(!await card.exists(0x1), "card 0x1 should not exist initially");
 		await assertThrowsAsync(async function() {await card.ownerOf(0x1);});
+		await assertThrowsAsync(async function() {await card.collections(accounts[0], 0);});
 	});
 
 	it("roles: add an operator", async function() {
@@ -139,8 +140,36 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(0x1, accounts[0]);
 		assert.equal(1, await card.totalSupply(), "totalSupply after minting a card must be 1");
 		assert.equal(1, await card.balanceOf(accounts[0]), "card balance after minting a card must be 1");
-		assert(await card.exists(0x1), "card 0x1 should exist after minting");
+		assert(await card.exists(0x1), "card 0x1 doesn't exist after minting");
 		assert.equal(accounts[0], await card.ownerOf(0x1), "card 0x1 has wrong owner after minting it to " + accounts[0]);
+	});
+	it("mint: mint a card and check integrity of the structures involved", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		assert.equal(0x1, await card.collections(accounts[0], 0), accounts[0] + " card collection doesn't contain minted card");
+		await assertThrowsAsync(async function() {await card.collections(accounts[0], 1);});
+		assert.equal(0x1, (await card.cards(0x1))[0], "newly minted card has wrong id");
+		assert.equal(0, (await card.cards(0x1))[1], "newly minted card has wrong index");
+		assert.equal(accounts[0], (await card.cards(0x1))[12], "newly minted card has wrong owner address");
+	});
+	it("mint: mint few cards and check integrity of the structures involved", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[0]);
+		await card.mint(0x3, accounts[0]);
+		assert.equal(0x1, await card.collections(accounts[0], 0), accounts[0] + " collection doesn't contain card 0x1");
+		assert.equal(0x2, await card.collections(accounts[0], 1), accounts[0] + " collection doesn't contain card 0x2");
+		assert.equal(0x3, await card.collections(accounts[0], 2), accounts[0] + " collection doesn't contain card 0x3");
+		await assertThrowsAsync(async function() {await card.collections(accounts[0], 3);});
+		assert.equal(0x1, (await card.cards(0x1))[0], "newly minted card 0x1 has wrong id");
+		assert.equal(0x2, (await card.cards(0x2))[0], "newly minted card 0x2 has wrong id");
+		assert.equal(0x3, (await card.cards(0x3))[0], "newly minted card 0x3 has wrong id");
+		assert.equal(0, (await card.cards(0x1))[1], "newly minted card 0x1 has wrong index");
+		assert.equal(1, (await card.cards(0x2))[1], "newly minted card 0x2 has wrong index");
+		assert.equal(2, (await card.cards(0x3))[1], "newly minted card 0x3 has wrong index");
+		assert.equal(accounts[0], (await card.cards(0x1))[12], "newly minted card 0x1 has wrong owner address");
+		assert.equal(accounts[0], (await card.cards(0x2))[12], "newly minted card 0x2 has wrong owner address");
+		assert.equal(accounts[0], (await card.cards(0x3))[12], "newly minted card 0x3 has wrong owner address");
 	});
 	it("mint: impossible to mint the same card twice", async function() {
 		const card = await CharacterCard.new();
@@ -163,6 +192,38 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0, await card.balanceOf(accounts[0]), "sender's card balance after transferring a card must be 0");
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
 		assert.equal(accounts[1], await card.ownerOf(0x1), "card 0x1 has wrong owner after transferring it to " + accounts[1]);
+	});
+	it("transfer: integrity check of the structures involved after transferring a card", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[0]);
+		await card.mint(0x3, accounts[0]);
+		await card.mint(0x4, accounts[0]);
+		await card.mint(0x5, accounts[0]);
+		await card.transfer(accounts[1], 0x2); // [1, 2, 3, 4, 5], [] -> [1, 5, 3, 4], [2]
+		assert.equal(4, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after card transfer");
+		assert.equal(0x5, await card.collections(accounts[0], 1), "wrong card ID in the collection idx 1 after transfer");
+		assert.equal(1, (await card.cards(0x5))[1], "shifted card 0x5 has wrong index in the collection");
+		assert.equal(0, (await card.cards(0x2))[1], "transferred card 0x2 has wrong index in the collection");
+		await card.transfer(accounts[1], 0x1); // [1, 5, 3, 4], [2] -> [4, 5, 3], [2, 1]
+		assert.equal(3, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after 2 card transfers");
+		assert.equal(0x4, await card.collections(accounts[0], 0), "wrong card ID in the collection idx 0 after second transfer");
+		assert.equal(0, (await card.cards(0x4))[1], "shifted card 0x4 has wrong index in the collection");
+		assert.equal(1, (await card.cards(0x1))[1], "second transferred card 0x1 has wrong index in the collection");
+		await card.transfer(accounts[1], 0x3); // [4, 5, 3], [2, 1] -> [4, 5], [2, 1, 3]
+		await card.transfer(accounts[1], 0x5); // [4, 5], [2, 1, 3] -> [4], [2, 1, 3, 5]
+		await card.transfer(accounts[1], 0x4); // [4], [2, 1, 3, 5] -> [], [2, 1, 3, 5, 4]
+		assert.equal(0, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after all card transfers");
+		assert.equal(0x2, await card.collections(accounts[1], 0), "wrong card ID in the collection idx 0 after all transfers");
+		assert.equal(0x1, await card.collections(accounts[1], 1), "wrong card ID in the collection idx 1 after all transfers");
+		assert.equal(0x3, await card.collections(accounts[1], 2), "wrong card ID in the collection idx 2 after all transfers");
+		assert.equal(0x5, await card.collections(accounts[1], 3), "wrong card ID in the collection idx 3 after all transfers");
+		assert.equal(0x4, await card.collections(accounts[1], 4), "wrong card ID in the collection idx 4 after all transfers");
+		assert.equal(1, (await card.cards(0x1))[1], "card 0x1 has wrong index after all transfers");
+		assert.equal(0, (await card.cards(0x2))[1], "card 0x2 has wrong index after all transfers");
+		assert.equal(2, (await card.cards(0x3))[1], "card 0x3 has wrong index after all transfers");
+		assert.equal(4, (await card.cards(0x4))[1], "card 0x4 has wrong index after all transfers");
+		assert.equal(3, (await card.cards(0x5))[1], "card 0x5 has wrong index after all transfers");
 	});
 	it("transfer: impossible to transfer a card which you do not own", async function() {
 		const card = await CharacterCard.new();

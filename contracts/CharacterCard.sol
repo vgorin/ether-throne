@@ -12,19 +12,25 @@ contract CharacterCard {
   /// @dev A character card data structure
   /// @dev Occupies 64 bytes of storage (512 bits)
   struct Card {
+    /// @dev Card ID, immutable, cannot be zero
+    uint16 id;
+
+    /// @dev Card index within an owner's collection of cards
+    uint16 index;
+
     /// @dev Card creation time, immutable, cannot be zero
     /// @dev Stored as Ethereum Block Number of the transaction
-    /// when the card was created
+    ///      when the card was created
     uint32 creationTime;
 
     /// @dev Initially zero, changes when ownership is transferred
     /// @dev Stored as Ethereum Block Number of the transaction
-    /// when the card's ownership was changed
+    ///      when the card's ownership was changed
     uint32 ownershipModified;
 
     /// @dev Initially zero, changes when attributes are modified
     /// @dev Stored as Ethereum Block Number of the transaction
-    /// when the card's attributes were changed
+    ///      when the card's attributes were changed
     uint32 attributesModified;
 
     /// @dev Initially zero, increases after each game played
@@ -37,27 +43,27 @@ contract CharacterCard {
     uint32 loses;
 
     /// @dev Initially zero, stores card state data,
-    /// such as is card currently in game or not,
-    /// status of the last game played, etc
+    ///      such as is card currently in game or not,
+    ///      status of the last game played, etc
     uint32 state;
 
     /// @dev Initialized on card creation, 4 bytes of random data
     /// @dev Used to derive card rarity type like
-    /// casual, rare, ultra rare, legendary, hologram, etc.
+    ///      casual, rare, ultra rare, legendary, hologram, etc.
     uint32 rarity;
 
     /// @dev Initially zero, changes after each game played
     /// @dev Stored as Ethereum Block Number of the transaction
-    /// when the card's played a game (released from a game)
+    ///      when the card's played a game (released from a game)
     uint32 lastGamePlayed;
 
     /// @dev A bitmask of the card attributes, allows storing up
-    /// to 64 attributes
+    ///      to 32 attributes
     /// @dev Common attributes are stored on lower bits,
-    /// while higher bits store more rare attributes
+    ///      while higher bits store more rare attributes
     /// @dev Is initialized with at least 3 active attributes
-    /// (three lowest bits set to 1)
-    uint64 attributes;
+    ///      (three lowest bits set to 1)
+    uint32 attributes;
 
     /// @dev Card's owner, initialized upon card creation
     address owner;
@@ -69,26 +75,31 @@ contract CharacterCard {
   mapping(uint16 => Card) public cards;
 
   /// @dev Mapping from a card ID to an address approved to
-  /// transfer ownership rights for this card
+  ///      transfer ownership rights for this card
   mapping(uint16 => address) public approvals;
 
   /// @dev Mapping from owner to operator approvals
-  /// card owner => approved card operator => approvals left (zero means no approval)
+  ///      card owner => approved card operator => approvals left (zero means no approval)
   mapping(address => mapping(address => uint256)) public operators;
 
-  /// @notice Total number of cards owned by each account
-  /// @dev ERC20 compatible structure for balances
-  mapping(address => uint16) private balances;
+  /// @notice Storage for a collections of cards
+  /// @notice A collection of cards is an ordered list of cards,
+  ///      owned by a particular address (owner)
+  /// @dev A mapping from owner to a collection of his cards (IDs)
+  /// @dev ERC20 compatible structure for balances can be derived
+  ///      as a length of each collection in the mapping
+  /// @dev ERC20 balances[owner] is equal to collections[owner].length
+  mapping(address => uint16[]) public collections;
 
   /// @notice Total number of existing cards
   /// @dev ERC20 compatible field for totalSupply()
   uint16 public totalSupply;
 
   /// @notice Defines a privileged addresses with additional
-  /// permissions on the smart contract, like minting cards,
-  /// transferring on behalf and so on
+  ///      permissions on the smart contract, like minting cards,
+  ///      transferring on behalf and so on
   /// @dev Maps an address to the permissions bitmask (role), where each bit
-  /// represents a permissions; bitmask 0xFFFFFFFF represents all possible permissions
+  ///      represents a permissions; bitmask 0xFFFFFFFF represents all possible permissions
   mapping(address => uint32) public userRoles;
 
   /// @notice Card creator is responsible for creating cards
@@ -261,11 +272,11 @@ contract CharacterCard {
    * @dev Gets the balance of the specified address
    * @param who address to query the balance for
    * @return uint16 representing the amount owned by the address
-   * passed as an input parameter
+   *      passed as an input parameter
    */
   function balanceOf(address who) public constant returns (uint16) {
-    // simply read the balance from balances
-    return balances[who];
+    // read the length of the `who`s collection of cards
+    return uint16(collections[who].length);
   }
 
   /**
@@ -318,6 +329,10 @@ contract CharacterCard {
 
     // create a new card in memory
     Card memory card = Card({
+      id: cardId,
+      // card index within the owner's collection of cards
+      // points to the place where the card will be placed to
+      index: uint16(collections[to].length),
       creationTime: uint32(block.number),
       ownershipModified: 0,
       attributesModified: 0,
@@ -325,17 +340,19 @@ contract CharacterCard {
       wins: 0,
       loses: 0,
       state: 0,
-      rarity: 0, // TODO: generate rarity
+      // TODO: generate rarity
+      rarity: 0,
       lastGamePlayed: 0,
-      attributes: 0, // TODO: set attributes according to rarity
+      // TODO: set attributes according to rarity
+      attributes: 0x1 | 0x2 | 0x4, // first 3 attributes set
       owner: to
     });
 
+    // push newly created card's ID to the owner's collection of cards
+    collections[to].push(cardId);
+
     // persist card to the storage
     cards[cardId] = card;
-
-    // update new owner balance
-    balances[to]++;
 
     // update total supply
     totalSupply++;
@@ -508,7 +525,7 @@ contract CharacterCard {
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
   ///      checks only for card existence and that ownership belongs to `from`
   /// @dev Is save to call from `transfer(to, cardId)` since it doesn't need any additional checks
-  /// @dev Has to be private only
+  /// @dev Must be kept private at all times
   function __transfer(address from, address to, uint16 cardId) private {
     // validate source and destination address
     require(from != address(0));
@@ -516,8 +533,7 @@ contract CharacterCard {
     require(to != from);
 
     // get the card from the storage
-    // TODO: check if modifying a card in the storage is cheaper
-    Card memory card = cards[cardId];
+    Card memory card = cards[cardId]; // TODO: check if modifying a card in the storage is cheaper
 
     // get card's owner address
     address owner = card.owner;
@@ -532,14 +548,9 @@ contract CharacterCard {
     // clear approved address for this particular card + emit event
     __clearApprovalFor(cardId);
 
-    // update new and old owner balances
-    balances[from]--;
-    balances[to]++;
-
-    // update ownership modified time
-    card.ownershipModified = uint32(block.number);
-    // update ownership itself
-    card.owner = to;
+    // move card ownership,
+    // update old and new owner's card collections accordingly
+    __move(from, to, card);
 
     // persist card back into the storage
     cards[cardId] = card;
@@ -573,5 +584,47 @@ contract CharacterCard {
       // emit an event
       ApprovalForAll(owner, operator, approvalsLeft);
     }
+  }
+
+  /// @dev Move a `card` from owner `from` to a new owner `to`
+  /// @dev Unsafe, doesn't check for consistence
+  /// @dev Must be kept private at all times
+  function __move(address from, address to, Card card) private {
+    // get a reference to the collection where card is now
+    uint16[] storage f = collections[from];
+
+    // get a reference to the collection where card goes to
+    uint16[] storage t = collections[to];
+
+    // collection `f` cannot be empty, if it is - it's a bug
+    assert(f.length > 0);
+
+    // index of the card within collection `f`
+    uint16 i = card.index;
+
+    // we put the last card in the collection `f` to the position released
+    // get an ID of the last card in `f`
+    uint16 cardId = f[f.length - 1];
+
+    // update card index to point to proper place in the collection `f`
+    cards[cardId].index = i;
+
+    // put it into the position i within `f`
+    f[i] = cardId;
+
+    // trim the collection `f` by removing last element
+    f.length--;
+
+    // update card index according to position in new collection `t`
+    card.index = uint16(t.length);
+
+    // update card owner
+    card.owner = to;
+
+    // update ownership transfer date
+    card.ownershipModified = uint32(block.number);
+
+    // push card into collection
+    t.push(card.id);
   }
 }
