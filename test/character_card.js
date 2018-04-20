@@ -188,6 +188,11 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});});
 	});
+	it("mint: minting a card requires appropriate permission", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
+		await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});
+	});
 	it("mint: impossible to mint a card with zero ID", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint(0x0, accounts[0])});
@@ -434,6 +439,49 @@ contract('CharacterCard', function(accounts) {
 			assert.equal(i, c[1], "wrong card.index in card " + i);
 			assert.equal(accounts[0], c[12], "wrong card.owner in card " + i)
 		}
+	});
+
+	it("card updates: set attributes", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.setAttributes(0x1, 7);
+		assert.equal(7, await card.getAttributes(0x1), "wrong attributes for card 0x1");
+	});
+	it("card updates: add attributes", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.setAttributes(0x1, 1);
+		await card.addAttributes(0x1, 2);
+		assert.equal(3, await card.getAttributes(0x1), "wrong attributes for card 0x1");
+	});
+	it("card updates: remove attributes", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.setAttributes(0x1, 7);
+		await card.removeAttributes(0x1, 2);
+		assert.equal(5, await card.getAttributes(0x1), "wrong attributes for card 0x1");
+	});
+	it("card updates: setting attributes requires appropriate permissions", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.addOperator(accounts[1], ROLE_COMBAT_PROVIDER);
+		await card.setAttributes.sendTransaction(0x1, 7, {from: accounts[1]});
+		await card.addAttributes.sendTransaction(0x1, 1, {from: accounts[1]});
+		await card.removeAttributes.sendTransaction(0x1, 2, {from: accounts[1]});
+		assert.equal(5, await card.getAttributes(0x1), "wrong attributes for card 0x1");
+	});
+	it("card updates: impossible to set/add/remove attributes of non-existent card", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.setAttributes(0x1, 7);});
+		await assertThrowsAsync(async function() {await card.addAttributes(0x1, 7);});
+		await assertThrowsAsync(async function() {await card.removeAttributes(0x1, 7);});
+	});
+	it("card updates: impossible to set/add/remove attributes without a permission", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[1]);
+		await assertThrowsAsync(async function() {await card.setAttributes.sendTransaction(0x1, 7, {from: accounts[1]});});
+		await assertThrowsAsync(async function() {await card.addAttributes.sendTransaction(0x1, 7, {from: accounts[1]});});
+		await assertThrowsAsync(async function() {await card.removeAttributes.sendTransaction(0x1, 7, {from: accounts[1]});});
 	});
 });
 

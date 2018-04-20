@@ -270,6 +270,78 @@ contract CharacterCard {
   }
 
   /**
+   * @dev Gets attributes of a card
+   * @param cardId ID of the card to get attributes for
+   */
+  function getAttributes(uint16 cardId) public constant returns(uint32) {
+    // check that card to set attributes for exists
+    require(exists(cardId));
+
+    // read the attributes and return
+    return cards[cardId].attributes;
+  }
+
+  /**
+   * @dev Sets attributes of a card
+   * @dev Erases all previously set attributes
+   * @param cardId ID of the card to set attributes for
+   * @param attributes bitmask representing card attributes to set
+   */
+  function setAttributes(uint16 cardId, uint32 attributes) public {
+    // check that the call is made by a combat provider
+    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+
+    // check that card to set attributes for exists
+    require(exists(cardId));
+
+    // set attributes modified timestamp
+    cards[cardId].attributesModified = uint32(block.number);
+
+    // set the attributes required
+    cards[cardId].attributes = attributes;
+  }
+
+  /**
+   * @dev Adds attributes to a card
+   * @dev Preserves all previously set attributes
+   * @param cardId ID of the card to add attributes to
+   * @param attributes bitmask representing card attributes to add
+   */
+  function addAttributes(uint16 cardId, uint32 attributes) public {
+    // check that the call is made by a combat provider
+    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+
+    // check that card to set attributes for exists
+    require(exists(cardId));
+
+    // set attributes modified timestamp
+    cards[cardId].attributesModified = uint32(block.number);
+
+    // add the attributes required
+    cards[cardId].attributes |= attributes;
+  }
+
+  /**
+   * @dev Removes attributes from a card
+   * @dev Preserves all the attributes which are not specified by `attributes`
+   * @param cardId ID of the card to remove attributes from
+   * @param attributes bitmask representing card attributes to remove
+   */
+  function removeAttributes(uint16 cardId, uint32 attributes) public {
+    // check that the call is made by a combat provider
+    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+
+    // check that card to set attributes for exists
+    require(exists(cardId));
+
+    // set attributes modified timestamp
+    cards[cardId].attributesModified = uint32(block.number);
+
+    // add the attributes required
+    cards[cardId].attributes &= 0xFFFFFFFF ^ attributes;
+  }
+
+  /**
    * @notice Gets an amount of cards owned by the given address
    * @dev Gets the balance of the specified address
    * @param who address to query the balance for
@@ -632,4 +704,31 @@ contract CharacterCard {
     // push card into collection
     t.push(card.id);
   }
+
+/*
+  function __generateRarity32() private constant returns(uint32) {
+    
+  }
+
+  function __isUsual(uint32 rarity) private constant returns(bool) {
+
+  }
+
+  function __isRare(uint32 rarity) private constant returns(bool) {
+
+  }
+
+  function __isUltraRare(uint32 rarity) private constant returns(bool) {
+
+  }
+
+  function __isLegendary(uint32 rarity) private constant returns(bool) {
+
+  }
+
+  function __isHologram(uint32 rarity) private constant returns(bool) {
+  
+  }
+*/
+
 }
