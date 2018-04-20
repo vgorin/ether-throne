@@ -47,7 +47,7 @@ contract CharacterCard {
     ///      status of the last game played, etc
     uint32 state;
 
-    /// @dev Initialized on card creation, 4 bytes of random data
+    /// @dev Initialized on card creation, immutable
     /// @dev Used to derive card rarity type like
     ///      casual, rare, ultra rare, legendary, hologram, etc.
     uint32 rarity;
@@ -91,16 +91,23 @@ contract CharacterCard {
   /// @dev ERC20 balances[owner] is equal to collections[owner].length
   mapping(address => uint16[]) public collections;
 
-  /// @notice Total number of existing cards
-  /// @dev ERC20 compatible field for totalSupply()
-  uint16 public totalSupply;
-
   /// @notice Defines a privileged addresses with additional
   ///      permissions on the smart contract, like minting cards,
   ///      transferring on behalf and so on
   /// @dev Maps an address to the permissions bitmask (role), where each bit
   ///      represents a permissions; bitmask 0xFFFFFFFF represents all possible permissions
   mapping(address => uint32) public userRoles;
+
+  /// @notice Total number of existing cards
+  /// @dev ERC20 compatible field for totalSupply()
+  uint16 public totalSupply;
+
+  /// @dev The data in card's state may contain lock(s)
+  ///      (ex.: is card currently in the game or not)
+  /// @dev A locked card cannot be transferred
+  /// @dev The card is locked if it contains any bits
+  ///      from the `lockedBitmask` in its `state` set
+  uint32 public lockedBitmask;
 
   /// @notice Card creator is responsible for creating cards
   /// @dev Role ROLE_CARD_CREATOR allows minting cards
@@ -125,15 +132,17 @@ contract CharacterCard {
   /// @dev The number is used as unlimited approvals number
   uint256 public constant UNLIMITED_APPROVALS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
-  /// @dev event names are self-explanatory:
-  /// @dev fired in mint()
+  /// @dev Event names are self-explanatory:
+  /// @dev Fired in mint()
   event Minted(uint16 indexed cardId, address indexed to);
-  /// @dev fired in transfer(), transferFor()
+  /// @dev Fired in transfer(), transferFor()
   event Transfer(address indexed from, address indexed to, uint16 cardId);
-  /// @dev fired in approve()
+  /// @dev Fired in approve()
   event Approval(uint16 indexed cardId, address indexed approved);
-  /// @dev fired in approveForAll()
+  /// @dev Fired in approveForAll()
   event ApprovalForAll(address indexed owner, address indexed operator, uint256 approved);
+  /// @dev Fired in battleComplete()
+  event BattleComplete(uint16 indexed card1Id, uint16 indexed card2Id, int8 outcome);
 
   /// @dev Creates a card as a ERC721 token
   function CharacterCard() public {
@@ -270,15 +279,174 @@ contract CharacterCard {
   }
 
   /**
+   * @dev Gets a card by ID, representing it as two integers.
+   *      The two integers are tightly packed with a card data:
+   *      First integer (high bits) contains (from higher to lower bits order):
+   *          id,
+   *          index,
+   *          creationTime,
+   *          ownershipModified,
+   *          attributesModified,
+   *          gamesPlayed,
+   *          wins,
+   *          loses,
+   *          state
+   *      Second integer (low bits) contains (from higher to lower bits order):
+   *          rarity,
+   *          lastGamePlayed,
+   *          attributes,
+   *          owner
+   * @dev Throws if card doesn't exist
+   */
+  function getCard(uint16 cardId) public constant returns(uint256, uint256) {
+    // load the card from storage
+    Card memory card = cards[cardId];
+
+    // get the card's owner address
+    address owner = card.owner;
+
+    // validate card existence
+    require(owner != address(0));
+
+    // pack high 256 bits of the result
+    uint256 high = card.id << 240
+                 | card.index << 224
+                 | card.creationTime << 192
+                 | card.ownershipModified << 160
+                 | card.attributesModified << 128
+                 | card.gamesPlayed << 96
+                 | card.wins << 64
+                 | card.loses << 32
+                 | card.state;
+
+    // pack low 256 bits of the result
+    uint256 low = card.rarity << 224
+                | card.lastGamePlayed << 192
+                | card.attributes << 160
+                | uint160(card.owner);
+
+    // return the whole 512 bits of result
+    return (high, low);
+  }
+
+  /**
+   * @dev Allows setting the `lockedBitmask` parameter of the contract,
+   *      which is used to determine if a particular card is locked or not
+   * @dev A locked card cannot be transferred
+   * @dev The card is locked if it contains any bits
+   *      from the `lockedBitmask` in its `state` set
+   */
+  function setLockedBitmask(uint32 bitmask) public {
+    // check that the call is made by a combat provider
+    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+
+    // update the locked bitmask
+    lockedBitmask = bitmask;
+  }
+
+  /**
+   * @dev Gets the state of a card
+   * @param cardId ID of the card to get state for
+   * @return a card state
+   */
+  function getState(uint16 cardId) public constant returns(uint32) {
+    // get the card from storage
+    Card memory card = cards[cardId];
+
+    // validate card existence
+    require(card.owner != address(0));
+
+    // obtain card's state and return
+    return card.state;
+  }
+
+  /**
+   * @dev Sets the state of a card
+   * @param cardId ID of the card to set state for
+   * @param state new state to set for the card
+   */
+  function setState(uint16 cardId, uint32 state) public {
+    // check that the call is made by a combat provider
+    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+
+    // get the card pointer
+    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+
+    // check that card to set attributes for exists
+    require(card.owner != address(0));
+
+    // set the state required
+    card.state = state;
+  }
+
+  /**
+   * @dev A mechanism to update two cards which were engaged in a battle
+   * @param card1Id first card's ID engaged in a battle
+   * @param card2Id second card's ID engaged in a battle
+   * @param outcome game outcome,
+   *      0 means draw,
+   *      -1 means that first card lost and second card won
+   *      1 means that first card won and second card lost
+   */
+  // TODO: do we need to update state as well?
+  function battleComplete(uint16 card1Id, uint16 card2Id, int8 outcome) public {
+    // check if outcome is one of -1, 0, +1
+    // TODO: do we need to allow bulk battle complete update when outcome can be any bulk number?
+    require(outcome == -1 || outcome == 0 || outcome == 1);
+
+    // check that the call is made by a combat provider
+    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+
+    // get cards from the storage
+    Card memory card1 = cards[card1Id]; // TODO: check if modifying a card in the storage is cheaper
+    Card memory card2 = cards[card2Id]; // TODO: check if modifying a card in the storage is cheaper
+
+    // check if both card exist
+    require(card1.owner != address(0));
+    require(card2.owner != address(0));
+
+    // TODO: do we need to check if two cards have different owners?
+
+    // update games played counters
+    card1.gamesPlayed++;
+    card2.gamesPlayed++;
+
+    // game outcome may be card1 > card2
+    if(outcome == 1) {
+      // card1 won card2
+      card1.wins++;
+      card2.loses++;
+    }
+    // or it may be card1 < card2
+    else if(outcome == -1) {
+      // card2 won card1
+      card1.loses++;
+      card2.wins++;
+    }
+    // or it may be card1 = card2 (draw)
+
+    // update last game played times
+    card1.lastGamePlayed = uint32(block.number);
+    card2.lastGamePlayed = uint32(block.number);
+
+    // fire an event
+    BattleComplete(card1Id, card2Id, outcome);
+  }
+
+  /**
    * @dev Gets attributes of a card
    * @param cardId ID of the card to get attributes for
+   * @return a card attributes bitmask
    */
   function getAttributes(uint16 cardId) public constant returns(uint32) {
-    // check that card to set attributes for exists
-    require(exists(cardId));
+    // get the card from storage
+    Card memory card = cards[cardId];
+
+    // validate card existence
+    require(card.owner != address(0));
 
     // read the attributes and return
-    return cards[cardId].attributes;
+    return card.attributes;
   }
 
   /**
@@ -291,14 +459,17 @@ contract CharacterCard {
     // check that the call is made by a combat provider
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
+    // get the card pointer
+    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+
     // check that card to set attributes for exists
-    require(exists(cardId));
+    require(card.owner != address(0));
 
     // set attributes modified timestamp
-    cards[cardId].attributesModified = uint32(block.number);
+    card.attributesModified = uint32(block.number);
 
     // set the attributes required
-    cards[cardId].attributes = attributes;
+    card.attributes = attributes;
   }
 
   /**
@@ -311,14 +482,17 @@ contract CharacterCard {
     // check that the call is made by a combat provider
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
-    // check that card to set attributes for exists
-    require(exists(cardId));
+    // get the card pointer
+    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+
+    // check that card to add attributes for exists
+    require(card.owner != address(0));
 
     // set attributes modified timestamp
-    cards[cardId].attributesModified = uint32(block.number);
+    card.attributesModified = uint32(block.number);
 
     // add the attributes required
-    cards[cardId].attributes |= attributes;
+    card.attributes |= attributes;
   }
 
   /**
@@ -331,14 +505,17 @@ contract CharacterCard {
     // check that the call is made by a combat provider
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
-    // check that card to set attributes for exists
-    require(exists(cardId));
+    // get the card pointer
+    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+
+    // check that card to remove attributes for exists
+    require(card.owner != address(0));
 
     // set attributes modified timestamp
-    cards[cardId].attributesModified = uint32(block.number);
+    card.attributesModified = uint32(block.number);
 
     // add the attributes required
-    cards[cardId].attributes &= 0xFFFFFFFF ^ attributes;
+    card.attributes &= 0xFFFFFFFF ^ attributes;
   }
 
   /**
@@ -392,6 +569,21 @@ contract CharacterCard {
    * @param to an address to assign created card ownership to
    */
   function mint(uint16 cardId, address to) public {
+    // delegate call to `mintWith`
+    mintWith(cardId, to, 0, 0, 0);
+  }
+
+  /**
+   * @dev Creates new card with `cardId` ID specified and
+   *      assigns an ownership `to` for that card.
+   * @dev Allows setting card's state, rarity and attributes.
+   * @param cardId ID of the card to create
+   * @param to an address to assign created card ownership to
+   * @param state an integer, representing card's state
+   * @param rarity an integer, representing card's rarity
+   * @param attributes a bitmask of the card attributes
+   */
+  function mintWith(uint16 cardId, address to, uint32 state, uint32 rarity, uint32 attributes) public {
     // check if caller has sufficient permissions to mint a card
     require(isSenderInRole(ROLE_CARD_CREATOR));
 
@@ -416,12 +608,10 @@ contract CharacterCard {
       gamesPlayed: 0,
       wins: 0,
       loses: 0,
-      state: 0,
-      // TODO: generate rarity
-      rarity: 0,
+      state: state,
+      rarity: rarity,
       lastGamePlayed: 0,
-      // TODO: set attributes according to rarity
-      attributes: 0x1 | 0x2 | 0x4, // first 3 attributes set
+      attributes: attributes,
       owner: to
     });
 
@@ -533,7 +723,7 @@ contract CharacterCard {
    * @param cardId ID of the card to be remove approved address for
    */
   function revokeApproval(uint16 cardId) public {
-    // delegate call to approve
+    // delegate call to `approve`
     approve(address(0), cardId);
   }
 
@@ -573,7 +763,7 @@ contract CharacterCard {
     // call sender gracefully - `user`
     address user = msg.sender;
 
-    // delegate call to isUserInRole
+    // delegate call to `isUserInRole`
     return isUserInRole(user, roleRequired);
   }
 
@@ -582,7 +772,7 @@ contract CharacterCard {
     // read user's permissions (role)
     uint32 userRole = userRoles[user];
 
-    // delegate call to hasRole
+    // delegate call to `hasRole`
     return hasRole(userRole, roleRequired);
   }
 
@@ -620,7 +810,9 @@ contract CharacterCard {
     // validate card ownership
     require(owner == from);
 
-    // TODO: check if a card is not locked (for example in game)
+    // transfer is not allowed for a locked card
+    // (ex.: if card is currently in game/battle)
+    require(card.state & lockedBitmask == 0);
 
     // clear approved address for this particular card + emit event
     __clearApprovalFor(cardId);
@@ -704,31 +896,5 @@ contract CharacterCard {
     // push card into collection
     t.push(card.id);
   }
-
-/*
-  function __generateRarity32() private constant returns(uint32) {
-    
-  }
-
-  function __isUsual(uint32 rarity) private constant returns(bool) {
-
-  }
-
-  function __isRare(uint32 rarity) private constant returns(bool) {
-
-  }
-
-  function __isUltraRare(uint32 rarity) private constant returns(bool) {
-
-  }
-
-  function __isLegendary(uint32 rarity) private constant returns(bool) {
-
-  }
-
-  function __isHologram(uint32 rarity) private constant returns(bool) {
-  
-  }
-*/
 
 }

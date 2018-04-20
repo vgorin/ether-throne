@@ -345,7 +345,7 @@ contract('CharacterCard', function(accounts) {
 		await card.approve.sendTransaction(accounts[0], 0x1, {from: accounts[1]});
 		await assertThrowsAsync(async function() {await card.revokeApproval(0x1);});
 	});
-	it("approve: impossible to approve non-existent card", async function() {
+	it("approve: impossible to approve non-existing card", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.approve(accounts[1], 0x1);});
 	});
@@ -470,7 +470,7 @@ contract('CharacterCard', function(accounts) {
 		await card.removeAttributes.sendTransaction(0x1, 2, {from: accounts[1]});
 		assert.equal(5, await card.getAttributes(0x1), "wrong attributes for card 0x1");
 	});
-	it("card updates: impossible to set/add/remove attributes of non-existent card", async function() {
+	it("card updates: impossible to set/add/remove attributes of non-existing card", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.setAttributes(0x1, 7);});
 		await assertThrowsAsync(async function() {await card.addAttributes(0x1, 7);});
@@ -483,6 +483,43 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.addAttributes.sendTransaction(0x1, 7, {from: accounts[1]});});
 		await assertThrowsAsync(async function() {await card.removeAttributes.sendTransaction(0x1, 7, {from: accounts[1]});});
 	});
+
+	it("card locking: it is possible to lock a card", async function () {
+		const card = await CharacterCard.new();
+		await card.setLockedBitmask(0x8000);
+		assert.equal(0x8000, await card.lockedBitmask(), "`lockedBitmask` was not set");
+		await card.mint(0x1, accounts[0]);
+		await card.setState(0x1, 0x8000);
+		assert.equal(0x8000, await card.getState(0x1), "card 0x1 has wrong state");
+	});
+	it("card locking: impossible to lock non-existing card", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.setState(0x1, 0x8000);});
+	});
+	it("card locking: impossible to lock a card without a permission", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await assertThrowsAsync(async function() {await card.setState.sendTransaction(0x1, 0x8000, {from: accounts[1]});});
+	});
+	it("card locking: impossible to transfer a locked card", async function() {
+		const card = await CharacterCard.new();
+		await card.setLockedBitmask(0x8000);
+		await card.mint(0x1, accounts[0]);
+		await card.setState(0x1, 0x8000);
+		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 0x1);});
+	});
+
+/*
+	it("battle: it is possible to play a game", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+		await card.battleComplete(0x1, 0x2, 0);
+		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[5], "card 0x1 games played counter is incorrect");
+	});
+	it("battle: ");
+*/
 });
 
 async function assertThrowsAsync(fn) {
