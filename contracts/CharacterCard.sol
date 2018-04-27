@@ -460,7 +460,7 @@ contract CharacterCard {
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+    Card storage card = cards[cardId];
 
     // check that card to set attributes for exists
     require(card.owner != address(0));
@@ -470,6 +470,11 @@ contract CharacterCard {
 
     // set the attributes required
     card.attributes = attributes;
+
+    // persist card back into the storage
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[cardId];`
+    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
@@ -483,7 +488,7 @@ contract CharacterCard {
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+    Card storage card = cards[cardId];
 
     // check that card to add attributes for exists
     require(card.owner != address(0));
@@ -493,6 +498,11 @@ contract CharacterCard {
 
     // add the attributes required
     card.attributes |= attributes;
+
+    // persist card back into the storage
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[cardId];`
+    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
@@ -506,7 +516,7 @@ contract CharacterCard {
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+    Card storage card = cards[cardId];
 
     // check that card to remove attributes for exists
     require(card.owner != address(0));
@@ -516,6 +526,11 @@ contract CharacterCard {
 
     // add the attributes required
     card.attributes &= 0xFFFFFFFF ^ attributes;
+
+    // persist card back into the storage
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[cardId];`
+    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
@@ -801,8 +816,8 @@ contract CharacterCard {
     require(to != address(0));
     require(to != from);
 
-    // get the card from the storage
-    Card memory card = cards[cardId]; // TODO: check if modifying a card in the storage is cheaper
+    // get the card pointer to the storage
+    Card storage card = cards[cardId];
 
     // get card's owner address
     address owner = card.owner;
@@ -824,7 +839,9 @@ contract CharacterCard {
     __move(from, to, card);
 
     // persist card back into the storage
-    cards[cardId] = card;
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[cardId];`
+//    cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
 
     // fire an event
     emit Transfer(from, to, cardId);
@@ -860,7 +877,7 @@ contract CharacterCard {
   /// @dev Move a `card` from owner `from` to a new owner `to`
   /// @dev Unsafe, doesn't check for consistence
   /// @dev Must be kept private at all times
-  function __move(address from, address to, Card card) private {
+  function __move(address from, address to, Card storage card) private {
     // get a reference to the collection where card is now
     uint16[] storage f = collections[from];
 
