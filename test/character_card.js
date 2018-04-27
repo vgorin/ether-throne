@@ -4,6 +4,13 @@ const ROLE_COMBAT_PROVIDER = 0x00000002;
 const ROLE_EXCHANGE = 0x00000004;
 const ROLE_ROLE_MANAGER = 0x00000008;
 
+// game outcome constants copied from CharacterCard.sol as is
+const GAME_OUTCOME_UNDEFINED = 0;
+const GAME_OUTCOME_DEFEAT = 1;
+const GAME_OUTCOME_DRAW = 2;
+const GAME_OUTCOME_VICTORY = 3;
+const LAST_GAME_OUTCOME_BITS = 0x3;
+
 const CharacterCard = artifacts.require("./CharacterCard.sol");
 
 // used only for overloaded shadowed functions
@@ -513,37 +520,84 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
-		await card.battleComplete(0x1, 0x2, 0, 0, 1);
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);
 		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 	});
-	it("battle: card game results are stored correctly", async function() {
+	it("battle: game counters are stored correctly", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
-		await card.battleComplete(0x1, 0x2, 1, 0, 1); // card1 won card2
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_VICTORY); // card1 won card2
+		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
 		assert.equal(0, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 		assert.equal(0, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 loses counter is incorrect");
-		await card.battleComplete(0x1, 0x2, 0, 1, 1); // card1 lost card2
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DEFEAT); // card1 lost card2
+		assert.equal(2, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
 		assert.equal(1, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
+		assert.equal(2, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 loses counter is incorrect");
+	});
+	it("battle: last game outcome is GAME_OUTCOME_UNDEFINED initially", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		const state = await card.getState(0x1);
+		const outcome = LAST_GAME_OUTCOME_BITS & state;
+		assert.equal(GAME_OUTCOME_UNDEFINED, outcome, "initial game outcome for any card must be GAME_OUTCOME_UNDEFINED");
+	});
+	it("battle: last game outcome is stored correctly", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);
+		let state1 = await card.getState(0x1);
+		let state2 = await card.getState(0x2);
+		let outcome1 = LAST_GAME_OUTCOME_BITS & state1;
+		let outcome2 = LAST_GAME_OUTCOME_BITS & state2;
+		assert.equal(GAME_OUTCOME_DRAW, outcome1, "card 0x1 last game outcome is incorrect");
+		assert.equal(GAME_OUTCOME_DRAW, outcome2, "card 0x1 last game outcome is incorrect");
+	});
+	it("battle: last game outcome is updated correctly", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);
+		let state1 = await card.getState(0x1);
+		let state2 = await card.getState(0x2);
+		let outcome1 = LAST_GAME_OUTCOME_BITS & state1;
+		let outcome2 = LAST_GAME_OUTCOME_BITS & state2;
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_VICTORY);
+		state1 = await card.getState(0x1);
+		state2 = await card.getState(0x2);
+		outcome1 = LAST_GAME_OUTCOME_BITS & state1;
+		outcome2 = LAST_GAME_OUTCOME_BITS & state2;
+		assert.equal(GAME_OUTCOME_VICTORY, outcome1, "card 0x1 last game outcome is incorrect (2nd game)");
+		assert.equal(GAME_OUTCOME_DEFEAT, outcome2, "card 0x1 last game outcome is incorrect (2nd game)");
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DEFEAT);
+		state1 = await card.getState(0x1);
+		state2 = await card.getState(0x2);
+		outcome1 = LAST_GAME_OUTCOME_BITS & state1;
+		outcome2 = LAST_GAME_OUTCOME_BITS & state2;
+		assert.equal(GAME_OUTCOME_DEFEAT, outcome1, "card 0x1 last game outcome is incorrect (3d game)");
+		assert.equal(GAME_OUTCOME_VICTORY, outcome2, "card 0x1 last game outcome is incorrect (3d game)");
 	});
 	it("battle: impossible to update card battle without ROLE_COMBAT_PROVIDER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
-		await assertThrowsAsync(async function() {await card.battleComplete.sendTransaction(0x1, 0x2, 0, 0, 1, {from: accounts[1]});});
+		await assertThrowsAsync(async function() {await card.battleComplete.sendTransaction(0x1, 0x2, GAME_OUTCOME_DRAW, {from: accounts[1]});});
 	});
 	it("battle: ROLE_COMBAT_PROVIDER permission is enough to update card battle", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
 		await card.addOperator(accounts[1], ROLE_COMBAT_PROVIDER);
-		await card.battleComplete.sendTransaction(0x1, 0x2, 0, 0, 1, {from: accounts[1]});
+		await card.battleComplete.sendTransaction(0x1, 0x2, GAME_OUTCOME_DRAW, {from: accounts[1]});
 		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 	});

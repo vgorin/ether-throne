@@ -107,7 +107,29 @@ contract CharacterCard {
   /// @dev A locked card cannot be transferred
   /// @dev The card is locked if it contains any bits
   ///      from the `lockedBitmask` in its `state` set
-  uint32 public lockedBitmask;
+  uint32 public lockedBitmask = DEFAULT_IN_GAME_BIT;
+
+  /// @dev Default bitmask indicating that the card is `in game`
+  /// @dev Consists of a single bit at position 3 – binary 100
+  /// @dev This bit is cleared by `battleComplete`
+  /// @dev First 2 lower bits are used by the last game status outcome data:
+  ///      0: undefined
+  ///      1: defeat
+  ///      2: draw
+  ///      3: victory
+  uint8 public constant DEFAULT_IN_GAME_BIT = 0x4; // bit number 3
+  /// @dev Bits 1-2 mask, used to read/write game outcome data
+  uint8 public constant LAST_GAME_OUTCOME_BITS = 0x3; // bits 1-2
+  /// @dev Bits 1-3 mask, used in battleComplete to clear game outcome and card state
+  uint8 public constant BATTLE_COMPLETE_CLEAR_BITS = 0x7; // bits 1-3: outcome + in game
+  /// @dev Constant indicating no game outcome (card never played a game)
+  uint8 public constant GAME_OUTCOME_UNDEFINED = 0;
+  /// @dev Constant indicating the defeat of a card (victory of an opponent card)
+  uint8 public constant GAME_OUTCOME_DEFEAT = 1;
+  /// @dev Constant indicating the draw
+  uint8 public constant GAME_OUTCOME_DRAW = 2;
+  /// @dev Constant indicating victory of a card (defeat of an opponent card)
+  uint8 public constant GAME_OUTCOME_VICTORY = 3;
 
   /// @notice Card creator is responsible for creating cards
   /// @dev Role ROLE_CARD_CREATOR allows minting cards
@@ -115,7 +137,7 @@ contract CharacterCard {
 
   /// @notice Card game provider is responsible for enabling the game protocol
   /// @dev Role ROLE_COMBAT_PROVIDER allows modifying gamesPlayed,
-  /// wins, loses, state, lastGamePlayed, attributes
+  ///      wins, loses, state, lastGamePlayed, attributes
   uint32 public constant ROLE_COMBAT_PROVIDER = 0x00000002;
 
   /// @notice Exchange is responsible for trading cards on behalf of card holders
@@ -142,7 +164,14 @@ contract CharacterCard {
   /// @dev Fired in approveForAll()
   event ApprovalForAll(address indexed owner, address indexed operator, uint256 approved);
   /// @dev Fired in battlesComplete(), battleComplete()
-  event BattleComplete(uint16 indexed card1Id, uint16 indexed card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed);
+  event BattleComplete(
+    uint16 indexed card1Id,
+    uint16 indexed card2Id,
+    uint32 wins,          // card1 wins = card2 loses
+    uint32 loses,         // card1 loses = card2 wins
+    uint32 gamesPlayed,   // card1 games played = card2 games played
+    uint8 lastGameOutcome // card1 last game outcome = 4 - card2 last game outcome
+  );
 
   /// @dev Creates a card as a ERC721 token
   constructor() public {
@@ -389,20 +418,21 @@ contract CharacterCard {
    * @param card1Id first card's ID engaged in a battle
    * @param card2Id second card's ID engaged in a battle
    * @param outcome game outcome,
-   *      0 means draw,
-   *      -1 means that first card lost and second card won
-   *      1 means that first card won and second card lost
+   *      1 means that first card lost and second card won,
+   *      2 means draw,
+   *      3 means that first card won and second card lost
    */
-  function battleComplete(uint16 card1Id, uint16 card2Id, int8 outcome) public {
-    // check if outcome is one of -1, 0, +1
-    require(outcome == -1 || outcome == 0 || outcome == 1);
+  function battleComplete(uint16 card1Id, uint16 card2Id, uint8 outcome) public {
+    // the check if outcome is one of [1, 2, 3] is done in
+    // a call to `battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)`
 
-    // prepare wins/loses variables to delegate call to `battlesComplete`
-    uint32 wins = outcome == 1? 1: 0;
-    uint32 loses = outcome == -1? 1: 0;
+    // prepare wins/loses variables to delegate call
+    // to `battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)`
+    uint32 wins = outcome == GAME_OUTCOME_VICTORY? 1: 0;
+    uint32 loses = outcome == GAME_OUTCOME_DEFEAT? 1: 0;
 
-    // delegate call to `battleComplete(uint16, uint16, uint32, uint32, uint32)`
-    battleComplete(card1Id, card2Id, wins, loses, 1);
+    // delegate call to `battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)`
+    battleComplete(card1Id, card2Id, wins, loses, 1, outcome);
   }
 
   /**
@@ -412,10 +442,22 @@ contract CharacterCard {
    * @param card2Id second card's ID engaged in a battle
    * @param wins number of times 1st card won (2nd lost)
    * @param loses number of times 1st card lost (2nd won)
-   * @param gamesPlayed total games played
+   * @param gamesPlayed total games played, cannot exceed wins + loses, cannot be zero
    */
-  // TODO: do we need to update card state (last game outcome for example)?
-  function battleComplete(uint16 card1Id, uint16 card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed) public {
+  function battleComplete(
+    uint16 card1Id,
+    uint16 card2Id,
+    uint32 wins,
+    uint32 loses,
+    uint32 gamesPlayed,
+    uint8 lastGameOutcome
+  ) public {
+    // check if last game outcome is one of [1, 2, 3]
+    // check if it is consistent with wins/loses counters
+    require(lastGameOutcome == GAME_OUTCOME_DEFEAT && loses != 0   // defeat means loses cannot be zero
+         || lastGameOutcome == GAME_OUTCOME_DRAW
+         || lastGameOutcome == GAME_OUTCOME_VICTORY && wins != 0); // victory means wins cannot be zero
+
     // arithmetic overflow checks
     require(wins <= wins + loses);
     require(loses <= wins + loses);
@@ -457,13 +499,18 @@ contract CharacterCard {
     // for card1 its straight forward
     card1.wins += wins;
     card1.loses += loses;
-    // for card2 its vice versa (card1 win = card2 lose)
+    // for card2 its vice versa (card1 victory = card2 defeat)
     card2.wins += loses;
     card2.loses += wins;
 
-    // update last game played times
+    // update last game played timestamps
     card1.lastGamePlayed = uint32(block.number);
     card2.lastGamePlayed = uint32(block.number);
+
+    // update last game played statuses (outcomes),
+    // clear 'in game' bit for both cards – move cards out of game
+    card1.state = card1.state & (0xFFFFFFFF ^ BATTLE_COMPLETE_CLEAR_BITS) | lastGameOutcome;
+    card2.state = card2.state & (0xFFFFFFFF ^ BATTLE_COMPLETE_CLEAR_BITS) | (4 - lastGameOutcome);
 
     // persist cards back into the storage
     // this may be required only if cards structure is loaded into memory, like
@@ -472,7 +519,7 @@ contract CharacterCard {
     //cards[card2Id] = card2; // uncomment if card is in memory (will increase gas usage!)
 
     // fire an event
-    emit BattleComplete(card1Id, card2Id, wins, loses, gamesPlayed);
+    emit BattleComplete(card1Id, card2Id, wins, loses, gamesPlayed, lastGameOutcome);
   }
 
   /**
