@@ -624,8 +624,10 @@ contract CharacterCard {
     // update total supply
     totalSupply++;
 
-    // fire an event
-    Minted(cardId, to);
+    // fire a Mint event
+    emit Minted(cardId, to);
+    // fire Transfer event (ERC20 compatibility)
+    emit Transfer(address(0), to, cardId);
   }
 
   /**
