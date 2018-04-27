@@ -142,7 +142,7 @@ contract CharacterCard {
   /// @dev Fired in approveForAll()
   event ApprovalForAll(address indexed owner, address indexed operator, uint256 approved);
   /// @dev Fired in battlesComplete(), battleComplete()
-  event BattlesComplete(uint16 indexed card1Id, uint16 indexed card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed);
+  event BattleComplete(uint16 indexed card1Id, uint16 indexed card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed);
 
   /// @dev Creates a card as a ERC721 token
   constructor() public {
@@ -401,13 +401,13 @@ contract CharacterCard {
     uint32 wins = outcome == 1? 1: 0;
     uint32 loses = outcome == -1? 1: 0;
 
-    // delegate call to `battlesComplete`
-    battlesComplete(card1Id, card2Id, wins, loses, 1);
+    // delegate call to `battleComplete(uint16, uint16, uint32, uint32, uint32)`
+    battleComplete(card1Id, card2Id, wins, loses, 1);
   }
 
   /**
    * @dev A mechanism to update two cards which were engaged in a battle
-   * @dev Same as battleComplete but allows for a batch update
+   * @dev Same as `battleComplete(uint16, uint16, outcome)` but allows for a batch update
    * @param card1Id first card's ID engaged in a battle
    * @param card2Id second card's ID engaged in a battle
    * @param wins number of times 1st card won (2nd lost)
@@ -415,7 +415,7 @@ contract CharacterCard {
    * @param gamesPlayed total games played
    */
   // TODO: do we need to update card state (last game outcome for example)?
-  function battlesComplete(uint16 card1Id, uint16 card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed) public {
+  function battleComplete(uint16 card1Id, uint16 card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed) public {
     // arithmetic overflow checks
     require(wins <= wins + loses);
     require(loses <= wins + loses);
@@ -472,7 +472,7 @@ contract CharacterCard {
     //cards[card2Id] = card2; // uncomment if card is in memory (will increase gas usage!)
 
     // fire an event
-    emit BattlesComplete(card1Id, card2Id, wins, loses, gamesPlayed);
+    emit BattleComplete(card1Id, card2Id, wins, loses, gamesPlayed);
   }
 
   /**

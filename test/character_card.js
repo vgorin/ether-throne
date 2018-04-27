@@ -513,7 +513,7 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
-		await card.battleComplete(0x1, 0x2, 0);
+		await card.battleComplete(0x1, 0x2, 0, 0, 1);
 		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 	});
@@ -521,12 +521,12 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
-		await card.battleComplete(0x1, 0x2, 1); // card1 won card2
+		await card.battleComplete(0x1, 0x2, 1, 0, 1); // card1 won card2
 		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
 		assert.equal(0, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
 		assert.equal(0, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 loses counter is incorrect");
-		await card.battleComplete(0x1, 0x2, -1); // card1 lost card2
+		await card.battleComplete(0x1, 0x2, 0, 1, 1); // card1 lost card2
 		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
 		assert.equal(1, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
@@ -536,14 +536,14 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
-		await assertThrowsAsync(async function() {await card.battleComplete.sendTransaction(0x1, 0x2, 0, {from: accounts[1]});});
+		await assertThrowsAsync(async function() {await card.battleComplete.sendTransaction(0x1, 0x2, 0, 0, 1, {from: accounts[1]});});
 	});
 	it("battle: ROLE_COMBAT_PROVIDER permission is enough to update card battle", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
 		await card.addOperator(accounts[1], ROLE_COMBAT_PROVIDER);
-		await card.battleComplete.sendTransaction(0x1, 0x2, 0, {from: accounts[1]});
+		await card.battleComplete.sendTransaction(0x1, 0x2, 0, 0, 1, {from: accounts[1]});
 		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 	});
