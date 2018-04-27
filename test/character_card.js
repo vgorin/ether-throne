@@ -586,6 +586,12 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(GAME_OUTCOME_DEFEAT, outcome1, "card 0x1 last game outcome is incorrect (3d game)");
 		assert.equal(GAME_OUTCOME_VICTORY, outcome2, "card 0x1 last game outcome is incorrect (3d game)");
 	});
+	it("battle: impossible to play a card game with yourself", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[0]);
+		await assertThrowsAsync(async function() {await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);});
+	});
 	it("battle: impossible to update card battle without ROLE_COMBAT_PROVIDER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);

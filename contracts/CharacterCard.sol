@@ -477,7 +477,8 @@ contract CharacterCard {
     require(card1.owner != address(0));
     require(card2.owner != address(0));
 
-    // TODO: do we need to check if two cards have different owners?
+    // check if two cards have different owners
+    require(card1.owner != card2.owner);
 
     // arithmetic overflow checks before updating cards
     require(card1.gamesPlayed + gamesPlayed > card1.gamesPlayed);

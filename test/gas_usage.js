@@ -39,13 +39,13 @@ contract('CharacterCard: Gas Usage', function(accounts) {
 		assert(gasUsed <= 34387, "remove attributes gas usage is to high: " + gasUsed);
 	});
 
-	it("battle: playing a game requires no more then 86304 gas", async function() {
+	it("battle: playing a game requires no more then 86932 gas", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
 		const result = await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);
 		const gasUsed = result.receipt.gasUsed;
-		assert(gasUsed <= 86304, "playing a game gas usage is to high: " + gasUsed);
+		assert(gasUsed <= 86932, "playing a game gas usage is to high: " + gasUsed);
 	});
 
 });
