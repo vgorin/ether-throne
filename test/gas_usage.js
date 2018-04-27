@@ -45,7 +45,7 @@ contract('CharacterCard: Gas Usage', function(accounts) {
 		await card.mint(0x2, accounts[1]);
 		const result = await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);
 		const gasUsed = result.receipt.gasUsed;
-		assert(gasUsed >= 86932 && gasUsed <= 142685, "playing a game gas usage is too high: " + gasUsed);
+		assert(gasUsed >= 86932 && gasUsed <= 142734, "playing a game gas usage is too high: " + gasUsed);
 	});
 
 });

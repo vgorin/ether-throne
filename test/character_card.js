@@ -17,6 +17,24 @@ const CharacterCard = artifacts.require("./CharacterCard.sol");
 // more info: https://beresnev.pro/test-overloaded-solidity-functions-via-truffle/
 const web3Abi = require('web3-eth-abi');
 
+// ABI of battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)
+const battleCompleteAbi = {
+	"constant": false,
+	"inputs": [
+		{"name": "card1Id", "type": "uint16"},
+		{"name": "card2Id", "type": "uint16"},
+		{"name": "wins", "type": "uint32"},
+		{"name": "loses", "type": "uint32"},
+		{"name": "gamesPlayed", "type": "uint32"},
+		{"name": "lastGameOutcome", "type": "uint8"}
+	],
+	"name": "battleComplete",
+	"outputs": [],
+	"payable": false,
+	"stateMutability": "nonpayable",
+	"type": "function"
+};
+
 contract('CharacterCard', function(accounts) {
 	it("initial state", async function() {
 		const card = await CharacterCard.new();
@@ -127,15 +145,15 @@ contract('CharacterCard', function(accounts) {
 	it("permissions: impossible to remove role without ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR | ROLE_COMBAT_PROVIDER);
-		await card.addOperator(accounts[2], ROLE_COMBAT_PROVIDER);
+		await card.addOperator(accounts[2], ROLE_CARD_CREATOR | ROLE_COMBAT_PROVIDER);
 		await assertThrowsAsync(async function() {
 			await card.removeRole.sendTransaction(accounts[2], ROLE_COMBAT_PROVIDER, {from: accounts[1]});
 		});
 	});
 	it("permissions: impossible to remove role which caller doesn't have", async function() {
 		const card = await CharacterCard.new();
-		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
-		await card.addOperator(accounts[2], ROLE_COMBAT_PROVIDER);
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR | ROLE_ROLE_MANAGER);
+		await card.addOperator(accounts[2], ROLE_CARD_CREATOR | ROLE_COMBAT_PROVIDER);
 		await assertThrowsAsync(async function() {
 			await card.removeRole.sendTransaction(accounts[2], ROLE_COMBAT_PROVIDER, {from: accounts[1]});
 		});
@@ -182,8 +200,8 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0, (await card.cards(0x1))[1], "newly minted card has wrong index");
 		assert.equal(accounts[0], (await card.cards(0x1))[12], "newly minted card has wrong owner address");
 		const tuple = await card.getCard(0x1);
-		console.log(tuple[0].toString(16));
-		console.log(tuple[1].toString(16));
+		assert.equal(0, tuple[0]);
+		assert.equal(0x627306090abab3a6e1400e9345bc60c78a8bef57, tuple[1]);
 	});
 	it("mint: mint few cards and check integrity of the structures involved", async function() {
 		const card = await CharacterCard.new();
@@ -333,13 +351,6 @@ contract('CharacterCard', function(accounts) {
 			await card.transferFrom.sendTransaction(accounts[0], accounts[1], 0x1);
 		});
 	});
-	it("transferFrom: impossible to transfer from zero address", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(0x1, accounts[0]);
-		await assertThrowsAsync(async function() {
-			await card.transferFrom.sendTransaction(0, accounts[1], 0x1);
-		});
-	});
 	it("transferFrom: operator approval can be exhausted (spent)", async function() {
 		const card = await CharacterCard.new();
 		await card.approveForAll(accounts[0], 1, {from: accounts[1]});
@@ -436,18 +447,12 @@ contract('CharacterCard', function(accounts) {
 		// create a card instance
 		const cardInstance = await CharacterCard.new();
 
-		// ABI of  approveForAll(address to, bool approved)
+		// ABI of approveForAll(address to, bool approved)
 		const overloadedApproveForAllAbi = {
 			"constant": false,
 			"inputs": [
-				{
-					"name": "to",
-					"type": "address"
-				},
-				{
-					"name": "approved",
-					"type": "bool"
-				}
+				{"name": "to", "type": "address"},
+				{"name": "approved", "type": "bool"}
 			],
 			"name": "approveForAll",
 			"outputs": [],
@@ -459,14 +464,16 @@ contract('CharacterCard', function(accounts) {
 		// approveForAll(accounts[1], true)
 		const approveForAllMethodTransactionData = web3Abi.encodeFunctionCall(
 			overloadedApproveForAllAbi,
-			[
-				accounts[1],
-				true
-			]
+			[accounts[1], true]
 		);
 
 		// send raw transaction data
-		await CharacterCard.web3.eth.sendTransaction({from: accounts[0], to: cardInstance.address, data: approveForAllMethodTransactionData, value: 0});
+		await CharacterCard.web3.eth.sendTransaction({
+			from: accounts[0],
+			to: cardInstance.address,
+			data: approveForAllMethodTransactionData,
+			value: 0
+		});
 
 		// check the result is greater then zero
 		assert(await cardInstance.operators(accounts[0], accounts[1]) > 0, "approvals left must be greater then zero");
@@ -481,6 +488,10 @@ contract('CharacterCard', function(accounts) {
 	it("approveForAll: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.approveForAll(accounts[0], 1);});
+	});
+	it("approveForAll: impossible to approve zero address", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.approveForAll(0, 1);});
 	});
 
 	it("collections: iterate over the collection of cards", async function() {
@@ -587,17 +598,17 @@ contract('CharacterCard', function(accounts) {
 		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_VICTORY); // card1 won card2
 		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
-		assert.equal(0, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
+		assert.equal(0, (await card.cards(0x1))[7], "card 0x1 losses counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 		assert.equal(0, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
-		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 loses counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 losses counter is incorrect");
 		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DEFEAT); // card1 lost card2
 		assert.equal(2, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
-		assert.equal(1, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
+		assert.equal(1, (await card.cards(0x1))[7], "card 0x1 losses counter is incorrect");
 		assert.equal(2, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
-		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 loses counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 losses counter is incorrect");
 	});
 	it("battle: last game outcome is GAME_OUTCOME_UNDEFINED initially", async function() {
 		const card = await CharacterCard.new();
@@ -648,6 +659,17 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(0x2, accounts[0]);
 		await assertThrowsAsync(async function() {await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);});
 	});
+	it("battle: impossible to play a card game with one non-existent card", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await assertThrowsAsync(async function() {await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);});
+		await assertThrowsAsync(async function() {await card.battleComplete(0x2, 0x1, GAME_OUTCOME_DRAW);});
+	});
+	it("battle: impossible to play a card game with both non-existent cards", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DRAW);});
+		await assertThrowsAsync(async function() {await card.battleComplete(0x2, 0x1, GAME_OUTCOME_DRAW);});
+	});
 	it("battle: impossible to update card battle without ROLE_COMBAT_PROVIDER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
@@ -663,6 +685,183 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
 		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 	});
+
+	it("battle: batch update", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+
+		// battleComplete(0x1, 0x2, 149999, 50001, 299999, 3)
+		await CharacterCard.web3.eth.sendTransaction({
+			from: accounts[0],
+			to: card.address,
+			data: web3Abi.encodeFunctionCall(
+				battleCompleteAbi,
+				[0x1, 0x2, 149999, 50001, 299999, GAME_OUTCOME_VICTORY]
+			),
+			value: 0
+		});
+
+		// check the results
+		assert(299999, await card.cards(0x1)[5], "card 0x1 has wrong total games played counter");
+		assert(299999, await card.cards(0x2)[5], "card 0x2 has wrong total games played counter");
+		assert(149999, await card.cards(0x1)[6], "card 0x1 has wrong wins counter");
+		assert( 50001, await card.cards(0x2)[6], "card 0x2 has wrong wins counter");
+		assert( 50001, await card.cards(0x1)[7], "card 0x1 has wrong losses counter");
+		assert(149999, await card.cards(0x2)[7], "card 0x2 has wrong losses counter");
+	});
+	it("battle: impossible to batch update if gamesPlayed is zero", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+
+		// check it throws if gamesPlayed is zero
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 0, 0, 0, GAME_OUTCOME_DRAW]
+				),
+				value: 0
+			});
+		});
+	});
+	it("battle: impossible to batch update if wins + loses is greater then gamesPlayed", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+
+		// check it throws if wins + loses is greater then gamesPlayed
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 1, 1, 1, GAME_OUTCOME_VICTORY]
+				),
+				value: 0
+			});
+		});
+	});
+	it("battle: impossible to batch update if lastGameOutcome is inconsistent with wins/losses", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+
+		// check it throws if wins + loses is greater then gamesPlayed
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 0, 1, 1, GAME_OUTCOME_VICTORY]
+				),
+				value: 0
+			});
+		});
+		// check it throws if wins + loses is greater then gamesPlayed
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 1, 0, 1, GAME_OUTCOME_DEFEAT]
+				),
+				value: 0
+			});
+		});
+		// check it throws if wins + loses is greater then gamesPlayed
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 1, 0, 1, GAME_OUTCOME_DRAW]
+				),
+				value: 0
+			});
+		});
+	});
+	it("battle: arithmetic overflow check in input parameters", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+
+		// check arithmetic overflow on wins
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 4294967295, 1, 1, GAME_OUTCOME_VICTORY]
+				),
+				value: 0
+			});
+		});
+		// check arithmetic overflow on losses
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 1, 4294967295, 1, GAME_OUTCOME_VICTORY]
+				),
+				value: 0
+			});
+		});
+	});
+	it("battle: arithmetic overflow check on card state", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+		await card.mint(0x3, accounts[2]);
+
+		// battleComplete(0x1, 0x2, 149999, 50001, 199999, 3)
+		await CharacterCard.web3.eth.sendTransaction({
+			from: accounts[0],
+			to: card.address,
+			data: web3Abi.encodeFunctionCall(
+				battleCompleteAbi,
+				[0x1, 0x2, 1, 4294967294, 4294967295, GAME_OUTCOME_VICTORY]
+			),
+			value: 0
+		});
+
+		// check arithmetic overflow on gamesPlayed card1
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x1, 0x2, 1, 0, 1, GAME_OUTCOME_VICTORY]
+				),
+				value: 0
+			});
+		});
+
+		// check arithmetic overflow on gamesPlayed card2
+		await assertThrowsAsync(async function() {
+			await CharacterCard.web3.eth.sendTransaction({
+				from: accounts[0],
+				to: card.address,
+				data: web3Abi.encodeFunctionCall(
+					battleCompleteAbi,
+					[0x3, 0x2, 1, 0, 1, GAME_OUTCOME_VICTORY]
+				),
+				value: 0
+			});
+		});
+	});
+
 });
 
 async function assertThrowsAsync(fn) {
