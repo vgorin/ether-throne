@@ -156,8 +156,10 @@ contract CharacterCard {
 
   /// @dev Event names are self-explanatory:
   /// @dev Fired in mint()
-  event Minted(uint16 indexed cardId, address indexed to);
-  /// @dev Fired in transfer(), transferFor()
+  /// @dev Address `from` allows to track who created a card
+  event Minted(uint16 indexed cardId, address indexed to, address from);
+  /// @dev Fired in transfer(), transferFor(), mint()
+  /// @dev When minting a card, address `from` is zero
   event Transfer(address indexed from, address indexed to, uint16 cardId);
   /// @dev Fired in approve()
   event Approval(uint16 indexed cardId, address indexed approved);
@@ -690,8 +692,11 @@ contract CharacterCard {
    * @param attributes a bitmask of the card attributes
    */
   function mintWith(uint16 cardId, address to, uint32 state, uint32 rarity, uint32 attributes) public {
+    // call sender nicely - `from`
+    address from = msg.sender;
+
     // check if caller has sufficient permissions to mint a card
-    require(isSenderInRole(ROLE_CARD_CREATOR));
+    require(isUserInRole(from, ROLE_CARD_CREATOR));
 
     // validate destination address
     require(to != address(0));
@@ -731,7 +736,7 @@ contract CharacterCard {
     totalSupply++;
 
     // fire a Mint event
-    emit Minted(cardId, to);
+    emit Minted(cardId, to, from);
     // fire Transfer event (ERC20 compatibility)
     emit Transfer(address(0), to, cardId);
   }
