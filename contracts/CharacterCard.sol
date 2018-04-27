@@ -1,4 +1,4 @@
-pragma solidity 0.4.18;
+pragma solidity 0.4.23;
 
 /**
  * @notice Character card is unique tradable entity. Non-fungible.
@@ -145,7 +145,7 @@ contract CharacterCard {
   event BattleComplete(uint16 indexed card1Id, uint16 indexed card2Id, int8 outcome);
 
   /// @dev Creates a card as a ERC721 token
-  function CharacterCard() public {
+  constructor() public {
     // call sender gracefully - contract `creator`
     address creator = msg.sender;
 
@@ -180,13 +180,13 @@ contract CharacterCard {
 
     // recalculate permissions (role) to set:
     // we cannot create an operator more powerful then calling `manager`
-    role &= p;
+    uint32 r = role & p;
 
     // check if we still have some permissions (role) to set
-    require(role != 0);
+    require(r != 0);
 
     // create an operator by persisting his permissions (roles) to storage
-    userRoles[operator] = role;
+    userRoles[operator] = r;
   }
 
   /**
@@ -235,13 +235,13 @@ contract CharacterCard {
 
     // recalculate permissions (role) to add:
     // we cannot make an operator more powerful then calling `manager`
-    role &= p;
+    uint32 r = role & p;
 
     // check if we still have some permissions (role) to add
-    require(role != 0);
+    require(r != 0);
 
     // update operator's permissions (roles) in the storage
-    userRoles[operator] |= role;
+    userRoles[operator] |= r;
   }
 
   /**
@@ -269,13 +269,13 @@ contract CharacterCard {
 
     // recalculate permissions (role) to remove:
     // we cannot revoke permissions which calling `manager` doesn't have
-    role &= p;
+    uint32 r = role & p;
 
     // check if we still have some permissions (role) to revoke
-    require(role != 0);
+    require(r != 0);
 
     // update operator's permissions (roles) in the storage
-    userRoles[operator] &= FULL_PRIVILEGES_MASK ^ role;
+    userRoles[operator] &= FULL_PRIVILEGES_MASK ^ r;
   }
 
   /**
@@ -430,7 +430,7 @@ contract CharacterCard {
     card2.lastGamePlayed = uint32(block.number);
 
     // fire an event
-    BattleComplete(card1Id, card2Id, outcome);
+    emit BattleComplete(card1Id, card2Id, outcome);
   }
 
   /**
@@ -656,7 +656,7 @@ contract CharacterCard {
    * @param to address to receive the ownership of the card
    * @param cardId ID of the card to be transferred
    */
-  function transferFrom(address from, address to, uint16 cardId) public {
+  function transferFrom(address from, address to, uint16 cardId) external {
     // call sender gracefully - `operator`
     address operator = msg.sender;
     // find if an approved address exists for this card
@@ -713,7 +713,7 @@ contract CharacterCard {
     approvals[cardId] = to;
 
     // emit en event
-    Approval(cardId, to);
+    emit Approval(cardId, to);
   }
 
   /**
@@ -755,7 +755,7 @@ contract CharacterCard {
     operators[from][to] = approved;
 
     // emit an event
-    ApprovalForAll(from, to, approved);
+    emit ApprovalForAll(from, to, approved);
   }
 
   /// @notice Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
@@ -825,7 +825,7 @@ contract CharacterCard {
     cards[cardId] = card;
 
     // fire an event
-    Transfer(from, to, cardId);
+    emit Transfer(from, to, cardId);
   }
 
   /// @dev Clears approved address for a particular card
@@ -836,7 +836,7 @@ contract CharacterCard {
       delete approvals[cardId];
 
       // emit event
-      Approval(cardId, address(0));
+      emit Approval(cardId, address(0));
     }
   }
 
@@ -851,7 +851,7 @@ contract CharacterCard {
       operators[owner][operator] = --approvalsLeft;
 
       // emit an event
-      ApprovalForAll(owner, operator, approvalsLeft);
+      emit ApprovalForAll(owner, operator, approvalsLeft);
     }
   }
 
