@@ -679,8 +679,8 @@ contract CharacterCard {
     else {
       // transaction sender doesn't have any special permissions
       // we will treat him as a card owner and sender and try to perform
-      // a regular transfer, update `from` to be `operator` (transaction sender):
-      from = operator;
+      // a regular transfer, check `from` to be `operator` (transaction sender):
+      require(from == operator);
     }
 
     // delegate call to unsafe `__transfer`
