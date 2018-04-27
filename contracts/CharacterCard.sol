@@ -141,8 +141,8 @@ contract CharacterCard {
   event Approval(uint16 indexed cardId, address indexed approved);
   /// @dev Fired in approveForAll()
   event ApprovalForAll(address indexed owner, address indexed operator, uint256 approved);
-  /// @dev Fired in battleComplete()
-  event BattleComplete(uint16 indexed card1Id, uint16 indexed card2Id, int8 outcome);
+  /// @dev Fired in battlesComplete(), battleComplete()
+  event BattlesComplete(uint16 indexed card1Id, uint16 indexed card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed);
 
   /// @dev Creates a card as a ERC721 token
   constructor() public {
@@ -199,7 +199,7 @@ contract CharacterCard {
     require(userRoles[operator] != 0);
 
     // do not allow transaction sender to remove himself
-    // TODO: do we need this?
+    // protects from an accidental removal of all the operators
     require(operator != msg.sender);
 
     // check if caller has ROLE_ROLE_MANAGER
@@ -370,13 +370,18 @@ contract CharacterCard {
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId]; // TODO: check if modifying a card in the memory is cheaper
+    Card storage card = cards[cardId];
 
     // check that card to set attributes for exists
     require(card.owner != address(0));
 
     // set the state required
     card.state = state;
+
+    // persist card back into the storage
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[cardId];`
+    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
@@ -388,18 +393,43 @@ contract CharacterCard {
    *      -1 means that first card lost and second card won
    *      1 means that first card won and second card lost
    */
-  // TODO: do we need to update state as well?
   function battleComplete(uint16 card1Id, uint16 card2Id, int8 outcome) public {
     // check if outcome is one of -1, 0, +1
-    // TODO: do we need to allow bulk battle complete update when outcome can be any bulk number?
     require(outcome == -1 || outcome == 0 || outcome == 1);
+
+    // prepare wins/loses variables to delegate call to `battlesComplete`
+    uint32 wins = outcome == 1? 1: 0;
+    uint32 loses = outcome == -1? 1: 0;
+
+    // delegate call to `battlesComplete`
+    battlesComplete(card1Id, card2Id, wins, loses, 1);
+  }
+
+  /**
+   * @dev A mechanism to update two cards which were engaged in a battle
+   * @dev Same as battleComplete but allows for a batch update
+   * @param card1Id first card's ID engaged in a battle
+   * @param card2Id second card's ID engaged in a battle
+   * @param wins number of times 1st card won (2nd lost)
+   * @param loses number of times 1st card lost (2nd won)
+   * @param gamesPlayed total games played
+   */
+  // TODO: do we need to update card state (last game outcome for example)?
+  function battlesComplete(uint16 card1Id, uint16 card2Id, uint32 wins, uint32 loses, uint32 gamesPlayed) public {
+    // arithmetic overflow checks
+    require(wins <= wins + loses);
+    require(loses <= wins + loses);
+
+    // input data sanity check
+    require(gamesPlayed != 0);
+    require(wins + loses <= gamesPlayed);
 
     // check that the call is made by a combat provider
     require(isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get cards from the storage
-    Card memory card1 = cards[card1Id]; // TODO: check if modifying a card in the storage is cheaper
-    Card memory card2 = cards[card2Id]; // TODO: check if modifying a card in the storage is cheaper
+    Card storage card1 = cards[card1Id];
+    Card storage card2 = cards[card2Id];
 
     // check if both card exist
     require(card1.owner != address(0));
@@ -407,37 +437,42 @@ contract CharacterCard {
 
     // TODO: do we need to check if two cards have different owners?
 
-    // update games played counters
-    card1.gamesPlayed++;
-    card2.gamesPlayed++;
+    // arithmetic overflow checks before updating cards
+    require(card1.gamesPlayed + gamesPlayed > card1.gamesPlayed);
+    require(card2.gamesPlayed + gamesPlayed > card2.gamesPlayed);
 
-    // game outcome may be card1 > card2
-    if(outcome == 1) {
-      // card1 won card2
-      card1.wins++;
-      card2.loses++;
-    }
-    // or it may be card1 < card2
-    else if(outcome == -1) {
-      // card2 won card1
-      card1.loses++;
-      card2.wins++;
-    }
-    // or it may be card1 = card2 (draw)
+    // no need to check for arithmetic overflows in wins/loses,
+    // since these numbers cannot exceed gamesPlayed number
+    // if these validations do not pass – it's a bug
+    assert(card1.wins + wins >= card1.wins);
+    assert(card1.loses + loses >= card1.loses);
+    assert(card2.wins + loses >= card2.wins);
+    assert(card2.loses + wins >= card2.loses);
+
+    // update games played counters
+    card1.gamesPlayed += gamesPlayed;
+    card2.gamesPlayed += gamesPlayed;
+
+    // update outcomes
+    // for card1 its straight forward
+    card1.wins += wins;
+    card1.loses += loses;
+    // for card2 its vice versa (card1 win = card2 lose)
+    card2.wins += loses;
+    card2.loses += wins;
 
     // update last game played times
     card1.lastGamePlayed = uint32(block.number);
     card2.lastGamePlayed = uint32(block.number);
 
-
     // persist cards back into the storage
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[cardId];`
-    cards[card1Id] = card1; // uncomment if card is in memory (will increase gas usage!)
-    cards[card2Id] = card2; // uncomment if card is in memory (will increase gas usage!)
+    //cards[card1Id] = card1; // uncomment if card is in memory (will increase gas usage!)
+    //cards[card2Id] = card2; // uncomment if card is in memory (will increase gas usage!)
 
     // fire an event
-    emit BattleComplete(card1Id, card2Id, outcome);
+    emit BattlesComplete(card1Id, card2Id, wins, loses, gamesPlayed);
   }
 
   /**
