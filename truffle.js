@@ -10,7 +10,15 @@ module.exports = {
 			),
 			network_id: "3", // Match only Ropsten
 			gas: 4700000,
-			gasPrice: 200000000000 // 200 GWei
+			gasPrice: 20000000000 // 20 GWei
 		},
+	},
+/*
+	solc: {
+		optimizer: {
+			enabled: true,
+			runs: 200 // default is 200, however for function execution the effect is noticeable up to 20000
+		}
 	}
+*/
 };
