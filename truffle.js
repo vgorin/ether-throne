@@ -5,8 +5,8 @@ module.exports = {
 	networks: {
 		development: {
 			provider: new HDWalletProvider(
-				"12 seed words, see https://freewallet.org/bip39-recovery-from-mnemonic-bitcoin-and-other-cryptocurrencies#english",
-				"https://ropsten.infura.io/***key***"
+				"goddess bundle miss dance loop arm want life asthma leader coin describe",
+				"https://rinkeby.infura.io/9A7EpV9S7shj1LWKy1s2"
 			),
 			network_id: "3", // Match only Ropsten
 			gas: 4700000,

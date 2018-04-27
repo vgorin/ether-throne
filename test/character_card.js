@@ -24,6 +24,9 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0, await card.balanceOf(accounts[0]), "initial card balance must be zero");
 		assert(!await card.exists(0x1), "card 0x1 should not exist initially");
 		await assertThrowsAsync(async function() {await card.ownerOf(0x1);});
+		await assertThrowsAsync(async function() {await card.getCard(0x1);});
+		await assertThrowsAsync(async function() {await card.getState(0x1);});
+		await assertThrowsAsync(async function() {await card.getAttributes(0x1);});
 		await assertThrowsAsync(async function() {await card.collections(accounts[0], 0);});
 	});
 
@@ -121,6 +124,22 @@ contract('CharacterCard', function(accounts) {
 			await card.addRole.sendTransaction(accounts[2], ROLE_CARD_CREATOR, {from: accounts[1]});
 		});
 	});
+	it("permissions: impossible to remove role without ROLE_ROLE_MANAGER permission", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR | ROLE_COMBAT_PROVIDER);
+		await card.addOperator(accounts[2], ROLE_COMBAT_PROVIDER);
+		await assertThrowsAsync(async function() {
+			await card.removeRole.sendTransaction(accounts[2], ROLE_COMBAT_PROVIDER, {from: accounts[1]});
+		});
+	});
+	it("permissions: impossible to remove role which caller doesn't have", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
+		await card.addOperator(accounts[2], ROLE_COMBAT_PROVIDER);
+		await assertThrowsAsync(async function() {
+			await card.removeRole.sendTransaction(accounts[2], ROLE_COMBAT_PROVIDER, {from: accounts[1]});
+		});
+	});
 	it("permissions: add role using ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR | ROLE_ROLE_MANAGER);
@@ -162,6 +181,9 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0x1, (await card.cards(0x1))[0], "newly minted card has wrong id");
 		assert.equal(0, (await card.cards(0x1))[1], "newly minted card has wrong index");
 		assert.equal(accounts[0], (await card.cards(0x1))[12], "newly minted card has wrong owner address");
+		const tuple = await card.getCard(0x1);
+		console.log(tuple[0].toString(16));
+		console.log(tuple[1].toString(16));
 	});
 	it("mint: mint few cards and check integrity of the structures involved", async function() {
 		const card = await CharacterCard.new();
@@ -305,6 +327,19 @@ contract('CharacterCard', function(accounts) {
 			await card.transferFrom.sendTransaction(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		});
 	});
+	it("transferFrom: impossible to transfer non-existent card", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {
+			await card.transferFrom.sendTransaction(accounts[0], accounts[1], 0x1);
+		});
+	});
+	it("transferFrom: impossible to transfer from zero address", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await assertThrowsAsync(async function() {
+			await card.transferFrom.sendTransaction(0, accounts[1], 0x1);
+		});
+	});
 	it("transferFrom: operator approval can be exhausted (spent)", async function() {
 		const card = await CharacterCard.new();
 		await card.approveForAll(accounts[0], 1, {from: accounts[1]});
@@ -363,8 +398,25 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("approve: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
-		await card.mint(0x1, accounts[1]);
+		await card.mint(0x1, accounts[0]);
 		await assertThrowsAsync(async function() {await card.approve(accounts[0], 0x1);});
+	});
+	it("approve: approval toggling (normal scenario)", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.approve(accounts[1], 0x1);
+		await card.approve(0, 0x1);
+		await card.approve(accounts[1], 0x1);
+		await card.approve(0, 0x1);
+	});
+	it("approve: approval toggling (wrong scenario)", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await assertThrowsAsync(async function() {await card.approve(0, 0x1);});
+		await card.approve(accounts[1], 0x1);
+		await card.approve(accounts[1], 0x1);
+		await card.approve(0, 0x1);
+		await assertThrowsAsync(async function() {await card.approve(0, 0x1);});
 	});
 
 	it("approveForAll: create operator", async function() {
@@ -515,6 +567,10 @@ contract('CharacterCard', function(accounts) {
 		await card.setState(0x1, 0x8000);
 		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 0x1);});
 	});
+	it("card locking: impossible to set lockedBitmask without ROLE_COMBAT_PROVIDER permission", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.setLockedBitmask.sendTransaction(0x8000, {from: accounts[1]});});
+	});
 
 	it("battle: it is possible to play a game", async function() {
 		const card = await CharacterCard.new();
@@ -586,7 +642,7 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(GAME_OUTCOME_DEFEAT, outcome1, "card 0x1 last game outcome is incorrect (3d game)");
 		assert.equal(GAME_OUTCOME_VICTORY, outcome2, "card 0x1 last game outcome is incorrect (3d game)");
 	});
-	it("battle: impossible to play a card game with yourself", async function() {
+	it("battle: impossible to play a card game with oneself", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[0]);

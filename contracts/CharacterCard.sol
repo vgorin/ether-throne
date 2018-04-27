@@ -814,7 +814,7 @@ contract CharacterCard {
     // approval for owner himself is pointless, do not allow
     require(to != owner);
     // either we're removing approval, or setting it
-    require(approvals[cardId] != 0 || to != address(0));
+    require(approvals[cardId] != address(0) || to != address(0));
 
     // set an approval (deletes an approval if to == 0)
     approvals[cardId] = to;
