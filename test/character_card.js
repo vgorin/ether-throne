@@ -53,14 +53,14 @@ contract('CharacterCard', function(accounts) {
 			await card.addOperator.sendTransaction(accounts[2], ROLE_CARD_CREATOR, {from: account[1]});
 		});
 	});
-	it("roles: adding an operator requires ROLE_ROLE_MANAGER permission", async function() {
+	it("roles: impossible to add an operator without ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
 		await assertThrowsAsync(async function() {
 			await card.addOperator.sendTransaction(accounts[2], ROLE_CARD_CREATOR, {from: accounts[1]});
 		});
 	});
-	it("roles: removing operator requires ROLE_ROLE_MANAGER permission", async function() {
+	it("roles: impossible to remove an operator without ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
 		await card.addOperator(accounts[2], ROLE_CARD_CREATOR);
@@ -184,11 +184,11 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint(0x1, 0);});
 	});
-	it("mint: impossible to mint a card without appropriate permission", async function() {
+	it("mint: impossible to mint a card without ROLE_CARD_CREATOR permission", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});});
 	});
-	it("mint: minting a card requires appropriate permission", async function() {
+	it("mint: minting a card requires ROLE_CARD_CREATOR permission", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
 		await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});
@@ -461,7 +461,7 @@ contract('CharacterCard', function(accounts) {
 		await card.removeAttributes(0x1, 2);
 		assert.equal(5, await card.getAttributes(0x1), "wrong attributes for card 0x1");
 	});
-	it("card updates: setting attributes requires appropriate permissions", async function() {
+	it("card updates: setting attributes requires ROLE_COMBAT_PROVIDER permissions", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.addOperator(accounts[1], ROLE_COMBAT_PROVIDER);
@@ -509,17 +509,44 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 0x1);});
 	});
 
-/*
 	it("battle: it is possible to play a game", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(0x1, accounts[0]);
 		await card.mint(0x2, accounts[1]);
 		await card.battleComplete(0x1, 0x2, 0);
 		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
-		assert.equal(1, (await card.cards(0x2))[5], "card 0x1 games played counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
 	});
-	it("battle: ");
-*/
+	it("battle: card game results are stored correctly", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+		await card.battleComplete(0x1, 0x2, 1); // card1 won card2
+		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
+		assert.equal(0, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
+		assert.equal(0, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 loses counter is incorrect");
+		await card.battleComplete(0x1, 0x2, -1); // card1 lost card2
+		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
+		assert.equal(1, (await card.cards(0x1))[7], "card 0x1 loses counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 loses counter is incorrect");
+	});
+	it("battle: impossible to update card battle without ROLE_COMBAT_PROVIDER permission", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+		await assertThrowsAsync(async function() {await card.battleComplete.sendTransaction(0x1, 0x2, 0, {from: accounts[1]});});
+	});
+	it("battle: ROLE_COMBAT_PROVIDER permission is enough to update card battle", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x1, accounts[0]);
+		await card.mint(0x2, accounts[1]);
+		await card.addOperator(accounts[1], ROLE_COMBAT_PROVIDER);
+		await card.battleComplete.sendTransaction(0x1, 0x2, 0, {from: accounts[1]});
+		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
+		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
+	});
 });
 
 async function assertThrowsAsync(fn) {

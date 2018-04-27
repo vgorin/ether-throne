@@ -429,6 +429,13 @@ contract CharacterCard {
     card1.lastGamePlayed = uint32(block.number);
     card2.lastGamePlayed = uint32(block.number);
 
+
+    // persist cards back into the storage
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[cardId];`
+    cards[card1Id] = card1; // uncomment if card is in memory (will increase gas usage!)
+    cards[card2Id] = card2; // uncomment if card is in memory (will increase gas usage!)
+
     // fire an event
     emit BattleComplete(card1Id, card2Id, outcome);
   }
