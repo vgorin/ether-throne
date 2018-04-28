@@ -8,6 +8,13 @@ pragma solidity 0.4.23;
  * @dev A card supports minting but not burning, a card cannot be destroyed
  */
 contract CharacterCard {
+  /// @dev ERC20 compatible token symbol
+  string public constant symbol = "ET";
+  /// @dev ERC20 compatible token name
+  string public constant name = "Character Card - Ether Throne";
+  /// @dev ERC20 compatible token decimals
+  /// @dev this can be only zero, since ERC721 token is non-fungible
+  uint8 public constant decimals = 0;
 
   /// @dev A character card data structure
   /// @dev Occupies 64 bytes of storage (512 bits)
@@ -769,7 +776,7 @@ contract CharacterCard {
    * @param to address to receive the ownership of the card
    * @param cardId ID of the card to be transferred
    */
-  function transferFrom(address from, address to, uint16 cardId) external {
+  function transferFrom(address from, address to, uint16 cardId) public {
     // call sender gracefully - `operator`
     address operator = msg.sender;
     // find if an approved address exists for this card
