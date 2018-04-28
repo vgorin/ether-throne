@@ -964,6 +964,8 @@ function shift(number, n) {
 	return number;
 }
 
+// ensures that the function passed throws an exception
+// usage example: await assertThrowsAsync(async function(){// do some sync stuff});
 async function assertThrowsAsync(fn) {
 	let f = function() {};
 	try {

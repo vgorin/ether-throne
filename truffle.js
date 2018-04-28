@@ -5,8 +5,8 @@ module.exports = {
 	networks: {
 		development: {
 			provider: new HDWalletProvider(
-				"goddess bundle miss dance loop arm want life asthma leader coin describe",
-				"https://rinkeby.infura.io/9A7EpV9S7shj1LWKy1s2"
+				"12 mnemonic words",
+				"https://rinkeby.infura.io/***key***"
 			),
 			network_id: "3", // Match only Ropsten
 			gas: 4700000,
