@@ -340,20 +340,20 @@ contract CharacterCard {
     require(owner != address(0));
 
     // pack high 256 bits of the result
-    uint256 high = card.id << 240
-                 | card.index << 224
-                 | card.creationTime << 192
-                 | card.ownershipModified << 160
-                 | card.attributesModified << 128
-                 | card.gamesPlayed << 96
-                 | card.wins << 64
-                 | card.losses << 32
-                 | card.state;
+    uint256 high = uint256(card.id) << 240
+                 | uint240(card.index) << 224
+                 | uint224(card.creationTime) << 192
+                 | uint192(card.ownershipModified) << 160
+                 | uint160(card.attributesModified) << 128
+                 | uint128(card.gamesPlayed) << 96
+                 | uint96(card.wins) << 64
+                 | uint64(card.losses) << 32
+                 | uint32(card.state);
 
     // pack low 256 bits of the result
-    uint256 low = card.rarity << 224
-                | card.lastGamePlayed << 192
-                | card.attributes << 160
+    uint256 low = uint256(card.rarity) << 224
+                | uint224(card.lastGamePlayed) << 192
+                | uint192(card.attributes) << 160
                 | uint160(card.owner);
 
     // return the whole 512 bits of result

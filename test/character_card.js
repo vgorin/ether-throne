@@ -199,9 +199,6 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0x1, (await card.cards(0x1))[0], "newly minted card has wrong id");
 		assert.equal(0, (await card.cards(0x1))[1], "newly minted card has wrong index");
 		assert.equal(accounts[0], (await card.cards(0x1))[12], "newly minted card has wrong owner address");
-		const tuple = await card.getCard(0x1);
-		assert.equal(0, tuple[0]);
-		assert.equal(0x627306090abab3a6e1400e9345bc60c78a8bef57, tuple[1]);
 	});
 	it("mint: mint few cards and check integrity of the structures involved", async function() {
 		const card = await CharacterCard.new();
@@ -862,7 +859,110 @@ contract('CharacterCard', function(accounts) {
 		});
 	});
 
+	it("getCard: check initial card integrity", async function() {
+		const card = await CharacterCard.new();
+		await card.mintWith(0x1, accounts[0], 7, 15, 31);
+		const tuple = await card.getCard(0x1);
+		const id = shiftRightAndApplyMask(tuple[0], 240, 16);
+		const index = shiftRightAndApplyMask(tuple[0], 224, 16);
+		const creationTime = shiftRightAndApplyMask(tuple[0], 192, 32);
+		const ownershipModified = shiftRightAndApplyMask(tuple[0], 160, 32);
+		const attributesModified = shiftRightAndApplyMask(tuple[0], 128, 32);
+		const gamesPlayed = shiftRightAndApplyMask(tuple[0], 96, 32);
+		const wins = shiftRightAndApplyMask(tuple[0], 64, 32);
+		const losses = shiftRightAndApplyMask(tuple[0], 32, 32);
+		const state = shiftRightAndApplyMask(tuple[0], 0, 32);
+		const rarity = shiftRightAndApplyMask(tuple[1], 224, 32);
+		const lastGamePlayed = shiftRightAndApplyMask(tuple[1], 192, 32);
+		const attributes =  shiftRightAndApplyMask(tuple[1], 160, 32);
+		const address = shiftRightAndApplyMask(tuple[1], 0, 160);
+		assert.equal(0x1, id, "card 0x1 has wrong id: " + id);
+		assert.equal(0, index, "card 0x1 has non-zero index");
+		assert(creationTime > 0, "card 0x1 has zero creation time");
+		assert.equal(0, ownershipModified, "card 0x1 has non-zero ownership modified date");
+		assert.equal(0, attributesModified, "card 0x1 has non-zero attributes modified date");
+		assert.equal(0, gamesPlayed, "card 0x1 has non-zero games played counter");
+		assert.equal(0, wins, "card 0x1 has non-zero wins counter");
+		assert.equal(0, losses, "card 0x1 has non-zero losses counter");
+		assert.equal(7, state, "card 0x1 has wrong state: " + state);
+		assert.equal(0xF, rarity, "card 0x1 has wrong rarity: " + rarity);
+		assert.equal(0, lastGamePlayed, "card 0x1 has non-zero last game played date" + lastGamePlayed);
+		assert.equal(0x1F, attributes, "card 0x1 has wrong attributes: " + attributes);
+		assert.equal(accounts[0], address, "card 0x1 has wrong owner: " + address);
+	});
+	it("getCard: check cards integrity after playing a game", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(0x10, accounts[0]);
+		await card.mintWith(0x1, accounts[0], 0, 15, 31);
+		await card.mint(0x2, accounts[1]);
+		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_VICTORY);
+		const tuple = await card.getCard(0x1);
+		const id = shiftRightAndApplyMask(tuple[0], 240, 16);
+		const index = shiftRightAndApplyMask(tuple[0], 224, 16);
+		const creationTime = shiftRightAndApplyMask(tuple[0], 192, 32);
+		const ownershipModified = shiftRightAndApplyMask(tuple[0], 160, 32);
+		const attributesModified = shiftRightAndApplyMask(tuple[0], 128, 32);
+		const gamesPlayed = shiftRightAndApplyMask(tuple[0], 96, 32);
+		const wins = shiftRightAndApplyMask(tuple[0], 64, 32);
+		const losses = shiftRightAndApplyMask(tuple[0], 32, 32);
+		const state = shiftRightAndApplyMask(tuple[0], 0, 32);
+		const rarity = shiftRightAndApplyMask(tuple[1], 224, 32);
+		const lastGamePlayed = shiftRightAndApplyMask(tuple[1], 192, 32);
+		const attributes =  shiftRightAndApplyMask(tuple[1], 160, 32);
+		const address = shiftRightAndApplyMask(tuple[1], 0, 160);
+		assert.equal(0x1, id, "card 0x1 has wrong id: " + id);
+		assert.equal(1, index, "card 0x1 has wrong index: " + index);
+		assert(creationTime > 0, "card 0x1 has zero creation time");
+		assert.equal(0, ownershipModified, "card 0x1 has non-zero ownership modified date");
+		assert.equal(0, attributesModified, "card 0x1 has non-zero attributes modified date");
+		assert.equal(1, gamesPlayed, "card 0x1 has wrong games played counter: " + gamesPlayed);
+		assert.equal(1, wins, "card 0x1 has wrong wins counter: " + wins);
+		assert.equal(0, losses, "card 0x1 has non-zero losses counter");
+		assert.equal(3, state, "card 0x1 has wrong state: " + state);
+		assert.equal(0xF, rarity, "card 0x1 has wrong rarity: " + rarity);
+		assert(lastGamePlayed > 0, "card 0x1 has zero last game played date");
+		assert.equal(0x1F, attributes, "card 0x1 has wrong attributes: " + attributes);
+		assert.equal(accounts[0], address, "card 0x1 has wrong owner: " + address);
+	});
+
 });
+
+// equal to 0xFFFF & (number >> n), where 0xFFFF consists of k bits
+function shiftRightAndApplyMask(number, n, k) {
+	number = shift(number, n);
+
+	if(k % 8 !== 0) {
+		throw "k must be multiple of 8";
+	}
+
+	number = number.toString(16);
+	const octNum = k / 8;
+	const padLen = 2 * octNum - number.length;
+	if(padLen > 0) {
+		for(let i = 0; i < padLen; i++) {
+			number = "0" + number;
+		}
+	}
+	number = number.substr(number.length - 2 * octNum, 2 * octNum);
+
+	return "0x" + number;
+}
+
+// equal to number >> n if n is positive,
+// number << -n if n is negative
+function shift(number, n) {
+	if(n > 0) {
+		for(let i = 0; i < n; i++) {
+			number = number.dividedToIntegerBy(2);
+		}
+	}
+	else if(n < 0) {
+		for(let i = 0; i < -n; i++) {
+			number = number.multipledBy(2);
+		}
+	}
+	return number;
+}
 
 async function assertThrowsAsync(fn) {
 	let f = function() {};
