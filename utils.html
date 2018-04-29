@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Ether Throne: Utilities</title>
+	<style>
+		* {
+			font-family: monospace;
+		}
+		input[type=button] {
+			border-radius: 4px;
+			background: #F0F0F0;
+			box-shadow: 1px 1px 1px 1px silver;
+		}
+		input[type=button]:active {
+			box-shadow: none;
+		}
+	</style>
+</head>
+<body>
+<fieldset><legend>Card Parser</legend>
+<table>
+	<tr>
+		<td><label for="parse_card">Card:</label></td>
+		<td><input id="parse_card" type="text" size="128" value="000c000a0021875400000000000000000000000000000000000000000000000059d8bc9e000000000000001fed6003e7a6494db4ababeb7bdf994a3951ac6e69"/></td>
+	</tr>
+	<tr><td></td><td><input type="button" value="Parse" onclick="parse()"/></td></tr>
+</table>
+</fieldset>
+<fieldset><legend>Console <input type="button" value="Clear Console" onclick="document.getElementById('console').innerHTML = '';"/></legend>
+	<pre id="console"></pre>
+</fieldset>
+</body>
+<script type="text/javascript">
+function parse() {
+	const card = document.getElementById("parse_card").value;
+	const hex = /[0-9A-Fa-f]{128}/g;
+	if(card.length !== 128 || !hex.test(card)) {
+		printError("invalid card: card must be a 512 bit hex encoded number");
+		return;
+	}
+	printLog("Card " + card);
+	const id = parseCardToInt(card, 0, 4);
+	printLog("id: " + id);
+	const index = parseCardToInt(card, 4, 4);
+	printLog("index: " + index);
+	const created = parseCardToInt(card, 8, 8);
+	printLog("created: " + created);
+	const ownershipModified = parseCardToInt(card, 16, 8);
+	printLog("ownership modified: " + ownershipModified);
+	const attributesModified = parseCardToInt(card, 24, 8);
+	printLog("attributes modified: " + attributesModified);
+	const gamesPlayed = parseCardToInt(card, 32, 8);
+	printLog("games played: " + gamesPlayed);
+	const wins = parseCardToInt(card, 40, 8);
+	printLog("wins: " + wins);
+	const losses = parseCardToInt(card, 48, 8);
+	printLog("losses: " + losses);
+	const draws = gamesPlayed - wins - losses;
+	printLog("draws: " + draws);
+	const state = parseCardToInt(card, 56, 8);
+	const lgo = 0x3 & state; // last game outcome - lgo
+	if(lgo !== 0) {
+		printLog("last game: " + (lgo === 1? "lost": lgo === 2? "draw": "won"));
+	}
+	const inBattle = 0x4 & state !== 0;
+	if(inBattle) {
+		printLog("card is in battle and cannot be transferred");
+	}
+	const rarity = parseCardToInt(card, 64, 8);
+	printLog("rarity: " + rarity + " (" + Math.floor(10000 * rarity / 4294967295) / 100 + "%)");
+	const lastGamePlayed = parseCardToInt(card, 72, 8);
+	printLog("last game played: " + lastGamePlayed);
+	const attributes = parseCardToInt(card, 80, 8);
+	printLog("attributes: " + attributes.toString(2));
+	const owner = "0x" + card.substr(88, 40);
+	printLog("owner: " + owner);
+}
+
+function parseCardToInt(card, offset, length) {
+	return parseInt(card.substr(offset, length), 16);
+}
+
+const con = document.getElementById("console");
+
+function printLog(msg) {
+	console.log(msg);
+	con.innerHTML += msg;
+	con.innerHTML += "\n";
+}
+
+function printError(msg) {
+	console.error(msg);
+	con.innerHTML += '<span style="color: red;">' + msg + '</span>';
+	con.innerHTML += "\n";
+}
+</script>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Ether Throne: POC Client</title>
+	<style>
+		* {
+			font-family: monospace;
+		}
+		input[type=button] {
+			border-radius: 4px;
+			background: #F0F0F0;
+			box-shadow: 1px 1px 1px 1px silver;
+		}
+		input[type=button]:active {
+			box-shadow: none;
+		}
+	</style>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+</head>
+<body>
+<fieldset><legend>Connection Settings</legend>
+<table>
+	<tr>
+		<td><label for="CharacterCardAddress" title="Deployed Instance Address">Character Card (ERC721) Instance Address:</label></td>
+		<td><input id="CharacterCardAddress" type="text" value="0x907FbF4Ec91751270C4319340a9808a623a4BdD4" size="42"/></td>
+	</tr>
+	<tr>
+		<td></td>
+		<td><input type="button" value="Connect to the Card Instance" onclick="connect()"/></td>
+	</tr>
+</table>
+</fieldset>
+<fieldset><legend>Create a Card</legend>
+<table>
+	<tr>
+		<td><label for="mint_card_id">Card ID:</label></td>
+		<td><input id="mint_card_id" type="text" size="5"/> [1 &dash; 65535]</td>
+	</tr>
+	<tr>
+		<td><label for="mint_card_rarity">Rarity:</label></td>
+		<td>
+			<input id="mint_card_rarity" type="text" size="10"/>
+			<a title="generate" href="javascript:document.getElementById('mint_card_rarity').value = Math.floor(Math.random() * 4294967296);">
+				[0 &dash; 4294967295]
+			</a>
+		</td>
+	</tr>
+	<tr>
+		<td><label for="mint_card_attr">Attributes:</label></td>
+		<td>
+			<input id="mint_card_attr" type="text" size="32" value="00000000000000000000000000000111"/> 32 bits binary
+		</td>
+	</tr>
+	<tr>
+		<td><label for="mint_owner">Card Owner Address:</label></td>
+		<td><input id="mint_owner" type="text" size="42" value="0xEd6003e7A6494Db4ABabEB7bDf994A3951ac6e69"/></td>
+	</tr>
+	<tr><td></td><td><input type="button" value="Create" onclick="mint()"/></td></tr>
+</table>
+</fieldset>
+<fieldset><legend>Transfer a Card</legend>
+<table>
+	<tr>
+		<td><label for="transfer_card_id">Card ID:</label></td>
+		<td><input id="transfer_card_id" type="text" size="5"/> [1 &dash; 65535]</td>
+	</tr>
+	<tr>
+		<td><label for="transfer_to">Transfer To Address:</label></td>
+		<td><input id="transfer_to" type="text" size="42" value="0x2f4Fe9f655FF9316335D7200169Cd07d598ff7BC"/></td>
+	</tr>
+	<tr><td></td><td><input type="button" value="Transfer" onclick="transfer()"/></td></tr>
+</table>
+</fieldset>
+<fieldset><legend>Confirm Card Battle</legend>
+<table>
+	<tr>
+		<td><label for="battle_card1_id">First Card ID:</label></td>
+		<td><input id="battle_card1_id" type="text" size="5"/> [1 &dash; 65535]</td>
+	</tr>
+	<tr>
+		<td><label for="battle_card2_id">Second Card ID:</label></td>
+		<td><input id="battle_card2_id" type="text" size="5"/> [1 &dash; 65535]</td>
+	</tr>
+	<tr>
+		<td><label for="battle_outcome">Game Outcome:</label></td>
+		<td>
+			<select id="battle_outcome">
+				<option value="3">First Card Won</option>
+				<option value="1">Second Card Won</option>
+				<option value="2">Draw Game</option>
+			</select>
+		</td>
+	</tr>
+	<tr><td></td><td><input type="button" value="Confirm" onclick="confirm_battle()"/></td></tr>
+</table>
+</fieldset>
+<fieldset><legend>Console <input type="button" value="Clear Console" onclick="document.getElementById('console').innerHTML = '';"/></legend>
+	<pre id="console"></pre>
+</fieldset>
+</body>
+<script type="text/javascript">
+const jQuery3 = jQuery.noConflict(true);
+
+let myWeb3;
+let myAccount;
+let cardABI;
+
+function init() {
+	if(typeof window.web3 === 'undefined') {
+		printError("Web3 is not enabled. Do you need to install MetaMask?");
+		return;
+	}
+	myWeb3 = new Web3(window.web3.currentProvider);
+	myWeb3.eth.getAccounts(function(err, accounts) {
+		if(err) {
+			printError("getAccounts() error: " + err);
+			return;
+		}
+		myAccount = accounts[0];
+		if(!myAccount) {
+			printError("Cannot access default account. Is MetaMask locked?");
+			return;
+		}
+		printLog("Web3 integration loaded.");
+		printLog("Your account is " + myAccount);
+		myWeb3.eth.getBalance(myAccount, function(err, balance) {
+			if(err) {
+				printError("getBalance() error: " + err);
+				return;
+			}
+			if(balance > 0) {
+				printLog("Your balance is " + myWeb3.fromWei(balance, 'ether'));
+			}
+			else {
+				printError("Your balance is zero. You won't be able to send any transaction.");
+			}
+			jQuery3.ajax({
+				async: false,
+				global: false,
+				url: "build/contracts/CharacterCard.json",
+				dataType: "json",
+				success: function(data, textStatus, jqXHR) {
+					printLog("Character Card ABI loaded successfully");
+					cardABI = myWeb3.eth.contract(data.abi);
+				},
+				error: function(jqXHR, textStatus, errorThrown) {
+					printError("Cannot load Character Card ABI: " + errorThrown);
+				}
+			});
+		})
+	});
+}
+
+let cardInstance;
+
+function connect() {
+	if(!(myWeb3 && cardABI && myAccount)) {
+		printError("Page is not properly initialized. Reload the page.");
+		cardInstance = null;
+		return;
+	}
+	const cardAddr = document.getElementById("CharacterCardAddress").value;
+	cardInstance = cardABI.at(cardAddr);
+	try {
+		cardInstance.symbol(function(err, symbol) {
+			if(err) {
+				printError("Error accessing Character Card (ERC721) Instance: " + err);
+				printError("Check if the address specified points to a valid ERC721 contract");
+				cardInstance = null;
+				return;
+			}
+			if("ET" !== symbol) {
+				printError("Error accessing Character Card (ERC721) Instance: not a valid instance");
+				printError("Check if the address specified points to an ERC721 instance with the symbol = ET");
+				cardInstance = null;
+				return;
+			}
+			printLog("Successfully connected to Character Card (ERC721) Instance at " + cardAddr);
+			const mintEvent = cardInstance.Minted();
+			mintEvent.watch(function(err, receipt) {
+				if(err) {
+					printError("Error receiving Minted event: " + err);
+					return;
+				}
+				if(!(receipt && receipt.args && receipt.args.cardId && receipt.args.to && receipt.args.from)) {
+					printError("Minted event received in wrong format: wrong arguments");
+					return;
+				}
+				const cardId = receipt.args.cardId.toString(16);
+				const to = receipt.args.to;
+				const from = receipt.args.from;
+				printLog("Minted(0x" + cardId + ", " + to + ", " + from + ")");
+			});
+			printLog("Successfully registered Minted(uint16, address, address) event listener");
+			const transferEvent = cardInstance.Transfer();
+			transferEvent.watch(function(err, receipt) {
+				if(err) {
+					printError("Error receiving Transfer event: " + err);
+					return;
+				}
+				if(!(receipt && receipt.args && receipt.args.from && receipt.args.to && receipt.args.cardId)) {
+					printError("Transfer event received in wrong format: wrong arguments");
+					return;
+				}
+				const from = receipt.args.from;
+				const to = receipt.args.to;
+				const cardId = receipt.args.cardId.toString(16);
+				printLog("Transfer(" + from + ", " + to + ", 0x" + cardId + ")");
+			});
+			printLog("Successfully registered Transfer(address, address, uint16) event listener");
+			const battleCompleteEvent = cardInstance.BattleComplete();
+			battleCompleteEvent.watch(function(err, receipt) {
+				if(err) {
+					printError("Error receiving BattleComplete event: " + err);
+					return;
+				}
+				if(!(receipt && receipt.args
+						&& receipt.args.card1Id
+						&& receipt.args.card2Id
+						&& receipt.args.gamesPlayed
+						&& receipt.args.lastGameOutcome)) {
+					printError("BattleComplete event received in wrong format: wrong arguments");
+					return;
+				}
+				const card1Id = receipt.args.card1Id.toString(16);
+				const card2Id = receipt.args.card2Id.toString(16);
+				const wins = receipt.args.wins;
+				const losses = receipt.args.losses;
+				const gamesPlayed = receipt.args.gamesPlayed;
+				const lastGameOutcome = receipt.args.lastGameOutcome;
+				printLog("BattleComplete(0x" + card1Id + ", 0x" + card2Id + ", " + wins + ", " + losses + ", " + gamesPlayed + ", " + lastGameOutcome + ")");
+			});
+			printLog("Successfully registered BattleComplete(uint16, uint16, uint32, uint32, uint32, uint8) event listener");
+			cardInstance.balanceOf(myAccount, function(err, balance) {
+				if(err) {
+					printError("Unable to read card balance: " + err);
+					cardInstance = null;
+					return;
+				}
+				if(balance > 0) {
+					printLog("You own " + balance + " card(s):");
+					for(let i = 0; i < balance; i++) {
+						cardInstance.collections(myAccount, i, function(err, cardId) {
+							if(err) {
+								printError("Cannot load list of the cards");
+								return;
+							}
+							cardInstance.getCard(cardId, function(err, card) {
+								if(err) {
+									printError("Cannot load card " + cardId);
+									return;
+								}
+								printLog("0x" + cardId.toString(16) + ": " + cardToString(card));
+							})
+						});
+					}
+				}
+				else {
+					printLog("You don't own any cards");
+				}
+			});
+		});
+	}
+	catch(err) {
+		printError("Cannot access Character Card (ERC721) Instance: " + err);
+		cardInstance = null;
+	}
+}
+
+function mint() {
+	if(!(myWeb3 && cardABI && myAccount && cardInstance)) {
+		printError("Not connected to a Character Card (ERC721) Instance");
+		return;
+	}
+	const cardId = document.getElementById("mint_card_id").value;
+	const owner = document.getElementById("mint_owner").value;
+	const rarity = document.getElementById("mint_card_rarity").value;
+	const attributes = parseInt(document.getElementById("mint_card_attr").value, 2);
+
+	if(isNaN(cardId) || cardId <= 0 || cardId >= 65536) {
+		printError("Card ID must be a number in range 1 - 65535");
+		return;
+	}
+	if(!myWeb3.isAddress(owner)) {
+		printError("Please provide a valid Card Owner Address");
+		return;
+	}
+	if(isNaN(rarity) || rarity < 0 || rarity > 4294967295) {
+		printError("Please provide valid card Rarity in range 0 - 4294967295");
+		return;
+	}
+	if(isNaN(attributes) || attributes < 0 || attributes > 4294967295) {
+		printError("Please provide valid card Attributes as a 32 bit binary");
+		return;
+	}
+	cardInstance.exists(cardId, function(err, exists) {
+		if(err) {
+			printError("Cannot check if card doesn't exist" + err);
+			return;
+		}
+		if(exists) {
+			printError("Card " + cardId + " already exists!");
+			return;
+		}
+		cardInstance.mintWith.sendTransaction(cardId, owner, 0, rarity, attributes, function(err, txHash) {
+			if(err) {
+				printError("Mint transaction failed: " + err.toString().split("\n")[0]);
+				return;
+			}
+			printLog("Mint transaction sent: " + txHash);
+		});
+	});
+}
+
+function transfer() {
+	if(!(myWeb3 && cardABI && myAccount && cardInstance)) {
+		printError("Not connected to a Character Card (ERC721) Instance");
+		return;
+	}
+	const cardId = document.getElementById("transfer_card_id").value;
+	const to = document.getElementById("transfer_to").value;
+	if(isNaN(cardId) || cardId <= 0 || cardId >= 65536) {
+		printError("Card ID must be a number in range 1 - 65535");
+		return;
+	}
+	if(!myWeb3.isAddress(to)) {
+		printError("Please provide a valid Transfer To Address");
+		return;
+	}
+	cardInstance.exists(cardId, function(err, exists) {
+		if(err) {
+			printError("Cannot check if card exists" + err);
+			return;
+		}
+		if(!exists) {
+			printError("Card " + cardId + " doesn't exist!");
+			return;
+		}
+		cardInstance.ownerOf(cardId, function(err, owner) {
+			if(err) {
+				printError("Cannot get the owner a card" + err);
+				return;
+			}
+			if(owner !== myAccount) {
+				printError("You cannot transfer other's owner card. Card " + cardId + " belongs to " + owner);
+				return;
+			}
+			cardInstance.transfer.sendTransaction(to, cardId, function(err, txHash) {
+				if(err) {
+					printError("Transfer transaction failed: " + err.toString().split("\n")[0]);
+					return;
+				}
+				printLog("Transfer transaction sent: " + txHash);
+			});
+		});
+	});
+}
+
+function confirm_battle() {
+	if(!(myWeb3 && cardABI && myAccount && cardInstance)) {
+		printError("Not connected to a Character Card (ERC721) Instance");
+		return;
+	}
+	const card1Id = document.getElementById("battle_card1_id").value;
+	const card2Id = document.getElementById("battle_card2_id").value;
+	const outcome = document.getElementById("battle_outcome").value;
+	if(isNaN(card1Id) || card1Id <= 0 || card1Id >= 65536) {
+		printError("First Card ID must be a number in range 1 - 65535");
+		return;
+	}
+	if(isNaN(card2Id) || card2Id <= 0 || card2Id >= 65536) {
+		printError("Second Card ID must be a number in range 1 - 65535");
+		return;
+	}
+	cardInstance.exists(card1Id, function(err, exists) {
+		if(err) {
+			printError("Cannot check if First Card exists" + err);
+			return;
+		}
+		if(!exists) {
+			printError("First Card (" + card1Id + ") doesn't exist!");
+			return;
+		}
+		cardInstance.exists(card2Id, function(err, exists) {
+			if(err) {
+				printError("Cannot check if Second Card exists" + err);
+				return;
+			}
+			if(!exists) {
+				printError("Second Card (" + card2Id + ") doesn't exist!");
+				return;
+			}
+			cardInstance.battleComplete.sendTransaction(card1Id, card2Id, outcome, function(err, txHash) {
+				if(err) {
+					printError("BattleComplete transaction failed: " + err.toString().split("\n")[0]);
+					return;
+				}
+				printLog("BattleComplete transaction sent: " + txHash);
+			});
+		});
+	});
+}
+
+const con = document.getElementById("console");
+
+function printLog(msg) {
+	console.log(msg);
+	con.innerHTML += msg;
+	con.innerHTML += "\n";
+}
+
+function printError(msg) {
+	console.error(msg);
+	con.innerHTML += '<span style="color: red;">' + msg + '</span>';
+	con.innerHTML += "\n";
+}
+
+function cardToString(card) {
+	let left = card[0].toString(16);
+	const leftZeros = 64 - left.length;
+	let right = card[1].toString(16);
+	const rightZeros = 64 - right.length;
+	for(let i = 0; i < leftZeros; i++) {
+		left = "0" + left;
+	}
+	for(let i = 0; i < rightZeros; i++) {
+		right = "0" + right;
+	}
+	return left + right;
+}
+
+init();
+
+setInterval(function() {
+	if(myWeb3 && myWeb3.eth.accounts[0] !== myAccount) {
+		myAccount = myWeb3.eth.accounts[0];
+		printLog("Your account is switched to " + myAccount);
+	}
+}, 100);
+
+</script>
+</html>
