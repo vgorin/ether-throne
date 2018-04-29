@@ -8,7 +8,7 @@ module.exports = {
 				"12 mnemonic words",
 				"https://rinkeby.infura.io/***key***"
 			),
-			network_id: "3", // Match only Ropsten
+			network_id: "*", // Match any network (determined by provider)
 			gas: 4700000,
 			gasPrice: 20000000000 // 20 GWei
 		},
