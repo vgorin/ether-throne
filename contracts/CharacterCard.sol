@@ -3,15 +3,19 @@ pragma solidity 0.4.23;
 /**
  * @notice Character card is unique tradable entity. Non-fungible.
  * @dev Card is an ERC721 non-fungible token, which maps Card ID,
- * a number in range 1..5000 to a set of card properties -
- * attributes (mostly immutable by their nature) and state variables (mutable)
+ *      a number in range 1..5000 to a set of card properties -
+ *      attributes (mostly immutable by their nature) and state variables (mutable)
  * @dev A card supports minting but not burning, a card cannot be destroyed
+ * @dev ERC20-compatibility: partial - TODO: implement full ERC20 compatibility
+ * @dev ERC721-compatibility: partial - TODO: review which ERC721 function to add support for
+ *      Note: ERC721 is still a draft at the moment of writing this smart contract,
+ *      therefore implementing this "standard" fully doesn't make any sense
  */
 contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant version = 1;
+  uint32 public constant version = 0x1;
 
   /// @dev ERC20 compatible token symbol
   string public constant symbol = "ET";
@@ -187,7 +191,9 @@ contract CharacterCard {
     uint8 lastGameOutcome // card1 last game outcome = 4 - card2 last game outcome
   );
 
-  /// @dev Creates a card as a ERC721 token
+  /**
+   * @dev Creates a character card as a ERC721 token
+   */
   constructor() public {
     // call sender gracefully - contract `creator`
     address creator = msg.sender;
