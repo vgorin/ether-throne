@@ -8,6 +8,11 @@ pragma solidity 0.4.23;
  * @dev A card supports minting but not burning, a card cannot be destroyed
  */
 contract CharacterCard {
+  /// @dev Smart contract version
+  /// @dev Should be incremented manually in this source code
+  ///      each time smart contact source code is changed
+  uint32 public constant version = 1;
+
   /// @dev ERC20 compatible token symbol
   string public constant symbol = "ET";
   /// @dev ERC20 compatible token name
