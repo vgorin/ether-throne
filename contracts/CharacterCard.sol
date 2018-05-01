@@ -15,7 +15,7 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant version = 0x1;
+  uint32 public constant version = 0x2;
 
   /// @dev ERC20 compatible token symbol
   string public constant symbol = "ET";
@@ -452,11 +452,11 @@ contract CharacterCard {
     uint32 losses = outcome == GAME_OUTCOME_DEFEAT? 1: 0;
 
     // delegate call to `battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)`
-    battleComplete(card1Id, card2Id, wins, losses, 1, outcome);
+    battlesComplete(card1Id, card2Id, wins, losses, 1, outcome);
   }
 
   /**
-   * @dev A mechanism to update two cards which were engaged in a battle
+   * @dev A mechanism to update two cards which were engaged in several battles
    * @dev Same as `battleComplete(uint16, uint16, outcome)` but allows for a batch update
    * @param card1Id first card's ID engaged in a battle
    * @param card2Id second card's ID engaged in a battle
@@ -464,7 +464,7 @@ contract CharacterCard {
    * @param losses number of times 1st card lost (2nd won)
    * @param gamesPlayed total games played, cannot exceed wins + losses, cannot be zero
    */
-  function battleComplete(
+  function battlesComplete(
     uint16 card1Id,
     uint16 card2Id,
     uint32 wins,
@@ -694,27 +694,23 @@ contract CharacterCard {
    * @param cardId ID of the card to create
    * @param to an address to assign created card ownership to
    */
-  function mint(uint16 cardId, address to) public {
+  function mint(address to, uint16 cardId) public {
     // delegate call to `mintWith`
-    mintWith(cardId, to, 0, 0, 0);
+    mintWith(to, cardId, 0, 0);
   }
 
   /**
    * @dev Creates new card with `cardId` ID specified and
    *      assigns an ownership `to` for that card.
-   * @dev Allows setting card's state, rarity and attributes.
-   * @param cardId ID of the card to create
+   * @dev Allows setting card's rarity and attributes.
    * @param to an address to assign created card ownership to
-   * @param state an integer, representing card's state
+   * @param cardId ID of the card to create
    * @param rarity an integer, representing card's rarity
    * @param attributes a bitmask of the card attributes
    */
-  function mintWith(uint16 cardId, address to, uint32 state, uint32 rarity, uint32 attributes) public {
-    // call sender nicely - `from`
-    address from = msg.sender;
-
+  function mintWith(address to, uint16 cardId, uint32 rarity, uint32 attributes) public {
     // check if caller has sufficient permissions to mint a card
-    require(isUserInRole(from, ROLE_CARD_CREATOR));
+    require(isSenderInRole(ROLE_CARD_CREATOR));
 
     // validate destination address
     require(to != address(0));
@@ -723,41 +719,43 @@ contract CharacterCard {
     // validate card ID is not zero
     require(cardId != 0);
 
-    // check if card doesn't exist
-    require(!exists(cardId));
+    // delegate call to `__mint`
+    __mint(to, cardId, rarity, attributes);
+  }
 
-    // create a new card in memory
-    Card memory card = Card({
-      id: cardId,
-      // card index within the owner's collection of cards
-      // points to the place where the card will be placed to
-      index: uint16(collections[to].length),
-      creationTime: uint32(block.number),
-      ownershipModified: 0,
-      attributesModified: 0,
-      gamesPlayed: 0,
-      wins: 0,
-      losses: 0,
-      state: state,
-      rarity: rarity,
-      lastGamePlayed: 0,
-      attributes: attributes,
-      owner: to
-    });
+  /**
+   * @dev Creates several cards in a single transaction and
+   *      assigns an ownership `to` for these cards
+   * @dev Card ID, rarity and attributes are packed inside
+   *      `data` array, each element of which contains data
+   *      (card ID, rarity and attributes) for one card
+   * @dev Only low 16 bits of attributes are packed into the
+   *      `data` array elements, high 16 bits are treated to be zero
+   * @param to an address to assign created cards ownership to
+   * @param data an array of packed card data info; each element
+   *      contains a 64-bit integer, high 16 bits represent a card ID,
+   *      low 16 bits represent card attributes, and middle 32 bits
+   *      represent card rarity data
+   */
+  function mintCards(address to, uint64[] data) public {
+    // check if caller has sufficient permissions to mint a card
+    require(isSenderInRole(ROLE_CARD_CREATOR));
 
-    // push newly created card's ID to the owner's collection of cards
-    collections[to].push(cardId);
+    // validate destination address
+    require(to != address(0));
+    require(to != address(this));
 
-    // persist card to the storage
-    cards[cardId] = card;
-
-    // update total supply
-    totalSupply++;
-
-    // fire a Mint event
-    emit Minted(cardId, to, from);
-    // fire Transfer event (ERC20 compatibility)
-    emit Transfer(address(0), to, cardId);
+    // iterate over `data` array and mint each card specified
+    for(uint256 i = 0; i < data.length; i++) {
+      // unpack card from data element
+      // and delegate call to `__mint`
+      __mint(
+        to,
+        uint16(0xFFFF & data[i] >> 48),
+        uint32(0xFFFFFFFF & data[i] >> 16),
+        uint32(0x0000FFFF & data[i])
+      );
+    }
   }
 
   /**
@@ -921,6 +919,49 @@ contract CharacterCard {
   function isOperator(address user) public constant returns(bool) {
     // read `user` address role and check if its not zero
     return userRoles[user] != 0;
+  }
+
+  /// @dev Creates new card with `cardId` ID specified and
+  ///      assigns an ownership `to` for these cards
+  /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
+  ///      checks only that the card doesn't exist yet
+  /// @dev Must be kept private at all times
+  function __mint(address to, uint16 cardId, uint32 rarity, uint32 attributes) private {
+    // ensure that card with such ID doesn't exist
+    require(!exists(cardId));
+
+    // create a new card in memory
+    Card memory card = Card({
+      id: cardId,
+      // card index within the owner's collection of cards
+      // points to the place where the card will be placed to
+      index: uint16(collections[to].length),
+      creationTime: uint32(block.number),
+      ownershipModified: 0,
+      attributesModified: 0,
+      gamesPlayed: 0,
+      wins: 0,
+      losses: 0,
+      state: 0,
+      rarity: rarity,
+      lastGamePlayed: 0,
+      attributes: attributes,
+      owner: to
+    });
+
+    // push newly created card's ID to the owner's collection of cards
+    collections[to].push(cardId);
+
+    // persist card to the storage
+    cards[cardId] = card;
+
+    // update total supply
+    totalSupply++;
+
+    // fire a Mint event
+    emit Minted(cardId, to, msg.sender);
+    // fire Transfer event (ERC20 compatibility)
+    emit Transfer(address(0), to, cardId);
   }
 
   /// @dev Performs a transfer of a card `cardId` from address `from` to address `to`

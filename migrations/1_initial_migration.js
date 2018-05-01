@@ -1,5 +1,10 @@
-var Migrations = artifacts.require("./Migrations.sol");
+const Migrations = artifacts.require("./Migrations.sol");
 
-module.exports = function(deployer) {
-  deployer.deploy(Migrations);
+module.exports = function(deployer, network) {
+	if(network === "test") {
+		console.log("[initial migration] test network - skipping the migration script");
+		return;
+	}
+
+	deployer.deploy(Migrations);
 };

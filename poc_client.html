@@ -23,7 +23,7 @@
 <table>
 	<tr>
 		<td><label for="CharacterCardAddress" title="Deployed Instance Address">Character Card (ERC721) Instance Address:</label></td>
-		<td><input id="CharacterCardAddress" type="text" value="0x542877fe8669e888102f04b25ecdd4388c627688" size="42"/></td>
+		<td><input id="CharacterCardAddress" type="text" value="0xc968972bb379a70773b9caee646f9e4edd3fd547" size="42"/></td>
 	</tr>
 	<tr>
 		<td></td>
@@ -303,7 +303,7 @@ function mint() {
 			printError("Card " + cardId + " already exists!");
 			return;
 		}
-		cardInstance.mintWith.sendTransaction(cardId, owner, 0, rarity, attributes, function(err, txHash) {
+		cardInstance.mintWith.sendTransaction(owner, cardId, rarity, attributes, function(err, txHash) {
 			if(err) {
 				printError("Mint transaction failed: " + err.toString().split("\n")[0]);
 				return;
@@ -391,7 +391,7 @@ function confirm_battle() {
 				printError("Second Card (" + card2Id + ") doesn't exist!");
 				return;
 			}
-			cardInstance.battleComplete.sendTransaction(card1Id, card2Id, outcome, function(err, txHash) {
+			cardInstance.battlesComplete.sendTransaction(card1Id, card2Id, outcome, function(err, txHash) {
 				if(err) {
 					printError("BattleComplete transaction failed: " + err.toString().split("\n")[0]);
 					return;
