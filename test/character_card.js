@@ -476,11 +476,9 @@ contract('CharacterCard', function(accounts) {
 		assert(await cardInstance.operators(accounts[0], accounts[1]) > 0, "approvals left must be greater then zero");
 
 		// check the value set is indeed maximum possible uint256
-		assert.equal(
-			"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", // maximum uint256
-			(await cardInstance.operators(accounts[0], accounts[1])).toString(16).toUpperCase(),
-			"approvals left must be set to maximum uint256"
-		);
+		const maxUint256 = web3.toBigNumber("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+		const approvalsLeft = await cardInstance.operators(accounts[0], accounts[1]);
+		assert(maxUint256.eq(approvalsLeft), "approvals left must be set to maximum uint256");
 	});
 	it("approveForAll: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
@@ -863,19 +861,19 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.mintWith(0x1, accounts[0], 7, 15, 31);
 		const tuple = await card.getCard(0x1);
-		const id = shiftRightAndApplyMask(tuple[0], 240, 16);
-		const index = shiftRightAndApplyMask(tuple[0], 224, 16);
-		const creationTime = shiftRightAndApplyMask(tuple[0], 192, 32);
-		const ownershipModified = shiftRightAndApplyMask(tuple[0], 160, 32);
-		const attributesModified = shiftRightAndApplyMask(tuple[0], 128, 32);
-		const gamesPlayed = shiftRightAndApplyMask(tuple[0], 96, 32);
-		const wins = shiftRightAndApplyMask(tuple[0], 64, 32);
-		const losses = shiftRightAndApplyMask(tuple[0], 32, 32);
-		const state = shiftRightAndApplyMask(tuple[0], 0, 32);
-		const rarity = shiftRightAndApplyMask(tuple[1], 224, 32);
-		const lastGamePlayed = shiftRightAndApplyMask(tuple[1], 192, 32);
-		const attributes =  shiftRightAndApplyMask(tuple[1], 160, 32);
-		const address = shiftRightAndApplyMask(tuple[1], 0, 160);
+		const id = shiftAndTrim(tuple[0], 240, 16);
+		const index = shiftAndTrim(tuple[0], 224, 16);
+		const creationTime = shiftAndTrim(tuple[0], 192, 32);
+		const ownershipModified = shiftAndTrim(tuple[0], 160, 32);
+		const attributesModified = shiftAndTrim(tuple[0], 128, 32);
+		const gamesPlayed = shiftAndTrim(tuple[0], 96, 32);
+		const wins = shiftAndTrim(tuple[0], 64, 32);
+		const losses = shiftAndTrim(tuple[0], 32, 32);
+		const state = shiftAndTrim(tuple[0], 0, 32);
+		const rarity = shiftAndTrim(tuple[1], 224, 32);
+		const lastGamePlayed = shiftAndTrim(tuple[1], 192, 32);
+		const attributes =  shiftAndTrim(tuple[1], 160, 32);
+		const address = shiftAndTrim(tuple[1], 0, 160);
 		assert.equal(0x1, id, "card 0x1 has wrong id: " + id);
 		assert.equal(0, index, "card 0x1 has non-zero index");
 		assert(creationTime > 0, "card 0x1 has zero creation time");
@@ -897,19 +895,19 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(0x2, accounts[1]);
 		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_VICTORY);
 		const tuple = await card.getCard(0x1);
-		const id = shiftRightAndApplyMask(tuple[0], 240, 16);
-		const index = shiftRightAndApplyMask(tuple[0], 224, 16);
-		const creationTime = shiftRightAndApplyMask(tuple[0], 192, 32);
-		const ownershipModified = shiftRightAndApplyMask(tuple[0], 160, 32);
-		const attributesModified = shiftRightAndApplyMask(tuple[0], 128, 32);
-		const gamesPlayed = shiftRightAndApplyMask(tuple[0], 96, 32);
-		const wins = shiftRightAndApplyMask(tuple[0], 64, 32);
-		const losses = shiftRightAndApplyMask(tuple[0], 32, 32);
-		const state = shiftRightAndApplyMask(tuple[0], 0, 32);
-		const rarity = shiftRightAndApplyMask(tuple[1], 224, 32);
-		const lastGamePlayed = shiftRightAndApplyMask(tuple[1], 192, 32);
-		const attributes =  shiftRightAndApplyMask(tuple[1], 160, 32);
-		const address = shiftRightAndApplyMask(tuple[1], 0, 160);
+		const id = shiftAndTrim(tuple[0], 240, 16);
+		const index = shiftAndTrim(tuple[0], 224, 16);
+		const creationTime = shiftAndTrim(tuple[0], 192, 32);
+		const ownershipModified = shiftAndTrim(tuple[0], 160, 32);
+		const attributesModified = shiftAndTrim(tuple[0], 128, 32);
+		const gamesPlayed = shiftAndTrim(tuple[0], 96, 32);
+		const wins = shiftAndTrim(tuple[0], 64, 32);
+		const losses = shiftAndTrim(tuple[0], 32, 32);
+		const state = shiftAndTrim(tuple[0], 0, 32);
+		const rarity = shiftAndTrim(tuple[1], 224, 32);
+		const lastGamePlayed = shiftAndTrim(tuple[1], 192, 32);
+		const attributes =  shiftAndTrim(tuple[1], 160, 32);
+		const address = shiftAndTrim(tuple[1], 0, 160);
 		assert.equal(0x1, id, "card 0x1 has wrong id: " + id);
 		assert.equal(1, index, "card 0x1 has wrong index: " + index);
 		assert(creationTime > 0, "card 0x1 has zero creation time");
@@ -927,13 +925,21 @@ contract('CharacterCard', function(accounts) {
 
 });
 
-// equal to 0xFFFF & (number >> n), where 0xFFFF consists of k bits
-function shiftRightAndApplyMask(number, n, k) {
-	number = shift(number, n);
-
-	if(k % 8 !== 0) {
-		throw "k must be multiple of 8";
+// equal to `number >> n & (1 << k) - 1` but works with BigNumber
+// TODO: refactor using BigNumber arithmetic, throwing away the k % 8 == 0 requirement
+function shiftAndTrim(number, n, k) {
+	if(n < 0) {
+		throw "n must not be negative!";
 	}
+	if(k <= 0) {
+		throw "k must be positive";
+	}
+	if(k % 8 !== 0) {
+		throw "k must be multiple of 8!";
+	}
+
+	number = binaryShift(number, n);
+
 
 	number = number.toString(16);
 	const octNum = k / 8;
@@ -950,16 +956,13 @@ function shiftRightAndApplyMask(number, n, k) {
 
 // equal to number >> n if n is positive,
 // number << -n if n is negative
-function shift(number, n) {
+function binaryShift(number, n) {
+	const e = web3.toBigNumber(2).pow(Math.abs(n));
 	if(n > 0) {
-		for(let i = 0; i < n; i++) {
-			number = number.dividedToIntegerBy(2);
-		}
+		number = number.dividedToIntegerBy(e);
 	}
 	else if(n < 0) {
-		for(let i = 0; i < -n; i++) {
-			number = number.multipledBy(2);
-		}
+		number = number.multipledBy(e);
 	}
 	return number;
 }
