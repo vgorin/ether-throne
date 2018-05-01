@@ -228,6 +228,10 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint(0x1, 0);});
 	});
+	it("mint: impossible to mint a card to a card smart contract itself", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.mint(0x1, card.address);});
+	});
 	it("mint: impossible to mint a card without ROLE_CARD_CREATOR permission", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint.sendTransaction(0x1, accounts[1], {from: accounts[1]});});

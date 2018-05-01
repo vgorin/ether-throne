@@ -718,6 +718,7 @@ contract CharacterCard {
 
     // validate destination address
     require(to != address(0));
+    require(to != address(this));
 
     // validate card ID is not zero
     require(cardId != 0);
