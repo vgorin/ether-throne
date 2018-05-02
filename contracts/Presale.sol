@@ -10,7 +10,7 @@ import "./CharacterCard.sol";
 contract Presale {
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
-  uint32 public CHAR_CARD_VERSION_REQUIRED = 0x2;
+  uint32 public CHAR_CARD_VERSION_REQUIRED = 0x3;
 
   /// @dev ID of the first card to sell
   uint16 public constant OFFSET = 1;
@@ -70,7 +70,7 @@ contract Presale {
   }
 
   /// @dev Calculates the price of the next card to sell
-  function nextPrice() public constant returns (uint256) {
+  function nextPrice() public pure returns (uint256) {
     /* // TODO: implement the following formula:
     Initial pre-sale cost will start at 0.05 ETH, increasing 0.01 ETH every 20 character cards sold
     until reaching 0.25 ETH. Once reached, it will remain until the first 1000 cards are sold

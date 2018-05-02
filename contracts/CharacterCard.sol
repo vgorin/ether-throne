@@ -15,13 +15,13 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant version = 0x2;
+  uint32 public constant version = 0x3;
 
-  /// @dev ERC20 compatible token symbol
+  /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
-  /// @dev ERC20 compatible token name
+  /// @dev ERC20 compliant token name
   string public constant name = "Character Card - Ether Throne";
-  /// @dev ERC20 compatible token decimals
+  /// @dev ERC20 compliant token decimals
   /// @dev this can be only zero, since ERC721 token is non-fungible
   uint8 public constant decimals = 0;
 
@@ -96,7 +96,7 @@ contract CharacterCard {
 
   /// @dev Mapping from owner to operator approvals
   ///      card owner => approved card operator => approvals left (zero means no approval)
-  /// @dev ERC20 compatible structure for
+  /// @dev ERC20 compliant structure for
   ///      function allowance(address owner, address spender) public constant returns (uint256 remaining)
   mapping(address => mapping(address => uint256)) public allowance;
 
@@ -104,7 +104,7 @@ contract CharacterCard {
   /// @notice A collection of cards is an ordered list of cards,
   ///      owned by a particular address (owner)
   /// @dev A mapping from owner to a collection of his cards (IDs)
-  /// @dev ERC20 compatible structure for balances can be derived
+  /// @dev ERC20 compliant structure for balances can be derived
   ///      as a length of each collection in the mapping
   /// @dev ERC20 balances[owner] is equal to collections[owner].length
   mapping(address => uint16[]) public collections;
@@ -117,7 +117,7 @@ contract CharacterCard {
   mapping(address => uint32) public userRoles;
 
   /// @notice Total number of existing cards
-  /// @dev ERC20 compatible field for totalSupply()
+  /// @dev ERC20 compliant field for totalSupply()
   uint16 public totalSupply;
 
   /// @dev The data in card's state may contain lock(s)
@@ -178,10 +178,15 @@ contract CharacterCard {
   event Minted(uint16 indexed cardId, address indexed to, address from);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `from` is zero
-  event Transfer(address indexed from, address indexed to, uint16 cardId);
+  event CardTransfer(address indexed from, address indexed to, uint16 cardId);
+  /// @dev Fired in transfer(), transferFor(), mint()
+  /// @dev When minting a card, address `from` is zero
+  /// @dev ERC20 compliant event
+  event Transfer(address indexed from, address indexed to, uint16 value);
   /// @dev Fired in approveCard()
   event CardApproval(uint16 indexed cardId, address indexed approved);
   /// @dev Fired in approve()
+  /// @dev ERC20 compliant event
   event Approval(address indexed owner, address indexed operator, uint256 approved);
   /// @dev Fired in battlesComplete(), battleComplete()
   event BattleComplete(
@@ -723,6 +728,9 @@ contract CharacterCard {
 
     // delegate call to `__mint`
     __mint(to, cardId, rarity, attributes);
+
+    // fire ERC20 compliant Transfer event
+    emit Transfer(address(0), to, 1);
   }
 
   /**
@@ -744,11 +752,18 @@ contract CharacterCard {
     require(to != address(0));
     require(to != address(this));
 
+    // how many cards we're minting
+    uint16 n = uint16(data.length);
+
+    // there should at least one card to mint
+    // also check we didn't lose precision in n
+    require(n != 0 && n == data.length);
+
     // check if caller has sufficient permissions to mint a card
     require(isSenderInRole(ROLE_CARD_CREATOR));
 
     // iterate over `data` array and mint each card specified
-    for(uint256 i = 0; i < data.length; i++) {
+    for(uint256 i = 0; i < n; i++) {
       // unpack card from data element
       // and delegate call to `__mint`
       __mint(
@@ -758,6 +773,45 @@ contract CharacterCard {
         uint32(0x0000FFFF & data[i])
       );
     }
+
+    // fire ERC20 compliant Transfer event
+    emit Transfer(address(0), to, n);
+  }
+
+  /**
+   * @notice Transfers ownership rights of `n` *arbitrary* cards
+   *      to a new owner specified by address `to`
+   * @dev The cards are taken from the end of the owner's card collection
+   * @dev Requires the sender of the transaction to be an owner
+   *      of at least `n` cards
+   * @dev ERC20 compliant transfer(address, uint)
+   * @param to an address where to transfer cards to,
+   *        new owner of the cards
+   * @param n number of cards to transfer
+   */
+  function transfer(address to, uint16 n) public {
+    // TODO: implement
+    require(0 == 1);
+  }
+
+  /**
+   * @notice A.k.a "transfer on behalf"
+   * @notice Transfers ownership rights of `n` *arbitrary* cards
+   *      to a new owner specified by address `to`
+   * @dev The cards are taken from the end of the owner's card collection
+   * @dev Requires the sender of the transaction to be authorized
+   *      to "spend" at least `n` card
+   * @dev The sender is granted an authorization to "spend" the cards
+   *      by the owner of the cards using `approve` function
+   * @param from an address from where to take cards from,
+   *        current owner of the cards
+   * @param to an address where to transfer cards to,
+   *        new owner of the cards
+   * @param n number of cards to transfer
+   */
+  function transferFrom(address from, address to, uint16 n) public {
+    // TODO: implement
+    require(0 == 1);
   }
 
   /**
@@ -768,19 +822,19 @@ contract CharacterCard {
    * @param to new owner address
    * @param cardId ID of the card to transfer ownership rights for
    */
-  function transfer(address to, uint16 cardId) public {
+  function transferCard(address to, uint16 cardId) public {
     // call sender gracefully - `from`
     address from = msg.sender;
 
-    // delegate call to unsafe `__transfer`
-    __transfer(from, to, cardId);
+    // delegate call to unsafe `__transferCard`
+    __transferCard(from, to, cardId);
   }
 
   /**
-   * @notice A.k.a "transfer on behalf"
+   * @notice A.k.a "transfer a card on behalf"
    * @notice Transfers ownership rights of a card defined
    *      by the `cardId` to a new owner specified by address `to`
-   * @notice Allows transferring ownership rights by an trading operator
+   * @notice Allows transferring ownership rights by a trading operator
    *      on behalf of card owner. Allows building an exchange of cards.
    * @dev Transfers the ownership of a given card ID to another address
    * @dev Requires the transaction sender to be the owner, approved, or operator
@@ -788,7 +842,7 @@ contract CharacterCard {
    * @param to address to receive the ownership of the card
    * @param cardId ID of the card to be transferred
    */
-  function transferFrom(address from, address to, uint16 cardId) public {
+  function transferCardFrom(address from, address to, uint16 cardId) public {
     // call sender gracefully - `operator`
     address operator = msg.sender;
     // find if an approved address exists for this card
@@ -815,8 +869,8 @@ contract CharacterCard {
       require(from == operator);
     }
 
-    // delegate call to unsafe `__transfer`
-    __transfer(from, to, cardId);
+    // delegate call to unsafe `__transferCard`
+    __transferCard(from, to, cardId);
   }
 
   /**
@@ -873,7 +927,7 @@ contract CharacterCard {
   /**
    * @dev Sets or unsets the approval of a given operator
    * @dev An operator is allowed to transfer *all* cards of the sender on their behalf
-   * @dev ERC20 compatible approve(address, uint256) function
+   * @dev ERC20 compliant approve(address, uint256) function
    * @param to operator address to set the approval
    * @param approved representing the number of approvals left to be set
    */
@@ -963,8 +1017,8 @@ contract CharacterCard {
 
     // fire a Mint event
     emit Minted(cardId, to, msg.sender);
-    // fire Transfer event (ERC20 compatibility)
-    emit Transfer(address(0), to, cardId);
+    // fire CardTransfer event
+    emit CardTransfer(address(0), to, cardId);
   }
 
   /// @dev Performs a transfer of a card `cardId` from address `from` to address `to`
@@ -972,7 +1026,7 @@ contract CharacterCard {
   ///      checks only for card existence and that ownership belongs to `from`
   /// @dev Is save to call from `transfer(to, cardId)` since it doesn't need any additional checks
   /// @dev Must be kept private at all times
-  function __transfer(address from, address to, uint16 cardId) private {
+  function __transferCard(address from, address to, uint16 cardId) private {
     // validate source and destination address
     require(to != address(0));
     require(to != from);
@@ -1007,7 +1061,10 @@ contract CharacterCard {
     //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
 
     // fire an event
-    emit Transfer(from, to, cardId);
+    emit CardTransfer(from, to, cardId);
+
+    // fire a ERC20 compliant event
+    emit Transfer(from, to, 1);
   }
 
   /// @dev Clears approved address for a particular card

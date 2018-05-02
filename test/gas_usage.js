@@ -10,7 +10,7 @@ contract('CharacterCard: Gas Usage', function(accounts) {
 	it("transfer: transfer a card requires no more then 77866 gas", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		const result = await card.transfer(accounts[1], 0x1);
+		const result = await card.transferCard(accounts[1], 0x1);
 		const gasUsed = result.receipt.gasUsed;
 		assert(gasUsed >= 77866 && gasUsed <= 114050, "transfer gas usage is too high: " + gasUsed);
 	});

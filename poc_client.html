@@ -193,7 +193,7 @@ function connect() {
 				printLog("Minted(0x" + cardId + ", " + to + ", " + from + ")");
 			});
 			printLog("Successfully registered Minted(uint16, address, address) event listener");
-			const transferEvent = cardInstance.Transfer();
+			const transferEvent = cardInstance.CardTransfer();
 			transferEvent.watch(function(err, receipt) {
 				if(err) {
 					printError("Error receiving Transfer event: " + err);
@@ -208,7 +208,7 @@ function connect() {
 				const cardId = receipt.args.cardId.toString(16);
 				printLog("Transfer(" + from + ", " + to + ", 0x" + cardId + ")");
 			});
-			printLog("Successfully registered Transfer(address, address, uint16) event listener");
+			printLog("Successfully registered CardTransfer(address, address, uint16) event listener");
 			const battleCompleteEvent = cardInstance.BattleComplete();
 			battleCompleteEvent.watch(function(err, receipt) {
 				if(err) {
@@ -346,12 +346,12 @@ function transfer() {
 				printError("You cannot transfer other's owner card. Card " + cardId + " belongs to " + owner);
 				return;
 			}
-			cardInstance.transfer.sendTransaction(to, cardId, function(err, txHash) {
+			cardInstance.transferCard.sendTransaction(to, cardId, function(err, txHash) {
 				if(err) {
-					printError("Transfer transaction failed: " + err.toString().split("\n")[0]);
+					printError("Card transfer transaction failed: " + err.toString().split("\n")[0]);
 					return;
 				}
-				printLog("Transfer transaction sent: " + txHash);
+				printLog("Card transfer transaction sent: " + txHash);
 			});
 		});
 	});

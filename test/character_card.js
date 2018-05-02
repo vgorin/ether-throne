@@ -224,34 +224,34 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.mint(accounts[0], 0x0)});
 	});
 
-	it("transfer: transfer a card", async function() {
+	it("transferCard: transfer a card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.transfer(accounts[1], 0x1);
+		await card.transferCard(accounts[1], 0x1);
 		assert.equal(0, await card.balanceOf(accounts[0]), "sender's card balance after transferring a card must be 0");
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
 		assert.equal(accounts[1], await card.ownerOf(0x1), "card 0x1 has wrong owner after transferring it to " + accounts[1]);
 	});
-	it("transfer: integrity check of the structures involved after transferring a card", async function() {
+	it("transferCard: integrity check of the structures involved after transferring a card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await card.mint(accounts[0], 0x2);
 		await card.mint(accounts[0], 0x3);
 		await card.mint(accounts[0], 0x4);
 		await card.mint(accounts[0], 0x5);
-		await card.transfer(accounts[1], 0x2); // [1, 2, 3, 4, 5], [] -> [1, 5, 3, 4], [2]
+		await card.transferCard(accounts[1], 0x2); // [1, 2, 3, 4, 5], [] -> [1, 5, 3, 4], [2]
 		assert.equal(4, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after card transfer");
 		assert.equal(0x5, await card.collections(accounts[0], 1), "wrong card ID in the collection idx 1 after transfer");
 		assert.equal(1, (await card.cards(0x5))[1], "shifted card 0x5 has wrong index in the collection");
 		assert.equal(0, (await card.cards(0x2))[1], "transferred card 0x2 has wrong index in the collection");
-		await card.transfer(accounts[1], 0x1); // [1, 5, 3, 4], [2] -> [4, 5, 3], [2, 1]
+		await card.transferCard(accounts[1], 0x1); // [1, 5, 3, 4], [2] -> [4, 5, 3], [2, 1]
 		assert.equal(3, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after 2 card transfers");
 		assert.equal(0x4, await card.collections(accounts[0], 0), "wrong card ID in the collection idx 0 after second transfer");
 		assert.equal(0, (await card.cards(0x4))[1], "shifted card 0x4 has wrong index in the collection");
 		assert.equal(1, (await card.cards(0x1))[1], "second transferred card 0x1 has wrong index in the collection");
-		await card.transfer(accounts[1], 0x3); // [4, 5, 3], [2, 1] -> [4, 5], [2, 1, 3]
-		await card.transfer(accounts[1], 0x5); // [4, 5], [2, 1, 3] -> [4], [2, 1, 3, 5]
-		await card.transfer(accounts[1], 0x4); // [4], [2, 1, 3, 5] -> [], [2, 1, 3, 5, 4]
+		await card.transferCard(accounts[1], 0x3); // [4, 5, 3], [2, 1] -> [4, 5], [2, 1, 3]
+		await card.transferCard(accounts[1], 0x5); // [4, 5], [2, 1, 3] -> [4], [2, 1, 3, 5]
+		await card.transferCard(accounts[1], 0x4); // [4], [2, 1, 3, 5] -> [], [2, 1, 3, 5, 4]
 		assert.equal(0, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after all card transfers");
 		assert.equal(0x2, await card.collections(accounts[1], 0), "wrong card ID in the collection idx 0 after all transfers");
 		assert.equal(0x1, await card.collections(accounts[1], 1), "wrong card ID in the collection idx 1 after all transfers");
@@ -264,87 +264,87 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(4, (await card.cards(0x4))[1], "card 0x4 has wrong index after all transfers");
 		assert.equal(3, (await card.cards(0x5))[1], "card 0x5 has wrong index after all transfers");
 	});
-	it("transfer: impossible to transfer a card which you do not own", async function() {
+	it("transferCard: impossible to transfer a card which you do not own", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x1);
-		await assertThrowsAsync(async function() {await card.transfer(accounts[2], 0x1);});
+		await assertThrowsAsync(async function() {await card.transferCard(accounts[2], 0x1);});
 	});
-	it("transfer: impossible to transfer a card to a zero address", async function() {
+	it("transferCard: impossible to transfer a card to a zero address", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await assertThrowsAsync(async function() {await card.transfer(0, 0x1);});
+		await assertThrowsAsync(async function() {await card.transferCard(0, 0x1);});
 	});
-	it("transfer: impossible to transfer a card to oneself", async function() {
+	it("transferCard: impossible to transfer a card to oneself", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await assertThrowsAsync(async function() {await card.transfer(accounts[0], 0x1);});
+		await assertThrowsAsync(async function() {await card.transferCard(accounts[0], 0x1);});
 	});
-	it("transfer: approval revokes after card transfer", async function() {
+	it("transferCard: approval revokes after card transfer", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await card.approveCard(accounts[2], 0x1);
-		await card.transfer(accounts[1], 0x1);
+		await card.transferCard(accounts[1], 0x1);
 		assert.equal(0, await card.approvals(0x1), "card 0x1 still has an approval after the transfer")
 	});
 
-	it("transferFrom: transfer own card without any approvals", async function() {
+	it("transferCardFrom: transfer own card without any approvals", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.transferFrom(accounts[0], accounts[1], 0x1);
+		await card.transferCardFrom(accounts[0], accounts[1], 0x1);
 		assert.equal(accounts[1], await card.ownerOf(0x1), "card 0x1 has wrong owner after transferring it");
 	});
-	it("transferFrom: transfer a card on behalf (single card approval)", async function() {
+	it("transferCardFrom: transfer a card on behalf (single card approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await card.approveCard(accounts[1], 0x1);
-		await card.transferFrom.sendTransaction(accounts[0], accounts[1], 0x1, {from: accounts[1]});
+		await card.transferCardFrom.sendTransaction(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		assert.equal(0, await card.balanceOf(accounts[0]), "sender's card balance after transferring a card must be 0");
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
 		assert.equal(accounts[1], await card.ownerOf(0x1), "wrong card 0x1 owner after transferring to " + accounts[1]);
 	});
-	it("transferFrom: transfer a card on behalf (operator approval)", async function() {
+	it("transferCardFrom: transfer a card on behalf (operator approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await card.approve(accounts[1], 1);
-		await card.transferFrom(accounts[0], accounts[1], 0x1, {from: accounts[1]});
+		await card.transferCardFrom(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		assert.equal(accounts[1], await card.ownerOf(0x1), "wrong card 0x1 owner after transferring to " + accounts[1]);
 	});
-	it("transferFrom: transfer a card on behalf (both single card and operator approvals)", async function() {
+	it("transferCardFrom: transfer a card on behalf (both single card and operator approvals)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await card.approveCard(accounts[1], 0x1);
 		await card.approve(accounts[1], 1);
-		await card.transferFrom(accounts[0], accounts[1], 0x1, {from: accounts[1]});
+		await card.transferCardFrom(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		assert.equal(0, await card.approvals(0x1), "card 0x1 still has an approval after the transfer")
 	});
-	it("transferFrom: impossible to transfer card on behalf without approval", async function() {
+	it("transferCardFrom: impossible to transfer card on behalf without approval", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await assertThrowsAsync(async function() {
-			await card.transferFrom.sendTransaction(accounts[0], accounts[1], 0x1, {from: accounts[1]});
+			await card.transferCardFrom.sendTransaction(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		});
 	});
-	it("transferFrom: impossible to transfer non-existent card", async function() {
+	it("transferCardFrom: impossible to transfer non-existent card", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {
-			await card.transferFrom.sendTransaction(accounts[0], accounts[1], 0x1);
+			await card.transferCardFrom.sendTransaction(accounts[0], accounts[1], 0x1);
 		});
 	});
-	it("transferFrom: operator approval can be exhausted (spent)", async function() {
+	it("transferCardFrom: operator approval can be exhausted (spent)", async function() {
 		const card = await CharacterCard.new();
 		await card.approve(accounts[0], 1, {from: accounts[1]});
 		assert.equal(1, await card.allowance(accounts[1], accounts[0]), "wrong approval left value after it was set to 1");
 		await card.mint(accounts[1], 0x1);
 		await card.mint(accounts[1], 0x2);
-		await card.transferFrom(accounts[1], accounts[0], 0x1);
+		await card.transferCardFrom(accounts[1], accounts[0], 0x1);
 		assert.equal(0, await card.allowance(accounts[1], accounts[0]), "wrong approval left value after transfer on behalf");
-		await assertThrowsAsync(async function() {await card.transferFrom(accounts[1], accounts[0], 0x2);});
+		await assertThrowsAsync(async function() {await card.transferCardFrom(accounts[1], accounts[0], 0x2);});
 	});
-	it("transferFrom: approval revokes after card transfer on behalf", async function() {
+	it("transferCardFrom: approval revokes after card transfer on behalf", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await card.approveCard(accounts[2], 0x1);
-		await card.transferFrom(accounts[0], accounts[1], 0x1, {from: accounts[2]});
+		await card.transferCardFrom(accounts[0], accounts[1], 0x1, {from: accounts[2]});
 		assert.equal(0, await card.approvals(0x1), "card 0x1 still has an approval after the transfer on behalf")
 	});
 
@@ -517,7 +517,7 @@ contract('CharacterCard', function(accounts) {
 		await card.setLockedBitmask(0x8000);
 		await card.mint(accounts[0], 0x1);
 		await card.setState(0x1, 0x8000);
-		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 0x1);});
+		await assertThrowsAsync(async function() {await card.transferCard(accounts[1], 0x1);});
 	});
 	it("card locking: impossible to set lockedBitmask without ROLE_COMBAT_PROVIDER permission", async function() {
 		const card = await CharacterCard.new();
