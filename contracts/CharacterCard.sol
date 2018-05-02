@@ -96,7 +96,9 @@ contract CharacterCard {
 
   /// @dev Mapping from owner to operator approvals
   ///      card owner => approved card operator => approvals left (zero means no approval)
-  mapping(address => mapping(address => uint256)) public operators;
+  /// @dev ERC20 compatible structure for
+  ///      function allowance(address owner, address spender) public constant returns (uint256 remaining)
+  mapping(address => mapping(address => uint256)) public allowance;
 
   /// @notice Storage for a collections of cards
   /// @notice A collection of cards is an ordered list of cards,
@@ -177,10 +179,10 @@ contract CharacterCard {
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `from` is zero
   event Transfer(address indexed from, address indexed to, uint16 cardId);
+  /// @dev Fired in approveCard()
+  event CardApproval(uint16 indexed cardId, address indexed approved);
   /// @dev Fired in approve()
-  event Approval(uint16 indexed cardId, address indexed approved);
-  /// @dev Fired in approveForAll()
-  event ApprovalForAll(address indexed owner, address indexed operator, uint256 approved);
+  event Approval(address indexed owner, address indexed operator, uint256 approved);
   /// @dev Fired in battlesComplete(), battleComplete()
   event BattleComplete(
     uint16 indexed card1Id,
@@ -709,12 +711,12 @@ contract CharacterCard {
    * @param attributes a bitmask of the card attributes
    */
   function mintWith(address to, uint16 cardId, uint32 rarity, uint32 attributes) public {
-    // check if caller has sufficient permissions to mint a card
-    require(isSenderInRole(ROLE_CARD_CREATOR));
-
     // validate destination address
     require(to != address(0));
     require(to != address(this));
+
+    // check if caller has sufficient permissions to mint a card
+    require(isSenderInRole(ROLE_CARD_CREATOR));
 
     // validate card ID is not zero
     require(cardId != 0);
@@ -738,12 +740,12 @@ contract CharacterCard {
    *      represent card rarity data
    */
   function mintCards(address to, uint64[] data) public {
-    // check if caller has sufficient permissions to mint a card
-    require(isSenderInRole(ROLE_CARD_CREATOR));
-
     // validate destination address
     require(to != address(0));
     require(to != address(this));
+
+    // check if caller has sufficient permissions to mint a card
+    require(isSenderInRole(ROLE_CARD_CREATOR));
 
     // iterate over `data` array and mint each card specified
     for(uint256 i = 0; i < data.length; i++) {
@@ -796,7 +798,7 @@ contract CharacterCard {
     // this will be explicitly checked in `__transfer`
 
     // fetch how much approvals left for an operator
-    uint256 approvalsLeft = operators[from][operator];
+    uint256 approvalsLeft = allowance[from][operator];
 
     // operator must have an approval to transfer this particular card
     // or operator must be approved to transfer all the cards
@@ -826,7 +828,7 @@ contract CharacterCard {
    * @param to address to be approved to transfer the card on behalf of its owner
    * @param cardId ID of the card to be approved for transfer on behalf
    */
-  function approve(address to, uint16 cardId) public {
+  function approveCard(address to, uint16 cardId) public {
     // call sender nicely - `from`
     address from = msg.sender;
     // get card owner address (also ensures that card exists)
@@ -843,7 +845,7 @@ contract CharacterCard {
     approvals[cardId] = to;
 
     // emit en event
-    emit Approval(cardId, to);
+    emit CardApproval(cardId, to);
   }
 
   /**
@@ -854,7 +856,7 @@ contract CharacterCard {
    */
   function revokeApproval(uint16 cardId) public {
     // delegate call to `approve`
-    approve(address(0), cardId);
+    approveCard(address(0), cardId);
   }
 
   /**
@@ -865,16 +867,17 @@ contract CharacterCard {
    */
   function approveForAll(address to, bool approved) public {
     // set maximum possible approval, 2^256 – 1, unlimited de facto
-    approveForAll(to, approved ? UNLIMITED_APPROVALS : 0);
+    approve(to, approved ? UNLIMITED_APPROVALS : 0);
   }
 
   /**
    * @dev Sets or unsets the approval of a given operator
    * @dev An operator is allowed to transfer *all* cards of the sender on their behalf
+   * @dev ERC20 compatible approve(address, uint256) function
    * @param to operator address to set the approval
    * @param approved representing the number of approvals left to be set
    */
-  function approveForAll(address to, uint256 approved) public {
+  function approve(address to, uint256 approved) public {
     // call sender nicely - `from`
     address from = msg.sender;
 
@@ -885,10 +888,10 @@ contract CharacterCard {
     require(to != from);
 
     // set an approval
-    operators[from][to] = approved;
+    allowance[from][to] = approved;
 
     // emit an event
-    emit ApprovalForAll(from, to, approved);
+    emit Approval(from, to, approved);
   }
 
   /// @notice Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
@@ -922,7 +925,7 @@ contract CharacterCard {
   }
 
   /// @dev Creates new card with `cardId` ID specified and
-  ///      assigns an ownership `to` for these cards
+  ///      assigns an ownership `to` for this card
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
   ///      checks only that the card doesn't exist yet
   /// @dev Must be kept private at all times
@@ -1015,22 +1018,22 @@ contract CharacterCard {
       delete approvals[cardId];
 
       // emit event
-      emit Approval(cardId, address(0));
+      emit CardApproval(cardId, address(0));
     }
   }
 
   /// @dev Decreases operator's approvals left
   function __decreaseOperatorApprovalsLeft(address owner, address operator) private {
     // read how much approvals this operator has
-    uint256 approvalsLeft = operators[owner][operator];
+    uint256 approvalsLeft = allowance[owner][operator];
 
     // check if approvals exist – we don't want to fire an event in vain
     if (approvalsLeft != 0) {
       // update approvals left
-      operators[owner][operator] = --approvalsLeft;
+      allowance[owner][operator] = --approvalsLeft;
 
       // emit an event
-      emit ApprovalForAll(owner, operator, approvalsLeft);
+      emit Approval(owner, operator, approvalsLeft);
     }
   }
 

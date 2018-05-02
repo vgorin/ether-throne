@@ -304,7 +304,7 @@ contract('CharacterCard', function(accounts) {
 	it("transfer: approval revokes after card transfer", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approve(accounts[2], 0x1);
+		await card.approveCard(accounts[2], 0x1);
 		await card.transfer(accounts[1], 0x1);
 		assert.equal(0, await card.approvals(0x1), "card 0x1 still has an approval after the transfer")
 	});
@@ -318,7 +318,7 @@ contract('CharacterCard', function(accounts) {
 	it("transferFrom: transfer a card on behalf (single card approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approve(accounts[1], 0x1);
+		await card.approveCard(accounts[1], 0x1);
 		await card.transferFrom.sendTransaction(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		assert.equal(0, await card.balanceOf(accounts[0]), "sender's card balance after transferring a card must be 0");
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
@@ -327,15 +327,15 @@ contract('CharacterCard', function(accounts) {
 	it("transferFrom: transfer a card on behalf (operator approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approveForAll(accounts[1], 1);
+		await card.approve(accounts[1], 1);
 		await card.transferFrom(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		assert.equal(accounts[1], await card.ownerOf(0x1), "wrong card 0x1 owner after transferring to " + accounts[1]);
 	});
 	it("transferFrom: transfer a card on behalf (both single card and operator approvals)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approve(accounts[1], 0x1);
-		await card.approveForAll(accounts[1], 1);
+		await card.approveCard(accounts[1], 0x1);
+		await card.approve(accounts[1], 1);
 		await card.transferFrom(accounts[0], accounts[1], 0x1, {from: accounts[1]});
 		assert.equal(0, await card.approvals(0x1), "card 0x1 still has an approval after the transfer")
 	});
@@ -354,87 +354,87 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferFrom: operator approval can be exhausted (spent)", async function() {
 		const card = await CharacterCard.new();
-		await card.approveForAll(accounts[0], 1, {from: accounts[1]});
-		assert.equal(1, await card.operators(accounts[1], accounts[0]), "wrong approval left value after it was set to 1");
+		await card.approve(accounts[0], 1, {from: accounts[1]});
+		assert.equal(1, await card.allowance(accounts[1], accounts[0]), "wrong approval left value after it was set to 1");
 		await card.mint(accounts[1], 0x1);
 		await card.mint(accounts[1], 0x2);
 		await card.transferFrom(accounts[1], accounts[0], 0x1);
-		assert.equal(0, await card.operators(accounts[1], accounts[0]), "wrong approval left value after transfer on behalf");
+		assert.equal(0, await card.allowance(accounts[1], accounts[0]), "wrong approval left value after transfer on behalf");
 		await assertThrowsAsync(async function() {await card.transferFrom(accounts[1], accounts[0], 0x2);});
 	});
 	it("transferFrom: approval revokes after card transfer on behalf", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approve(accounts[2], 0x1);
+		await card.approveCard(accounts[2], 0x1);
 		await card.transferFrom(accounts[0], accounts[1], 0x1, {from: accounts[2]});
 		assert.equal(0, await card.approvals(0x1), "card 0x1 still has an approval after the transfer on behalf")
 	});
 
-	it("approve: newly created card is not approved to be transferred initially", async function() {
+	it("approveCard: newly created card is not approved to be transferred initially", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		assert.equal(0, await card.approvals(0x1), "initial approval state for card 0x1 is wrong")
 	});
-	it("approve: approve an address (single card approval)", async function() {
+	it("approveCard: approve an address (single card approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approve(accounts[1], 0x1);
+		await card.approveCard(accounts[1], 0x1);
 		assert.equal(accounts[1], await card.approvals(0x1), "approval state for card 0x1 is wrong")
 	});
-	it("approve: revoke an approval", async function() {
+	it("approveCard: revoke an approval", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approve(accounts[1], 0x1);
+		await card.approveCard(accounts[1], 0x1);
 		await card.revokeApproval(0x1);
 		assert.equal(0, await card.approvals(0x1), "approval state after revoking for card 0x1 is wrong")
 	});
-	it("approve: impossible to approve another's owner card", async function() {
+	it("approveCard: impossible to approve another's owner card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x1);
-		await assertThrowsAsync(async function() {await card.approve(accounts[0], 0x1);});
+		await assertThrowsAsync(async function() {await card.approveCard(accounts[0], 0x1);});
 	});
-	it("approve: impossible to revoke approval of another's owner card", async function() {
+	it("approveCard: impossible to revoke approval of another's owner card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x1);
-		await card.approve.sendTransaction(accounts[0], 0x1, {from: accounts[1]});
+		await card.approveCard.sendTransaction(accounts[0], 0x1, {from: accounts[1]});
 		await assertThrowsAsync(async function() {await card.revokeApproval(0x1);});
 	});
-	it("approve: impossible to approve non-existing card", async function() {
+	it("approveCard: impossible to approve non-existing card", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.approve(accounts[1], 0x1);});
+		await assertThrowsAsync(async function() {await card.approveCard(accounts[1], 0x1);});
 	});
-	it("approve: impossible to revoke an approval if it doesn't exist", async function() {
+	it("approveCard: impossible to revoke an approval if it doesn't exist", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x1);
 		await assertThrowsAsync(async function() {await card.revokeApproval(0x1);});
 	});
-	it("approve: impossible to approve oneself", async function() {
+	it("approveCard: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await assertThrowsAsync(async function() {await card.approve(accounts[0], 0x1);});
+		await assertThrowsAsync(async function() {await card.approveCard(accounts[0], 0x1);});
 	});
-	it("approve: approval toggling (normal scenario)", async function() {
+	it("approveCard: approval toggling (normal scenario)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await card.approve(accounts[1], 0x1);
-		await card.approve(0, 0x1);
-		await card.approve(accounts[1], 0x1);
-		await card.approve(0, 0x1);
+		await card.approveCard(accounts[1], 0x1);
+		await card.approveCard(0, 0x1);
+		await card.approveCard(accounts[1], 0x1);
+		await card.approveCard(0, 0x1);
 	});
-	it("approve: approval toggling (wrong scenario)", async function() {
+	it("approveCard: approval toggling (wrong scenario)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
-		await assertThrowsAsync(async function() {await card.approve(0, 0x1);});
-		await card.approve(accounts[1], 0x1);
-		await card.approve(accounts[1], 0x1);
-		await card.approve(0, 0x1);
-		await assertThrowsAsync(async function() {await card.approve(0, 0x1);});
+		await assertThrowsAsync(async function() {await card.approveCard(0, 0x1);});
+		await card.approveCard(accounts[1], 0x1);
+		await card.approveCard(accounts[1], 0x1);
+		await card.approveCard(0, 0x1);
+		await assertThrowsAsync(async function() {await card.approveCard(0, 0x1);});
 	});
 
-	it("approveForAll: create operator", async function() {
+	it("approve: create operator", async function() {
 		const card = await CharacterCard.new();
-		await card.approveForAll(accounts[1], 1);
-		assert.equal(1, await card.operators(accounts[0], accounts[1]), "wrong approvals left value after it was set to 1");
+		await card.approve(accounts[1], 1);
+		assert.equal(1, await card.allowance(accounts[0], accounts[1]), "wrong approvals left value after it was set to 1");
 	});
 	it("approveForAll: create an operator with unlimited approvals", async function() {
 		/*
@@ -477,20 +477,20 @@ contract('CharacterCard', function(accounts) {
 		});
 
 		// check the result is greater then zero
-		assert(await cardInstance.operators(accounts[0], accounts[1]) > 0, "approvals left must be greater then zero");
+		assert(await cardInstance.allowance(accounts[0], accounts[1]) > 0, "approvals left must be greater then zero");
 
 		// check the value set is indeed maximum possible uint256
 		const maxUint256 = web3.toBigNumber("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-		const approvalsLeft = await cardInstance.operators(accounts[0], accounts[1]);
+		const approvalsLeft = await cardInstance.allowance(accounts[0], accounts[1]);
 		assert(maxUint256.eq(approvalsLeft), "approvals left must be set to maximum uint256");
 	});
-	it("approveForAll: impossible to approve oneself", async function() {
+	it("approve: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.approveForAll(accounts[0], 1);});
+		await assertThrowsAsync(async function() {await card.approve(accounts[0], 1);});
 	});
-	it("approveForAll: impossible to approve zero address", async function() {
+	it("approve: impossible to approve zero address", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.approveForAll(0, 1);});
+		await assertThrowsAsync(async function() {await card.approve(0, 1);});
 	});
 
 	it("collections: iterate over the collection of cards", async function() {

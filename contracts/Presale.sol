@@ -158,6 +158,7 @@ contract Presale {
     }
   }
 
+  /// @dev Packs 3 cards into an uint64[3] dynamic array
   function __pack3Cards(
     uint16 id1, uint32 r1, uint16 a1, uint16 id2, uint32 r2, uint16 a2, uint16 id3, uint32 r3, uint16 a3
   ) private pure returns (uint64[]) {
@@ -168,7 +169,9 @@ contract Presale {
     return data;
   }
 
+  /// @dev Packs single card into uint64
   function __pack64(uint16 cardId, uint32 rarity, uint16 attributes) private pure returns (uint64) {
+    // cardId (16 bits) | rarity (32 bits) | attributes (low 16 bits)
     return uint64(cardId) << 48 | uint48(rarity) << 16 | attributes;
   }
 
