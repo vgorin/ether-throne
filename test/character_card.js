@@ -13,28 +13,6 @@ const LAST_GAME_OUTCOME_BITS = 0x3;
 
 const CharacterCard = artifacts.require("./CharacterCard.sol");
 
-// used only for overloaded shadowed functions
-// more info: https://beresnev.pro/test-overloaded-solidity-functions-via-truffle/
-const web3Abi = require('web3-eth-abi');
-
-// ABI of battlesComplete(uint16, uint16, uint32, uint32, uint32, uint8)
-const battlesCompleteAbi = {
-	"constant": false,
-	"inputs": [
-		{"name": "card1Id", "type": "uint16"},
-		{"name": "card2Id", "type": "uint16"},
-		{"name": "wins", "type": "uint32"},
-		{"name": "loses", "type": "uint32"},
-		{"name": "gamesPlayed", "type": "uint32"},
-		{"name": "lastGameOutcome", "type": "uint8"}
-	],
-	"name": "battlesComplete",
-	"outputs": [],
-	"payable": false,
-	"stateMutability": "nonpayable",
-	"type": "function"
-};
-
 contract('CharacterCard', function(accounts) {
 	it("initial state", async function() {
 		const card = await CharacterCard.new();
@@ -436,52 +414,16 @@ contract('CharacterCard', function(accounts) {
 		await card.approve(accounts[1], 1);
 		assert.equal(1, await card.allowance(accounts[0], accounts[1]), "wrong approvals left value after it was set to 1");
 	});
-	it("approveForAll: create an operator with unlimited approvals", async function() {
-		/*
-		 * approveForAll(address, bool) is an overloaded function and is shadowed by
-		 * approveForAll(address, uint256)
-		 *
-		 * to call approveForAll(address, bool) which sets approval left to maximum possible uint256
-		 * value, we use a trick described here:
-		 * https://beresnev.pro/test-overloaded-solidity-functions-via-truffle/
-		 */
-		// create a card instance
-		const cardInstance = await CharacterCard.new();
-
-		// ABI of approveForAll(address to, bool approved)
-		const overloadedApproveForAllAbi = {
-			"constant": false,
-			"inputs": [
-				{"name": "to", "type": "address"},
-				{"name": "approved", "type": "bool"}
-			],
-			"name": "approveForAll",
-			"outputs": [],
-			"payable": false,
-			"stateMutability": "nonpayable",
-			"type": "function"
-		};
-		// encode the real data to the call, like
-		// approveForAll(accounts[1], true)
-		const approveForAllMethodTransactionData = web3Abi.encodeFunctionCall(
-			overloadedApproveForAllAbi,
-			[accounts[1], true]
-		);
-
-		// send raw transaction data
-		await CharacterCard.web3.eth.sendTransaction({
-			from: accounts[0],
-			to: cardInstance.address,
-			data: approveForAllMethodTransactionData,
-			value: 0
-		});
+	it("setApprovalForAll: create an operator with unlimited approvals", async function() {
+		const card = await CharacterCard.new();
+		await card.setApprovalForAll(accounts[1], true);
 
 		// check the result is greater then zero
-		assert(await cardInstance.allowance(accounts[0], accounts[1]) > 0, "approvals left must be greater then zero");
+		assert(await card.allowance(accounts[0], accounts[1]) > 0, "approvals left must be greater then zero");
 
 		// check the value set is indeed maximum possible uint256
 		const maxUint256 = web3.toBigNumber("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-		const approvalsLeft = await cardInstance.allowance(accounts[0], accounts[1]);
+		const approvalsLeft = await card.allowance(accounts[0], accounts[1]);
 		assert(maxUint256.eq(approvalsLeft), "approvals left must be set to maximum uint256");
 	});
 	it("approve: impossible to approve oneself", async function() {
@@ -690,16 +632,7 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(accounts[0], 0x1);
 		await card.mint(accounts[1], 0x2);
 
-		// battleComplete(0x1, 0x2, 149999, 50001, 299999, 3)
-		await CharacterCard.web3.eth.sendTransaction({
-			from: accounts[0],
-			to: card.address,
-			data: web3Abi.encodeFunctionCall(
-				battlesCompleteAbi,
-				[0x1, 0x2, 149999, 50001, 299999, GAME_OUTCOME_VICTORY]
-			),
-			value: 0
-		});
+		await card.battlesComplete(0x1, 0x2, 149999, 50001, 299999, GAME_OUTCOME_VICTORY);
 
 		// check the results
 		assert(299999, await card.cards(0x1)[5], "card 0x1 has wrong total games played counter");
@@ -716,15 +649,7 @@ contract('CharacterCard', function(accounts) {
 
 		// check it throws if gamesPlayed is zero
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 0, 0, 0, GAME_OUTCOME_DRAW]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 0, 0, 0, GAME_OUTCOME_DRAW);
 		});
 	});
 	it("battle: impossible to batch update if wins + loses is greater then gamesPlayed", async function() {
@@ -734,15 +659,7 @@ contract('CharacterCard', function(accounts) {
 
 		// check it throws if wins + loses is greater then gamesPlayed
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 1, 1, 1, GAME_OUTCOME_VICTORY]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 1, 1, 1, GAME_OUTCOME_VICTORY);
 		});
 	});
 	it("battle: impossible to batch update if lastGameOutcome is inconsistent with wins/losses", async function() {
@@ -752,39 +669,15 @@ contract('CharacterCard', function(accounts) {
 
 		// check it throws if wins + loses is greater then gamesPlayed
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 0, 1, 1, GAME_OUTCOME_VICTORY]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 0, 1, 1, GAME_OUTCOME_VICTORY);
 		});
 		// check it throws if wins + loses is greater then gamesPlayed
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 1, 0, 1, GAME_OUTCOME_DEFEAT]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 1, 0, 1, GAME_OUTCOME_DEFEAT);
 		});
 		// check it throws if wins + loses is greater then gamesPlayed
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 1, 0, 1, GAME_OUTCOME_DRAW]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 1, 0, 1, GAME_OUTCOME_DRAW);
 		});
 	});
 	it("battle: arithmetic overflow check in input parameters", async function() {
@@ -794,27 +687,11 @@ contract('CharacterCard', function(accounts) {
 
 		// check arithmetic overflow on wins
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 4294967295, 1, 1, GAME_OUTCOME_VICTORY]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 4294967295, 1, 1, GAME_OUTCOME_VICTORY);
 		});
 		// check arithmetic overflow on losses
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 1, 4294967295, 1, GAME_OUTCOME_VICTORY]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 1, 4294967295, 1, GAME_OUTCOME_VICTORY);
 		});
 	});
 	it("battle: arithmetic overflow check on card state", async function() {
@@ -823,41 +700,16 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(accounts[1], 0x2);
 		await card.mint(accounts[2], 0x3);
 
-		// battleComplete(0x1, 0x2, 149999, 50001, 199999, 3)
-		await CharacterCard.web3.eth.sendTransaction({
-			from: accounts[0],
-			to: card.address,
-			data: web3Abi.encodeFunctionCall(
-				battlesCompleteAbi,
-				[0x1, 0x2, 1, 4294967294, 4294967295, GAME_OUTCOME_VICTORY]
-			),
-			value: 0
-		});
+		await card.battlesComplete(0x1, 0x2, 1, 4294967294, 4294967295, GAME_OUTCOME_VICTORY);
 
 		// check arithmetic overflow on gamesPlayed card1
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x1, 0x2, 1, 0, 1, GAME_OUTCOME_VICTORY]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x1, 0x2, 1, 0, 1, GAME_OUTCOME_VICTORY);
 		});
 
 		// check arithmetic overflow on gamesPlayed card2
 		await assertThrowsAsync(async function() {
-			await CharacterCard.web3.eth.sendTransaction({
-				from: accounts[0],
-				to: card.address,
-				data: web3Abi.encodeFunctionCall(
-					battlesCompleteAbi,
-					[0x3, 0x2, 1, 0, 1, GAME_OUTCOME_VICTORY]
-				),
-				value: 0
-			});
+			await card.battlesComplete(0x3, 0x2, 1, 0, 1, GAME_OUTCOME_VICTORY);
 		});
 	});
 

@@ -865,7 +865,7 @@ contract CharacterCard {
    * @param to operator address to set the approval
    * @param approved representing the status of the approval to be set
    */
-  function approveForAll(address to, bool approved) public {
+  function setApprovalForAll(address to, bool approved) public {
     // set maximum possible approval, 2^256 – 1, unlimited de facto
     approve(to, approved ? UNLIMITED_APPROVALS : 0);
   }
