@@ -9,7 +9,7 @@ module.exports = {
 				"https://rinkeby.infura.io/***key***"
 			),
 			network_id: "*", // Match any network (determined by provider)
-			gas: 7500000,
+			gas: 7000000,
 			gasPrice: 20000000000 // 20 GWei
 		},
 		// https://www.npmjs.com/package/solidity-coverage
