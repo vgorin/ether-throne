@@ -6,16 +6,19 @@ pragma solidity 0.4.23;
  *      a number in range 1..5000 to a set of card properties -
  *      attributes (mostly immutable by their nature) and state variables (mutable)
  * @dev A card supports minting but not burning, a card cannot be destroyed
- * @dev ERC20-compatibility: partial - TODO: implement full ERC20 compatibility
+ * @dev ERC20-compatibility: full ERC20 compatibility with only one limitation:
+ *      `transfer` and `transferFrom` functions support sending only entire balance
+ *      (`n = balanceOf(owner)`)
  * @dev ERC721-compatibility: partial - TODO: review which ERC721 function to add support for
  *      Note: ERC721 is still a draft at the moment of writing this smart contract,
  *      therefore implementing this "standard" fully doesn't make any sense
  */
+// TODO: remove all the asserts
 contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant version = 0x3;
+  uint32 public constant version = 0x4;
 
   /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
@@ -160,7 +163,8 @@ contract CharacterCard {
 
   /// @notice Exchange is responsible for trading cards on behalf of card holders
   /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of card holders
-  uint32 public constant ROLE_EXCHANGE = 0x00000004;
+  /// @dev Not used
+  //uint32 public constant ROLE_EXCHANGE = 0x00000004;
 
   /// @notice Role manager is responsible for assigning the roles
   /// @dev Role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
@@ -178,7 +182,7 @@ contract CharacterCard {
   event Minted(uint16 indexed cardId, address indexed to, address from);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `from` is zero
-  event CardTransfer(address indexed from, address indexed to, uint16 cardId);
+  event CardTransfer(uint16 indexed cardId, address indexed from, address indexed to);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `from` is zero
   /// @dev ERC20 compliant event
@@ -729,7 +733,7 @@ contract CharacterCard {
     // delegate call to `__mint`
     __mint(to, cardId, rarity, attributes);
 
-    // fire ERC20 compliant Transfer event
+    // fire ERC20 transfer event
     emit Transfer(address(0), to, 1);
   }
 
@@ -755,8 +759,8 @@ contract CharacterCard {
     // how many cards we're minting
     uint16 n = uint16(data.length);
 
-    // there should at least one card to mint
-    // also check we didn't lose precision in n
+    // there should be at least one card to mint
+    // also check we didn't get uint16 overflow in `n`
     require(n != 0 && n == data.length);
 
     // check if caller has sufficient permissions to mint a card
@@ -774,7 +778,7 @@ contract CharacterCard {
       );
     }
 
-    // fire ERC20 compliant Transfer event
+    // fire ERC20 transfer event
     emit Transfer(address(0), to, n);
   }
 
@@ -784,14 +788,19 @@ contract CharacterCard {
    * @dev The cards are taken from the end of the owner's card collection
    * @dev Requires the sender of the transaction to be an owner
    *      of at least `n` cards
+   * @dev For security reasons this function will throw if transferring
+   *      less cards than is owned by the sender (`n != balanceOf(msg.sender)`)
    * @dev ERC20 compliant transfer(address, uint)
    * @param to an address where to transfer cards to,
    *        new owner of the cards
    * @param n number of cards to transfer
    */
   function transfer(address to, uint16 n) public {
-    // TODO: implement
-    require(0 == 1);
+    // call sender gracefully - `from`
+    address from = msg.sender;
+
+    // delegate call to unsafe `__transfer`
+    __transfer(from, to, n);
   }
 
   /**
@@ -803,6 +812,8 @@ contract CharacterCard {
    *      to "spend" at least `n` card
    * @dev The sender is granted an authorization to "spend" the cards
    *      by the owner of the cards using `approve` function
+   * @dev For security reasons this function will throw if transferring
+   *      less cards than is owned by an owner (`n != balanceOf(from)`)
    * @param from an address from where to take cards from,
    *        current owner of the cards
    * @param to an address where to transfer cards to,
@@ -810,8 +821,31 @@ contract CharacterCard {
    * @param n number of cards to transfer
    */
   function transferFrom(address from, address to, uint16 n) public {
-    // TODO: implement
-    require(0 == 1);
+    // call sender gracefully - `operator`
+    address operator = msg.sender;
+
+    // we assume `from` has at least n cards to transfer,
+    // this will be explicitly checked in `__transfer`
+
+    // fetch how much approvals left for an operator
+    uint256 approvalsLeft = allowance[from][operator];
+
+    // operator must be approved to transfer `n` cards on behalf
+    // otherwise this is equal to regular transfer,
+    // where `from` is basically a transaction sender and owner of the cards
+    if(approvalsLeft < n) {
+      // transaction sender doesn't have required amount of approvals left
+      // we will treat him as an owner trying to send his own cards
+      // check `from` to be `operator` (transaction sender):
+      require(from == operator);
+    }
+    else {
+      // update operator's approvals left + emit an event
+      __decreaseOperatorApprovalsLeft(from, operator, n);
+    }
+
+    // delegate call to unsafe `__transfer`
+    __transfer(from, to, n);
   }
 
   /**
@@ -860,12 +894,13 @@ contract CharacterCard {
     // where `from` is basically a transaction sender and owner of the card
     if(operator == approved || approvalsLeft != 0) {
       // update operator's approvals left + emit an event
-      __decreaseOperatorApprovalsLeft(from, operator);
+      __decreaseOperatorApprovalsLeft(from, operator, 1);
     }
     else {
       // transaction sender doesn't have any special permissions
       // we will treat him as a card owner and sender and try to perform
-      // a regular transfer, check `from` to be `operator` (transaction sender):
+      // a regular transfer:
+      // check `from` to be `operator` (transaction sender):
       require(from == operator);
     }
 
@@ -898,7 +933,7 @@ contract CharacterCard {
     // set an approval (deletes an approval if to == 0)
     approvals[cardId] = to;
 
-    // emit en event
+    // emit an ERC721 event
     emit CardApproval(cardId, to);
   }
 
@@ -944,7 +979,7 @@ contract CharacterCard {
     // set an approval
     allowance[from][to] = approved;
 
-    // emit an event
+    // emit an ERC20 compliant event
     emit Approval(from, to, approved);
   }
 
@@ -1015,22 +1050,53 @@ contract CharacterCard {
     // update total supply
     totalSupply++;
 
-    // fire a Mint event
+    // fire Minted event
     emit Minted(cardId, to, msg.sender);
-    // fire CardTransfer event
-    emit CardTransfer(address(0), to, cardId);
+    // fire ERC721 transfer event
+    emit CardTransfer(cardId, address(0), to);
+  }
+
+  /// @dev Performs a transfer of `n` cards from address `from` to address `to`
+  /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call;
+  ///      checks only that address `from` has at least `n` cards on the balance
+  /// @dev For security reasons this function will throw if transferring
+  ///      less cards than is owned by an owner (`n != balanceOf(from)`)
+  /// @dev Is save to call from `transfer(to, n)` since it doesn't need any additional checks
+  /// @dev Must be kept private at all times
+  function __transfer(address from, address to, uint16 n) private {
+    // validate source and destination address
+    require(to != address(0));
+    require(to != from);
+    // impossible by design of transfer(), transferFrom() and approve()
+    // if it happens - its a bug
+    assert(from != address(0));
+
+    // verify the source address owns exactly `n` cards
+    // this is important since the only meaningful usage of ERC20
+    // compatible transfer function in ERC721 context is to transfer all the cards
+    require(n == balanceOf(from));
+
+    // for security reasons remove approved operator
+    delete allowance[from][msg.sender];
+
+    // move all the cards
+    __move(from, to, n);
+
+    // fire a ERC20 transfer event
+    emit Transfer(from, to, n);
   }
 
   /// @dev Performs a transfer of a card `cardId` from address `from` to address `to`
-  /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
+  /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call;
   ///      checks only for card existence and that ownership belongs to `from`
-  /// @dev Is save to call from `transfer(to, cardId)` since it doesn't need any additional checks
+  /// @dev Is save to call from `transferCard(to, cardId)` since it doesn't need any additional checks
   /// @dev Must be kept private at all times
   function __transferCard(address from, address to, uint16 cardId) private {
     // validate source and destination address
     require(to != address(0));
     require(to != from);
-    // impossible by design of transfer(), transferFrom(), approve() and approveForAll()
+    // impossible by design of transferCard(), transferCardFrom(),
+    // approveCard() and approve()
     assert(from != address(0));
 
     // get the card pointer to the storage
@@ -1053,17 +1119,17 @@ contract CharacterCard {
 
     // move card ownership,
     // update old and new owner's card collections accordingly
-    __move(from, to, card);
+    __moveCard(from, to, card);
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[cardId];`
     //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
 
-    // fire an event
-    emit CardTransfer(from, to, cardId);
+    // fire ERC721 transfer event
+    emit CardTransfer(cardId, from, to);
 
-    // fire a ERC20 compliant event
+    // fire a ERC20 transfer event
     emit Transfer(from, to, 1);
   }
 
@@ -1074,57 +1140,103 @@ contract CharacterCard {
       // clear approval
       delete approvals[cardId];
 
-      // emit event
+      // emit an ERC721 event
       emit CardApproval(cardId, address(0));
     }
   }
 
   /// @dev Decreases operator's approvals left
-  function __decreaseOperatorApprovalsLeft(address owner, address operator) private {
+  /// @dev Unsafe, doesn't throw if there is not enough approvals left
+  function __decreaseOperatorApprovalsLeft(address owner, address operator, uint256 n) private {
     // read how much approvals this operator has
     uint256 approvalsLeft = allowance[owner][operator];
 
     // check if approvals exist – we don't want to fire an event in vain
     if (approvalsLeft != 0) {
-      // update approvals left
-      allowance[owner][operator] = --approvalsLeft;
+      // recalculate the approvals left
+      approvalsLeft = approvalsLeft > n ? approvalsLeft - n : 0;
 
-      // emit an event
+      // update approvals left
+      allowance[owner][operator] = approvalsLeft;
+
+      // emit an ERC20 compliant event
       emit Approval(owner, operator, approvalsLeft);
     }
+  }
+
+  /// @dev Move `n` the cards from owner `from` to a new owner `to`
+  /// @dev Unsafe, doesn't check for consistence
+  /// @dev Must be kept private at all times
+  function __move(address from, address to, uint16 n) private {
+    // get a reference to the `from` collection
+    uint16[] storage source = collections[from];
+
+    // get a reference to the `to` collection
+    uint16[] storage destination = collections[to];
+
+    // initial position of the cards to be moved in `destination` array
+    uint16 offset = uint16(destination.length);
+
+    // copy last `n` cards from `source` to `destination`
+    for(uint16 i = uint16(source.length) - n; i < source.length; i++) {
+      // get the link to a card from the source collection
+      Card storage card = cards[source[i]];
+
+      // cardId must be consistent with the collections by design
+      // otherwise this is a bug
+      assert(source[i] == card.id);
+
+      // update card index to position in `destination` collection
+      card.index = offset + i;
+
+      // update card owner
+      card.owner = to;
+
+      // update ownership transfer date
+      card.ownershipModified = uint32(block.number);
+
+      // write the card to destination collection
+      destination.push(source[i]);
+
+      // emit ERC721 transfer event
+      emit CardTransfer(source[i], from, to);
+    }
+
+    // trim source (`from`) collection array by `n`
+    source.length -= n;
   }
 
   /// @dev Move a `card` from owner `from` to a new owner `to`
   /// @dev Unsafe, doesn't check for consistence
   /// @dev Must be kept private at all times
-  function __move(address from, address to, Card storage card) private {
+  function __moveCard(address from, address to, Card storage card) private {
     // get a reference to the collection where card is now
-    uint16[] storage f = collections[from];
+    uint16[] storage source = collections[from];
 
     // get a reference to the collection where card goes to
-    uint16[] storage t = collections[to];
+    uint16[] storage destination = collections[to];
 
-    // collection `f` cannot be empty, if it is - it's a bug
-    assert(f.length != 0);
+    // collection `source` cannot be empty, if it is - it's a bug
+    assert(source.length != 0);
 
-    // index of the card within collection `f`
+    // index of the card within collection `source`
     uint16 i = card.index;
 
-    // we put the last card in the collection `f` to the position released
-    // get an ID of the last card in `f`
-    uint16 cardId = f[f.length - 1];
+    // we put the last card in the collection `source` to the position released
+    // get an ID of the last card in `source`
+    uint16 cardId = source[source.length - 1];
 
-    // update card index to point to proper place in the collection `f`
+    // update card index to point to proper place in the collection `source`
     cards[cardId].index = i;
 
-    // put it into the position i within `f`
-    f[i] = cardId;
+    // put it into the position i within `source`
+    source[i] = cardId;
 
-    // trim the collection `f` by removing last element
-    f.length--;
+    // trim the collection `source` by removing last element
+    source.length--;
 
-    // update card index according to position in new collection `t`
-    card.index = uint16(t.length);
+    // update card index according to position in new collection `destination`
+    card.index = uint16(destination.length);
 
     // update card owner
     card.owner = to;
@@ -1133,7 +1245,7 @@ contract CharacterCard {
     card.ownershipModified = uint32(block.number);
 
     // push card into collection
-    t.push(card.id);
+    destination.push(card.id);
   }
 
 }

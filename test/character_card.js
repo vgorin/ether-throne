@@ -1,7 +1,7 @@
 // role constants copied from CharacterCard.sol as is
 const ROLE_CARD_CREATOR = 0x00000001;
 const ROLE_COMBAT_PROVIDER = 0x00000002;
-const ROLE_EXCHANGE = 0x00000004;
+//const ROLE_EXCHANGE = 0x00000004;
 const ROLE_ROLE_MANAGER = 0x00000008;
 
 // game outcome constants copied from CharacterCard.sol as is
@@ -174,9 +174,12 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(accounts[0], 0x1);
 		assert.equal(0x1, await card.collections(accounts[0], 0), accounts[0] + " card collection doesn't contain minted card");
 		await assertThrowsAsync(async function() {await card.collections(accounts[0], 1);});
-		assert.equal(0x1, (await card.cards(0x1))[0], "newly minted card has wrong id");
-		assert.equal(0, (await card.cards(0x1))[1], "newly minted card has wrong index");
-		assert.equal(accounts[0], (await card.cards(0x1))[12], "newly minted card has wrong owner address");
+
+		const card0x1 = await card.cards(0x1);
+
+		assert.equal(0x1, card0x1[0], "newly minted card has wrong id");
+		assert.equal(0, card0x1[1], "newly minted card has wrong index");
+		assert.equal(accounts[0], card0x1[12], "newly minted card has wrong owner address");
 	});
 	it("mint: mint few cards and check integrity of the structures involved", async function() {
 		const card = await CharacterCard.new();
@@ -187,15 +190,20 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0x2, await card.collections(accounts[0], 1), accounts[0] + " collection doesn't contain card 0x2");
 		assert.equal(0x3, await card.collections(accounts[0], 2), accounts[0] + " collection doesn't contain card 0x3");
 		await assertThrowsAsync(async function() {await card.collections(accounts[0], 3);});
-		assert.equal(0x1, (await card.cards(0x1))[0], "newly minted card 0x1 has wrong id");
-		assert.equal(0x2, (await card.cards(0x2))[0], "newly minted card 0x2 has wrong id");
-		assert.equal(0x3, (await card.cards(0x3))[0], "newly minted card 0x3 has wrong id");
-		assert.equal(0, (await card.cards(0x1))[1], "newly minted card 0x1 has wrong index");
-		assert.equal(1, (await card.cards(0x2))[1], "newly minted card 0x2 has wrong index");
-		assert.equal(2, (await card.cards(0x3))[1], "newly minted card 0x3 has wrong index");
-		assert.equal(accounts[0], (await card.cards(0x1))[12], "newly minted card 0x1 has wrong owner address");
-		assert.equal(accounts[0], (await card.cards(0x2))[12], "newly minted card 0x2 has wrong owner address");
-		assert.equal(accounts[0], (await card.cards(0x3))[12], "newly minted card 0x3 has wrong owner address");
+
+		const card0x1 = await card.cards(0x1);
+		const card0x2 = await card.cards(0x2);
+		const card0x3 = await card.cards(0x3);
+
+		assert.equal(0x1, card0x1[0], "newly minted card 0x1 has wrong id");
+		assert.equal(0x2, card0x2[0], "newly minted card 0x2 has wrong id");
+		assert.equal(0x3, card0x3[0], "newly minted card 0x3 has wrong id");
+		assert.equal(0, card0x1[1], "newly minted card 0x1 has wrong index");
+		assert.equal(1, card0x2[1], "newly minted card 0x2 has wrong index");
+		assert.equal(2, card0x3[1], "newly minted card 0x3 has wrong index");
+		assert.equal(accounts[0], card0x1[12], "newly minted card 0x1 has wrong owner address");
+		assert.equal(accounts[0], card0x2[12], "newly minted card 0x2 has wrong owner address");
+		assert.equal(accounts[0], card0x3[12], "newly minted card 0x3 has wrong owner address");
 	});
 	it("mint: impossible to mint the same card twice", async function() {
 		const card = await CharacterCard.new();
@@ -224,6 +232,65 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.mint(accounts[0], 0x0)});
 	});
 
+	it("mintCards: batch mint few cards", async function() {
+		const card = await CharacterCard.new();
+		await card.mintCards(accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+		assert.equal(3, await card.balanceOf(accounts[0]), "wrong balance after minting 3 cards");
+	});
+	it("mintCards: structures integrity check after batch mint", async function() {
+		const card = await CharacterCard.new();
+		await card.mintCards(accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+		const card0x1 = await card.cards(0x1);
+		const card0x2 = await card.cards(0x2);
+		const card0x3 = await card.cards(0x3);
+
+		assert.equal(0x1, await card.collections(accounts[0], 0), "card 0x1 is missing in the collection at idx 0");
+		assert.equal(0x2, await card.collections(accounts[0], 1), "card 0x2 is missing in the collection at idx 1");
+		assert.equal(0x3, await card.collections(accounts[0], 2), "card 0x3 is missing in the collection at idx 2");
+		assert.equal(0x1, card0x1[0], "wrong card 0x1 ID after batch mint");
+		assert.equal(0x2, card0x2[0], "wrong card 0x2 ID after batch mint");
+		assert.equal(0x3, card0x3[0], "wrong card 0x3 ID after batch mint");
+		assert.equal(0, card0x1[1], "wrong card 0x1 index after batch mint");
+		assert.equal(1, card0x2[1], "wrong card 0x2 index after batch mint");
+		assert.equal(2, card0x3[1], "wrong card 0x3 index after batch mint");
+		assert.equal(accounts[0], card0x1[12], "wrong card 0x1 owner after batch mint");
+		assert.equal(accounts[0], card0x2[12], "wrong card 0x2 owner after batch mint");
+		assert.equal(accounts[0], card0x3[12], "wrong card 0x3 owner after batch mint");
+	});
+	it("mintCards: batch mint requires sender to have ROLE_CARD_CREATOR permission", async function() {
+		const card = await CharacterCard.new();
+		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
+		await card.mintCards.sendTransaction(
+			accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007], {from: accounts[1]}
+		);
+	});
+	it("mintCards: impossible to batch mint cards without ROLE_CARD_CREATOR permission", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {
+			await card.mintCards.sendTransaction(
+				accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007], {from: accounts[1]}
+			);
+		});
+	});
+	it("mintCards: impossible to batch mint to a zero address", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {
+			await card.mintCards(0, [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+		});
+	});
+	it("mintCards: impossible to batch mint to a card smart contract itself", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {
+			await card.mintCards(card.address, [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+		});
+	});
+	it("mintCards: impossible to batch mint empty array of cards", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {
+			await card.mintCards(accounts[0], []);
+		});
+	});
+
 	it("transferCard: transfer a card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
@@ -232,7 +299,7 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
 		assert.equal(accounts[1], await card.ownerOf(0x1), "card 0x1 has wrong owner after transferring it to " + accounts[1]);
 	});
-	it("transferCard: integrity check of the structures involved after transferring a card", async function() {
+	it("transferCard: data structures integrity check after card transfer", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x1);
 		await card.mint(accounts[0], 0x2);
@@ -346,6 +413,107 @@ contract('CharacterCard', function(accounts) {
 		await card.approveCard(accounts[2], 0x1);
 		await card.transferCardFrom(accounts[0], accounts[1], 0x1, {from: accounts[2]});
 		assert.equal(0, await card.approvals(0x1), "card 0x1 still has an approval after the transfer on behalf")
+	});
+
+	it("ERC20 transfer: it is possible to execute ERC20 compliant transfer", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[0], 0x1);
+		await card.mint(accounts[0], 0x2);
+		await card.mint(accounts[0], 0x3);
+		await card.transfer(accounts[1], 3);
+		assert.equal(0, await card.balanceOf(accounts[0]), "wrong source balance after ERC20 transfer");
+		assert.equal(3, await card.balanceOf(accounts[1]), "wrong destination balance after ERC20 transfer");
+	});
+	it("ERC20 transfer: data structures integrity check after transfer", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[0], 0x1);
+		await card.mint(accounts[0], 0x2);
+		await card.mint(accounts[0], 0x3);
+		await card.mint(accounts[1], 0x8);
+		await card.mint(accounts[1], 0x9);
+		await card.transfer(accounts[1], 3);
+		assert.equal(0, await card.balanceOf(accounts[0]), "wrong source balance after transfer");
+		assert.equal(5, await card.balanceOf(accounts[1]), "wrong destination balance after transfer");
+		assert.equal(0x1, await card.collections(accounts[1], 2), "card 0x1 is missing in the collection at idx 2 after transfer");
+		assert.equal(0x2, await card.collections(accounts[1], 3), "card 0x2 is missing in the collection at idx 3 after transfer");
+		assert.equal(0x3, await card.collections(accounts[1], 4), "card 0x3 is missing in the collection at idx 4 after transfer");
+
+		const card0x1 = await card.cards(0x1);
+		const card0x2 = await card.cards(0x2);
+		const card0x3 = await card.cards(0x3);
+
+		assert.equal(0x1, card0x1[0], "wrong card 0x1 ID after transfer");
+		assert.equal(0x2, card0x2[0], "wrong card 0x2 ID after transfer");
+		assert.equal(0x3, card0x3[0], "wrong card 0x3 ID after transfer");
+		assert.equal(2, card0x1[1], "wrong card 0x1 index in the dst collection after transfer");
+		assert.equal(3, card0x2[1], "wrong card 0x2 index in the dst collection after transfer");
+		assert.equal(4, card0x3[1], "wrong card 0x3 index in the dst collection after transfer");
+		assert(card0x1[3] > 0, "wrong card 0x1 ownership modified date after transfer");
+		assert(card0x2[3] > 0, "wrong card 0x2 ownership modified date after transfer");
+		assert(card0x3[3] > 0, "wrong card 0x3 ownership modified date after transfer");
+		assert.equal(accounts[1], card0x1[12], "wrong card 0x1 owner after the transfer");
+		assert.equal(accounts[1], card0x2[12], "wrong card 0x2 owner after the transfer");
+		assert.equal(accounts[1], card0x3[12], "wrong card 0x3 owner after the transfer");
+	});
+	it("ERC20 transfer: impossible to transfer more cards then the balance", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[0], 0x1);
+		await card.mint(accounts[0], 0x2);
+		await card.mint(accounts[0], 0x3);
+		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 4)});
+	});
+	it("ERC20 transfer: impossible to transfer less cards then the balance", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[0], 0x1);
+		await card.mint(accounts[0], 0x2);
+		await card.mint(accounts[0], 0x3);
+		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 2)});
+	});
+	it("ERC20 transfer: impossible to transfer to a zero address", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[0], 0x1);
+		await card.mint(accounts[0], 0x2);
+		await assertThrowsAsync(async function() {await card.transfer(0, 2);});
+	});
+	it("ERC20 transfer: impossible to transfer to oneself", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[0], 0x1);
+		await card.mint(accounts[0], 0x2);
+		await assertThrowsAsync(async function() {await card.transfer(accounts[0], 2);});
+	});
+
+	it("ERC20 transferFrom: transfer own cards without any approvals", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[0], 0x1);
+		await card.mint(accounts[0], 0x2);
+		await card.transferFrom(accounts[0], accounts[1], 2);
+		assert.equal(2, await card.balanceOf(accounts[1]));
+	});
+	it("ERC20 transferFrom: transfer on behalf", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[1], 0x1);
+		await card.mint(accounts[1], 0x2);
+		await card.approve.sendTransaction(accounts[2], 2, {from: accounts[1]});
+		await card.transferFrom.sendTransaction(accounts[1], accounts[0], 2, {from: accounts[2]});
+		assert.equal(2, await card.balanceOf(accounts[0]));
+	});
+	it("ERC20 transferFrom: impossible to transfer on behalf without approval", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[1], 0x1);
+		await card.mint(accounts[1], 0x2);
+		await assertThrowsAsync(async function() {
+			await card.transferFrom.sendTransaction(accounts[1], accounts[0], 2, {from: accounts[2]});
+		});
+	});
+	it("ERC20 transferFrom: impossible to transfer on behalf with not enough approval", async function() {
+		const card = await CharacterCard.new();
+		await card.mint(accounts[1], 0x1);
+		await card.mint(accounts[1], 0x2);
+		await card.mint(accounts[1], 0x3);
+		await card.approve.sendTransaction(accounts[2], 2, {from: accounts[1]});
+		await assertThrowsAsync(async function() {
+			await card.transferFrom.sendTransaction(accounts[1], accounts[0], 3, {from: accounts[2]});
+		});
 	});
 
 	it("approveCard: newly created card is not approved to be transferred initially", async function() {
@@ -537,19 +705,25 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(accounts[0], 0x1);
 		await card.mint(accounts[1], 0x2);
 		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_VICTORY); // card1 won card2
-		assert.equal(1, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
-		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
-		assert.equal(0, (await card.cards(0x1))[7], "card 0x1 losses counter is incorrect");
-		assert.equal(1, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
-		assert.equal(0, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
-		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 losses counter is incorrect");
+
+		const card0x1V = await card.cards(0x1);
+		const card0x2V = await card.cards(0x2);
+		assert.equal(1, card0x1V[5], "card 0x1 games played counter is incorrect");
+		assert.equal(1, card0x1V[6], "card 0x1 wins counter is incorrect");
+		assert.equal(0, card0x1V[7], "card 0x1 losses counter is incorrect");
+		assert.equal(1, card0x2V[5], "card 0x2 games played counter is incorrect");
+		assert.equal(0, card0x2V[6], "card 0x2 wins counter is incorrect");
+		assert.equal(1, card0x2V[7], "card 0x2 losses counter is incorrect");
 		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_DEFEAT); // card1 lost card2
-		assert.equal(2, (await card.cards(0x1))[5], "card 0x1 games played counter is incorrect");
-		assert.equal(1, (await card.cards(0x1))[6], "card 0x1 wins counter is incorrect");
-		assert.equal(1, (await card.cards(0x1))[7], "card 0x1 losses counter is incorrect");
-		assert.equal(2, (await card.cards(0x2))[5], "card 0x2 games played counter is incorrect");
-		assert.equal(1, (await card.cards(0x2))[6], "card 0x2 wins counter is incorrect");
-		assert.equal(1, (await card.cards(0x2))[7], "card 0x2 losses counter is incorrect");
+
+		const card0x1D = await card.cards(0x1);
+		const card0x2D = await card.cards(0x2);
+		assert.equal(2, card0x1D[5], "card 0x1 games played counter is incorrect");
+		assert.equal(1, card0x1D[6], "card 0x1 wins counter is incorrect");
+		assert.equal(1, card0x1D[7], "card 0x1 losses counter is incorrect");
+		assert.equal(2, card0x2D[5], "card 0x2 games played counter is incorrect");
+		assert.equal(1, card0x2D[6], "card 0x2 wins counter is incorrect");
+		assert.equal(1, card0x2D[7], "card 0x2 losses counter is incorrect");
 	});
 	it("battle: last game outcome is GAME_OUTCOME_UNDEFINED initially", async function() {
 		const card = await CharacterCard.new();
@@ -635,12 +809,14 @@ contract('CharacterCard', function(accounts) {
 		await card.battlesComplete(0x1, 0x2, 149999, 50001, 299999, GAME_OUTCOME_VICTORY);
 
 		// check the results
-		assert(299999, await card.cards(0x1)[5], "card 0x1 has wrong total games played counter");
-		assert(299999, await card.cards(0x2)[5], "card 0x2 has wrong total games played counter");
-		assert(149999, await card.cards(0x1)[6], "card 0x1 has wrong wins counter");
-		assert( 50001, await card.cards(0x2)[6], "card 0x2 has wrong wins counter");
-		assert( 50001, await card.cards(0x1)[7], "card 0x1 has wrong losses counter");
-		assert(149999, await card.cards(0x2)[7], "card 0x2 has wrong losses counter");
+		const card0x1 = await card.cards(0x1);
+		const card0x2 = await card.cards(0x2);
+		assert(299999, card0x1[5], "card 0x1 has wrong total games played counter");
+		assert(299999, card0x2[5], "card 0x2 has wrong total games played counter");
+		assert(149999, card0x1[6], "card 0x1 has wrong wins counter");
+		assert( 50001, card0x2[6], "card 0x2 has wrong wins counter");
+		assert( 50001, card0x1[7], "card 0x1 has wrong losses counter");
+		assert(149999, card0x2[7], "card 0x2 has wrong losses counter");
 	});
 	it("battle: impossible to batch update if gamesPlayed is zero", async function() {
 		const card = await CharacterCard.new();

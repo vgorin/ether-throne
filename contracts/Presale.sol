@@ -10,7 +10,7 @@ import "./CharacterCard.sol";
 contract Presale {
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
-  uint32 public CHAR_CARD_VERSION_REQUIRED = 0x3;
+  uint32 public CHAR_CARD_VERSION_REQUIRED = 0x4;
 
   /// @dev ID of the first card to sell
   uint16 public constant OFFSET = 1;
@@ -39,9 +39,6 @@ contract Presale {
 
   /// @dev Emits when smart contract sells a card, buy(), buyFor()
   event PurchaseComplete(address indexed from, address indexed to, uint8 amount);
-
-  /// @dev Emits when all the cards have been sold, buy(), buyFor()
-  event SaleComplete(uint16 offset, uint16 length);
 
   /**
    * @dev Creates a card sale smart contract instance
@@ -151,11 +148,6 @@ contract Presale {
 
     // emit an `PurchaseComplete` event
     emit PurchaseComplete(msg.sender, to, totalPrice == single? 1: 3);
-
-    // emit a `SaleComplete` event if necessary
-    if(sold == LENGTH) {
-      emit SaleComplete(OFFSET, LENGTH);
-    }
   }
 
   /// @dev Packs 3 cards into an uint64[3] dynamic array

@@ -23,7 +23,7 @@
 <table>
 	<tr>
 		<td><label for="CharacterCardAddress" title="Deployed Instance Address">Character Card (ERC721) Instance Address:</label></td>
-		<td><input id="CharacterCardAddress" type="text" value="0xc968972bb379a70773b9caee646f9e4edd3fd547" size="42"/></td>
+		<td><input id="CharacterCardAddress" type="text" value="0x77700bc9c59a1a00f58beb37bb9aac502be77681" size="42"/></td>
 	</tr>
 	<tr>
 		<td></td>
@@ -196,19 +196,19 @@ function connect() {
 			const transferEvent = cardInstance.CardTransfer();
 			transferEvent.watch(function(err, receipt) {
 				if(err) {
-					printError("Error receiving Transfer event: " + err);
+					printError("Error receiving CardTransfer event: " + err);
 					return;
 				}
-				if(!(receipt && receipt.args && receipt.args.from && receipt.args.to && receipt.args.cardId)) {
-					printError("Transfer event received in wrong format: wrong arguments");
+				if(!(receipt && receipt.args && receipt.args.cardId && receipt.args.from && receipt.args.to)) {
+					printError("CardTransfer event received in wrong format: wrong arguments");
 					return;
 				}
+				const cardId = receipt.args.cardId.toString(16);
 				const from = receipt.args.from;
 				const to = receipt.args.to;
-				const cardId = receipt.args.cardId.toString(16);
-				printLog("Transfer(" + from + ", " + to + ", 0x" + cardId + ")");
+				printLog("CardTransfer(0x" + cardId + ", " + from + ", " + to + ")");
 			});
-			printLog("Successfully registered CardTransfer(address, address, uint16) event listener");
+			printLog("Successfully registered CardTransfer(uint16, address, address) event listener");
 			const battleCompleteEvent = cardInstance.BattleComplete();
 			battleCompleteEvent.watch(function(err, receipt) {
 				if(err) {
