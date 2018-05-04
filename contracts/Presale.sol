@@ -10,7 +10,7 @@ import "./CharacterCard.sol";
 contract Presale {
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
-  uint32 public CHAR_CARD_VERSION_REQUIRED = 0x4;
+  uint32 public CHAR_CARD_VERSION_REQUIRED = 0x5;
 
   /// @dev ID of the first card to sell
   uint16 public constant OFFSET = 1;
@@ -57,10 +57,8 @@ contract Presale {
     cardInstance = CharacterCard(tokenAddress);
 
     // validate if character card instance is valid
-    // validate ERC20-compatible symbol
-    require(keccak256("ET") == keccak256(cardInstance.symbol()));
-    // validate smart contract version
-    require(CHAR_CARD_VERSION_REQUIRED == cardInstance.version());
+    // by validating smart contract version
+    require(CHAR_CARD_VERSION_REQUIRED == cardInstance.CHAR_CARD_VERSION());
 
     // setup all the parameters left
     beneficiary = _beneficiary;

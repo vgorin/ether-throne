@@ -18,7 +18,7 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant version = 0x4;
+  uint32 public constant CHAR_CARD_VERSION = 0x5;
 
   /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
@@ -152,19 +152,19 @@ contract CharacterCard {
   /// @dev Constant indicating victory of a card (defeat of an opponent card)
   uint8 public constant GAME_OUTCOME_VICTORY = 3;
 
-  /// @notice Card creator is responsible for creating cards
-  /// @dev Role ROLE_CARD_CREATOR allows minting cards
-  uint32 public constant ROLE_CARD_CREATOR = 0x00000001;
+  /// @notice Exchange is responsible for trading cards on behalf of card holders
+  /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of card holders
+  /// @dev Not used
+  //uint32 public constant ROLE_EXCHANGE = 0x00000001;
 
   /// @notice Card game provider is responsible for enabling the game protocol
   /// @dev Role ROLE_COMBAT_PROVIDER allows modifying gamesPlayed,
   ///      wins, losses, state, lastGamePlayed, attributes
   uint32 public constant ROLE_COMBAT_PROVIDER = 0x00000002;
 
-  /// @notice Exchange is responsible for trading cards on behalf of card holders
-  /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of card holders
-  /// @dev Not used
-  //uint32 public constant ROLE_EXCHANGE = 0x00000004;
+  /// @notice Card creator is responsible for creating cards
+  /// @dev Role ROLE_CARD_CREATOR allows minting cards
+  uint32 public constant ROLE_CARD_CREATOR = 0x00000004;
 
   /// @notice Role manager is responsible for assigning the roles
   /// @dev Role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
@@ -181,17 +181,17 @@ contract CharacterCard {
   /// @dev Address `from` allows to track who created a card
   event Minted(uint16 indexed cardId, address indexed to, address from);
   /// @dev Fired in transfer(), transferFor(), mint()
-  /// @dev When minting a card, address `from` is zero
-  event CardTransfer(uint16 indexed cardId, address indexed from, address indexed to);
+  /// @dev When minting a card, address `_from` is zero
+  event CardTransfer(uint16 indexed _tokenId, address indexed _from, address indexed _to);
   /// @dev Fired in transfer(), transferFor(), mint()
-  /// @dev When minting a card, address `from` is zero
+  /// @dev When minting a card, address `_from` is zero
   /// @dev ERC20 compliant event
-  event Transfer(address indexed from, address indexed to, uint16 value);
+  event Transfer(address indexed _from, address indexed _to, uint256 _value);
   /// @dev Fired in approveCard()
-  event CardApproval(uint16 indexed cardId, address indexed approved);
+  event CardApproval(uint16 indexed _tokenId, address indexed _owner, address indexed _approved);
   /// @dev Fired in approve()
   /// @dev ERC20 compliant event
-  event Approval(address indexed owner, address indexed operator, uint256 approved);
+  event Approval(address indexed _owner, address indexed _spender, uint _value);
   /// @dev Fired in battlesComplete(), battleComplete()
   event BattleComplete(
     uint16 indexed card1Id,
@@ -934,7 +934,7 @@ contract CharacterCard {
     approvals[cardId] = to;
 
     // emit an ERC721 event
-    emit CardApproval(cardId, to);
+    emit CardApproval(cardId, msg.sender, to);
   }
 
   /**
@@ -1141,7 +1141,7 @@ contract CharacterCard {
       delete approvals[cardId];
 
       // emit an ERC721 event
-      emit CardApproval(cardId, address(0));
+      emit CardApproval(cardId, msg.sender, address(0));
     }
   }
 

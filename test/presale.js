@@ -1,7 +1,7 @@
 // role constants copied from CharacterCard.sol as is
-const ROLE_CARD_CREATOR = 0x00000001;
+const ROLE_EXCHANGE = 0x00000001;
 const ROLE_COMBAT_PROVIDER = 0x00000002;
-const ROLE_EXCHANGE = 0x00000004;
+const ROLE_CARD_CREATOR = 0x00000004;
 const ROLE_ROLE_MANAGER = 0x00000008;
 
 const INITIAL_CARD_PRICE = web3.toBigNumber(web3.toWei(50, 'finney'));

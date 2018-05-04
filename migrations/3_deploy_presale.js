@@ -1,6 +1,8 @@
 const Card = artifacts.require("./CharacterCard");
 const Presale = artifacts.require("./Presale");
 
+const ROLE_CARD_CREATOR = 0x00000004;
+
 module.exports = async function(deployer, network, accounts) {
 	if(network === "test") {
 		console.log("[deploy presale] test network - skipping the migration script");
@@ -21,7 +23,7 @@ module.exports = async function(deployer, network, accounts) {
 
 	const presaleInstance = await Presale.deployed();
 
-	await cardInstance.addOperator(presaleInstance.address, 0x00000002);
+	await cardInstance.addOperator(presaleInstance.address, ROLE_CARD_CREATOR);
 
 	console.log("___________________________________________________");
 	console.log("card:    " + cardInstance.address);
