@@ -18,4 +18,12 @@ module.exports = async function(deployer, network, accounts) {
 		cardInstance.address,
 		'0x2f4Fe9f655FF9316335D7200169Cd07d598ff7BC'
 	);
+
+	const presaleInstance = await Presale.deployed();
+
+	await cardInstance.addOperator(presaleInstance.address, 0x00000002);
+
+	console.log("___________________________________________________");
+	console.log("card:    " + cardInstance.address);
+	console.log("presale: " + presaleInstance.address);
 };
