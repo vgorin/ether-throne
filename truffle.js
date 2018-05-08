@@ -5,8 +5,8 @@ module.exports = {
 	networks: {
 		development: {
 			provider: new HDWalletProvider(
-				"goddess bundle miss dance loop arm want life asthma leader coin describe",
-				"https://rinkeby.infura.io/9A7EpV9S7shj1LWKy1s2"
+				"12 mimic words",
+				"https://rinkeby.infura.io/***key***"
 			),
 			network_id: "*", // Match any network (determined by provider)
 			gas: 7000000,
