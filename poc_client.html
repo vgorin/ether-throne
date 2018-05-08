@@ -216,16 +216,16 @@ function connect() {
 					printError("Error receiving Minted event: " + err);
 					return;
 				}
-				if(!(receipt && receipt.args && receipt.args.cardId && receipt.args.to && receipt.args.from)) {
+				if(!(receipt && receipt.args && receipt.args._from && receipt.args._to && receipt.args._tokenId)) {
 					printError("Minted event received in wrong format: wrong arguments");
 					return;
 				}
-				const cardId = receipt.args.cardId.toString(16);
-				const to = receipt.args.to;
-				const from = receipt.args.from;
-				printLog("Minted(0x" + cardId + ", " + to + ", " + from + ")");
+				const from = receipt.args._from;
+				const to = receipt.args._to;
+				const cardId = receipt.args._tokenId.toString(10);
+				printLog("Minted(" + from + ", " + to + ", " + cardId + ")");
 			});
-			printLog("Successfully registered Minted(uint16, address, address) event listener");
+			printLog("Successfully registered Minted(address, address, uint16) event listener");
 			const cardTransferEvent = cardInstance.CardTransfer();
 			cardTransferEvent.watch(function(err, receipt) {
 				if(err) {
@@ -236,12 +236,12 @@ function connect() {
 					printError("ERC721 CardTransfer event received in wrong format: wrong arguments");
 					return;
 				}
-				const cardId = receipt.args._tokenId.toString(16);
 				const from = receipt.args._from;
 				const to = receipt.args._to;
-				printLog("ERC721 CardTransfer(0x" + cardId + ", " + from + ", " + to + ")");
+				const cardId = receipt.args._tokenId.toString(10);
+				printLog("ERC721 CardTransfer(" + to + ", " + from + ", " + cardId + ")");
 			});
-			printLog("Successfully registered CardTransfer(uint16, address, address) event listener");
+			printLog("Successfully registered CardTransfer(address, address, uint16) event listener");
 			const battleCompleteEvent = cardInstance.BattleComplete();
 			const transferEvent = cardInstance.Transfer();
 			transferEvent.watch(function(err, receipt) {

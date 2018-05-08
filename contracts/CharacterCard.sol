@@ -18,7 +18,7 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant CHAR_CARD_VERSION = 0x6;
+  uint32 public constant CHAR_CARD_VERSION = 0x7;
 
   /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
@@ -40,6 +40,7 @@ contract CharacterCard {
     /// @dev Initialized on card creation, immutable
     /// @dev Used to derive card rarity type like
     ///      casual, rare, ultra rare, legendary, hologram, etc.
+    /// @dev Only 8 lower bits are used
     uint32 rarity;
 
     /// @dev Initially zero, changes when attributes are modified
@@ -53,6 +54,7 @@ contract CharacterCard {
     ///      while higher bits store more rare attributes
     /// @dev Is initialized with at least 3 active attributes
     ///      (three lowest bits set to 1)
+    /// @dev Only 16 lower bits are used
     uint32 attributes;
 
     /// @dev Initially zero, changes after each game played
@@ -80,6 +82,7 @@ contract CharacterCard {
     /// @dev Initially zero, stores card state data,
     ///      such as is card currently in game or not,
     ///      status of the last game played, etc
+    /// @dev Only 8 lower bits are used
     uint32 state;
 
     /// @dev Initially zero, changes when ownership is transferred
@@ -182,27 +185,27 @@ contract CharacterCard {
   /// @dev Event names are self-explanatory:
   /// @dev Fired in mint()
   /// @dev Address `from` allows to track who created a card
-  event Minted(uint16 indexed cardId, address indexed to, address from);
+  event Minted(address indexed _from,  address indexed _to, uint16 indexed _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `_from` is zero
-  event CardTransfer(uint16 indexed _tokenId, address indexed _from, address indexed _to);
+  event CardTransfer(address indexed _from, address indexed _to, uint16 indexed _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `_from` is zero
   /// @dev ERC20 compliant event
   event Transfer(address indexed _from, address indexed _to, uint256 _value);
   /// @dev Fired in approveCard()
-  event CardApproval(uint16 indexed _tokenId, address indexed _owner, address indexed _approved);
+  event CardApproval(address indexed _owner, address indexed _approved, uint16 indexed _tokenId);
   /// @dev Fired in approve()
   /// @dev ERC20 compliant event
-  event Approval(address indexed _owner, address indexed _spender, uint _value);
+  event Approval(address indexed _owner, address indexed _spender, uint256 _value);
   /// @dev Fired in battlesComplete(), battleComplete()
   event BattleComplete(
-    uint16 indexed card1Id,
-    uint16 indexed card2Id,
-    uint32 wins,          // card1 wins = card2 losses
-    uint32 losses,        // card1 losses = card2 wins
-    uint32 gamesPlayed,   // card1 games played = card2 games played
-    uint8 lastGameOutcome // card1 last game outcome = 4 - card2 last game outcome
+    uint16 indexed card1Id,// card1 ID
+    uint16 indexed card2Id,// card2 ID
+    uint32 wins,           // card1 wins = card2 losses
+    uint32 losses,         // card1 losses = card2 wins
+    uint32 gamesPlayed,    // card1 games played = card2 games played
+    uint8  lastGameOutcome // card1 last game outcome = 4 - card2 last game outcome
   );
 
   /**
@@ -938,7 +941,7 @@ contract CharacterCard {
     approvals[cardId] = to;
 
     // emit an ERC721 event
-    emit CardApproval(cardId, msg.sender, to);
+    emit CardApproval(msg.sender, to, cardId);
   }
 
   /**
@@ -1055,9 +1058,9 @@ contract CharacterCard {
     totalSupply++;
 
     // fire Minted event
-    emit Minted(cardId, to, msg.sender);
+    emit Minted(msg.sender, to, cardId);
     // fire ERC721 transfer event
-    emit CardTransfer(cardId, address(0), to);
+    emit CardTransfer(address(0), to, cardId);
   }
 
   /// @dev Performs a transfer of `n` cards from address `from` to address `to`
@@ -1131,7 +1134,7 @@ contract CharacterCard {
     //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
 
     // fire ERC721 transfer event
-    emit CardTransfer(cardId, from, to);
+    emit CardTransfer(from, to, cardId);
 
     // fire a ERC20 transfer event
     emit Transfer(from, to, 1);
@@ -1145,7 +1148,7 @@ contract CharacterCard {
       delete approvals[cardId];
 
       // emit an ERC721 event
-      emit CardApproval(cardId, msg.sender, address(0));
+      emit CardApproval(msg.sender, address(0), cardId);
     }
   }
 
@@ -1203,7 +1206,7 @@ contract CharacterCard {
       destination.push(source[i]);
 
       // emit ERC721 transfer event
-      emit CardTransfer(source[i], from, to);
+      emit CardTransfer(from, to, source[i]);
     }
 
     // trim source (`from`) collection array by `n`
