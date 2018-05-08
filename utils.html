@@ -33,32 +33,36 @@
 </body>
 <script type="text/javascript">
 function parse() {
-	const card = document.getElementById("parse_card").value;
+	const card = document.getElementById("parse_card").value.replace(/\s/g,'');
 	const hex = /[0-9A-Fa-f]{128}/g;
 	if(card.length !== 128 || !hex.test(card)) {
 		printError("invalid card: card must be a 512 bit hex encoded number");
 		return;
 	}
 	printLog("Card " + card);
-	const id = parseCardToInt(card, 0, 4);
-	printLog("id: " + id);
-	const index = parseCardToInt(card, 4, 4);
-	printLog("index: " + index);
-	const created = parseCardToInt(card, 8, 8);
+	const created = parseCardToInt(card, 0, 8);
 	printLog("created: " + created);
-	const ownershipModified = parseCardToInt(card, 16, 8);
-	printLog("ownership modified: " + ownershipModified);
-	const attributesModified = parseCardToInt(card, 24, 8);
+	const rarity = parseCardToInt(card, 8, 8);
+	printLog("rarity: " + rarity + " (" + Math.floor(10000 * rarity / 4294967295) / 100 + "%)");
+	const attributesModified = parseCardToInt(card, 16, 8);
 	printLog("attributes modified: " + attributesModified);
-	const gamesPlayed = parseCardToInt(card, 32, 8);
+	const attributes = parseCardToInt(card, 24, 8);
+	printLog("attributes: " + attributes.toString(2));
+	const lastGamePlayed = parseCardToInt(card, 32, 8);
+	printLog("last game played: " + lastGamePlayed);
+	const gamesPlayed = parseCardToInt(card, 40, 8);
 	printLog("games played: " + gamesPlayed);
-	const wins = parseCardToInt(card, 40, 8);
+	const wins = parseCardToInt(card, 48, 8);
 	printLog("wins: " + wins);
-	const losses = parseCardToInt(card, 48, 8);
+	const losses = parseCardToInt(card, 56, 8);
 	printLog("losses: " + losses);
 	const draws = gamesPlayed - wins - losses;
 	printLog("draws: " + draws);
-	const state = parseCardToInt(card, 56, 8);
+	const id = parseCardToInt(card, 64, 4);
+	printLog("id: " + id);
+	const index = parseCardToInt(card, 68, 4);
+	printLog("index: " + index);
+	const state = parseCardToInt(card, 72, 8);
 	const lgo = 0x3 & state; // last game outcome - lgo
 	if(lgo !== 0) {
 		printLog("last game: " + (lgo === 1? "lost": lgo === 2? "draw": "won"));
@@ -67,12 +71,8 @@ function parse() {
 	if(inBattle) {
 		printLog("card is in battle and cannot be transferred");
 	}
-	const rarity = parseCardToInt(card, 64, 8);
-	printLog("rarity: " + rarity + " (" + Math.floor(10000 * rarity / 4294967295) / 100 + "%)");
-	const lastGamePlayed = parseCardToInt(card, 72, 8);
-	printLog("last game played: " + lastGamePlayed);
-	const attributes = parseCardToInt(card, 80, 8);
-	printLog("attributes: " + attributes.toString(2));
+	const ownershipModified = parseCardToInt(card, 80, 8);
+	printLog("ownership modified: " + ownershipModified);
 	const owner = "0x" + card.substr(88, 40);
 	printLog("owner: " + owner);
 }

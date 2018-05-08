@@ -117,7 +117,7 @@
 <script type="text/javascript">
 const jQuery3 = jQuery.noConflict(true);
 
-const CHAR_CARD_VERSION = 0x5;
+const CHAR_CARD_VERSION = 0x6;
 
 let myWeb3;
 let myAccount;
@@ -204,6 +204,8 @@ function connect() {
 			if(CHAR_CARD_VERSION != version) {
 				printError("Error accessing Character Card (ERC721) Instance: not a valid instance");
 				printError("Check if the address specified points to an ERC721 instance with a valid CHAR_CARD_VERSION");
+				printError("Version required: " + CHAR_CARD_VERSION);
+				printError("Version found: " + version);
 				cardInstance = null;
 				return;
 			}

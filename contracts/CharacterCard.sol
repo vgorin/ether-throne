@@ -18,7 +18,7 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant CHAR_CARD_VERSION = 0x5;
+  uint32 public constant CHAR_CARD_VERSION = 0x6;
 
   /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
@@ -31,6 +31,7 @@ contract CharacterCard {
   /// @dev A character card data structure
   /// @dev Occupies 64 bytes of storage (512 bits)
   struct Card {
+    /// High 256 bits
     /// @dev Card creation time, immutable, cannot be zero
     /// @dev Stored as Ethereum Block Number of the transaction
     ///      when the card was created
@@ -54,6 +55,11 @@ contract CharacterCard {
     ///      (three lowest bits set to 1)
     uint32 attributes;
 
+    /// @dev Initially zero, changes after each game played
+    /// @dev Stored as Ethereum Block Number of the transaction
+    ///      when the card's played a game (released from a game)
+    uint32 lastGamePlayed;
+
     /// @dev Initially zero, increases after each game played
     uint32 gamesPlayed;
 
@@ -63,11 +69,8 @@ contract CharacterCard {
     /// @dev Initially zero, increases after each game lost
     uint32 losses;
 
-    /// @dev Initially zero, changes after each game played
-    /// @dev Stored as Ethereum Block Number of the transaction
-    ///      when the card's played a game (released from a game)
-    uint32 lastGamePlayed;
 
+    /// Low 256 bits
     /// @dev Card ID, immutable, cannot be zero
     uint16 id;
 
@@ -342,19 +345,19 @@ contract CharacterCard {
    * @dev Gets a card by ID, representing it as two integers.
    *      The two integers are tightly packed with a card data:
    *      First integer (high bits) contains (from higher to lower bits order):
-   *          id,
-   *          index,
    *          creationTime,
-   *          ownershipModified,
+   *          rarity,
    *          attributesModified,
+   *          attributes,
+   *          lastGamePlayed,
    *          gamesPlayed,
    *          wins,
    *          losses,
-   *          state
    *      Second integer (low bits) contains (from higher to lower bits order):
-   *          rarity,
-   *          lastGamePlayed,
-   *          attributes,
+   *          id,
+   *          index,
+   *          state
+   *          ownershipModified,
    *          owner
    * @dev Throws if card doesn't exist
    */
@@ -369,20 +372,20 @@ contract CharacterCard {
     require(owner != address(0));
 
     // pack high 256 bits of the result
-    uint256 high = uint256(card.id) << 240
-                 | uint240(card.index) << 224
-                 | uint224(card.creationTime) << 192
-                 | uint192(card.ownershipModified) << 160
-                 | uint160(card.attributesModified) << 128
-                 | uint128(card.gamesPlayed) << 96
-                 | uint96(card.wins) << 64
-                 | uint64(card.losses) << 32
-                 | uint32(card.state);
+    uint256 high = uint256(card.creationTime) << 224
+                 | uint224(card.rarity) << 192
+                 | uint192(card.attributesModified) << 160
+                 | uint160(card.attributes) << 128
+                 | uint128(card.lastGamePlayed) << 96
+                 | uint96(card.gamesPlayed) << 64
+                 | uint64(card.wins) << 32
+                 | uint32(card.losses);
 
     // pack low 256 bits of the result
-    uint256 low = uint256(card.rarity) << 224
-                | uint224(card.lastGamePlayed) << 192
-                | uint192(card.attributes) << 160
+    uint256 low = uint256(card.id) << 240
+                | uint240(card.index) << 224
+                | uint224(card.state) << 192
+                | uint192(card.ownershipModified) << 160
                 | uint160(card.owner);
 
     // return the whole 512 bits of result
