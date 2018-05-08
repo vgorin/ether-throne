@@ -31,26 +31,28 @@ contract CharacterCard {
   /// @dev A character card data structure
   /// @dev Occupies 64 bytes of storage (512 bits)
   struct Card {
-    /// @dev Card ID, immutable, cannot be zero
-    uint16 id;
-
-    /// @dev Card index within an owner's collection of cards
-    uint16 index;
-
     /// @dev Card creation time, immutable, cannot be zero
     /// @dev Stored as Ethereum Block Number of the transaction
     ///      when the card was created
     uint32 creationTime;
 
-    /// @dev Initially zero, changes when ownership is transferred
-    /// @dev Stored as Ethereum Block Number of the transaction
-    ///      when the card's ownership was changed
-    uint32 ownershipModified;
+    /// @dev Initialized on card creation, immutable
+    /// @dev Used to derive card rarity type like
+    ///      casual, rare, ultra rare, legendary, hologram, etc.
+    uint32 rarity;
 
     /// @dev Initially zero, changes when attributes are modified
     /// @dev Stored as Ethereum Block Number of the transaction
     ///      when the card's attributes were changed
     uint32 attributesModified;
+
+    /// @dev A bitmask of the card attributes, allows storing up
+    ///      to 32 attributes
+    /// @dev Common attributes are stored on lower bits,
+    ///      while higher bits store more rare attributes
+    /// @dev Is initialized with at least 3 active attributes
+    ///      (three lowest bits set to 1)
+    uint32 attributes;
 
     /// @dev Initially zero, increases after each game played
     uint32 gamesPlayed;
@@ -61,28 +63,26 @@ contract CharacterCard {
     /// @dev Initially zero, increases after each game lost
     uint32 losses;
 
-    /// @dev Initially zero, stores card state data,
-    ///      such as is card currently in game or not,
-    ///      status of the last game played, etc
-    uint32 state;
-
-    /// @dev Initialized on card creation, immutable
-    /// @dev Used to derive card rarity type like
-    ///      casual, rare, ultra rare, legendary, hologram, etc.
-    uint32 rarity;
-
     /// @dev Initially zero, changes after each game played
     /// @dev Stored as Ethereum Block Number of the transaction
     ///      when the card's played a game (released from a game)
     uint32 lastGamePlayed;
 
-    /// @dev A bitmask of the card attributes, allows storing up
-    ///      to 32 attributes
-    /// @dev Common attributes are stored on lower bits,
-    ///      while higher bits store more rare attributes
-    /// @dev Is initialized with at least 3 active attributes
-    ///      (three lowest bits set to 1)
-    uint32 attributes;
+    /// @dev Card ID, immutable, cannot be zero
+    uint16 id;
+
+    /// @dev Card index within an owner's collection of cards
+    uint16 index;
+
+    /// @dev Initially zero, stores card state data,
+    ///      such as is card currently in game or not,
+    ///      status of the last game played, etc
+    uint32 state;
+
+    /// @dev Initially zero, changes when ownership is transferred
+    /// @dev Stored as Ethereum Block Number of the transaction
+    ///      when the card's ownership was changed
+    uint32 ownershipModified;
 
     /// @dev Card's owner, initialized upon card creation
     address owner;

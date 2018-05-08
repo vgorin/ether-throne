@@ -11,12 +11,12 @@ const CharacterCard = artifacts.require("./CharacterCard.sol");
 const Presale = artifacts.require("./Presale.sol");
 
 contract('CharacterCard: Gas Usage', function(accounts) {
-	it("deployment: deploying a character cards smart contract requires 5554571 gas", async function() {
+	it("deployment: deploying a character cards smart contract requires 5555263 gas", async function() {
 		const result = await CharacterCard.new();
 		const txHash = result.transactionHash;
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
-		assert.equal(5554571, gasUsed, "character card smart contract deployment gas usage doesn't match: " + gasUsed);
+		assert.equal(5555263, gasUsed, "character card smart contract deployment gas usage doesn't match: " + gasUsed);
 	});
 
 	it("ERC20 transfer: transfer 128 cards requires 4132401 gas", async function() {
