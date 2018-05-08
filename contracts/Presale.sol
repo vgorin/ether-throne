@@ -8,12 +8,17 @@ import "./CharacterCard.sol";
  * @dev Referenced as "card sale smart contract" below
  */
 contract Presale {
+  /// @dev Smart contract version
+  /// @dev Should be incremented manually in this source code
+  ///      each time smart contact source code is changed
+  uint32 public constant PRESALE_VERSION = 0x2;
+
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
   uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0x8;
 
   /// @dev ID of the first card to sell
-  uint16 public constant OFFSET = 1025;
+  uint16 public constant OFFSET = 1024;
 
   /// @dev Total number of cards to sell in the presale
   /// @dev Last card ID to sell is OFFSET + LENGTH - 1
@@ -80,13 +85,13 @@ contract Presale {
   }
 
   /// @dev Accepts a payment and sends card(s) back to the sender
-  function buy() public payable {
+  function buyRandom() public payable {
     // just delegate call to `buyRandomFor`
-    buyFor(msg.sender);
+    buyRandomFor(msg.sender);
   }
 
   /// @dev Accepts a payment and sends card(s) to the player
-  function buyFor(address to) public payable {
+  function buyRandomFor(address to) public payable {
     // validate the card recipient address
     require(to != address(0));
     require(to != address(this));

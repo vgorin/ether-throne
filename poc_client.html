@@ -117,7 +117,8 @@
 <script type="text/javascript">
 const jQuery3 = jQuery.noConflict(true);
 
-const CHAR_CARD_VERSION = 0x6;
+const CHAR_CARD_VERSION = 0x8;
+const PRESALE_VERSION = 0x2;
 
 let myWeb3;
 let myAccount;
@@ -328,20 +329,20 @@ function buy() {
 	const presaleAddr = document.getElementById("PresaleAddress").value;
 	presaleInstance = presaleABI.at(presaleAddr);
 	try {
-		presaleInstance.CHAR_CARD_VERSION_REQUIRED(function(err, version) {
+		presaleInstance.PRESALE_VERSION(function(err, version) {
 			if(err) {
 				printError("Error accessing Presale Instance: " + err);
 				presaleInstance = null;
 				return;
 			}
-			if(CHAR_CARD_VERSION != version) {
+			if(PRESALE_VERSION != version) {
 				printError("Error accessing Presale Instance: not a valid instance");
-				printError("Check if the address specified points to a Presale instance with a valid CHAR_CARD_VERSION_REQUIRED");
+				printError("Check if the address specified points to a Presale instance with a valid PRESALE_VERSION");
 				presaleInstance = null;
 				return;
 			}
 			printLog("Successfully connected to Presale Instance at " + presaleAddr);
-			presaleInstance.buy.sendTransaction({value: myWeb3.toWei(50, 'finney')}, function(err, txHash) {
+			presaleInstance.buyRandom.sendTransaction({value: myWeb3.toWei(50, 'finney')}, function(err, txHash) {
 				if(err) {
 					printError("Buy transaction failed: " + err.toString().split("\n")[0]);
 					return;

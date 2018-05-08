@@ -26,7 +26,7 @@ contract('Presale', function(accounts) {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
-		await presale.buy.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE});
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE});
 
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong card balance after buying a single card");
 	});
@@ -34,7 +34,7 @@ contract('Presale', function(accounts) {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
-		await presale.buy.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE.times(2)});
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE.times(2)});
 
 		assert.equal(3, await card.balanceOf(accounts[1]), "wrong card balance after buying three cards");
 	});
@@ -44,7 +44,7 @@ contract('Presale', function(accounts) {
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
 
 		await assertThrowsAsync(async function () {
-			await presale.buy.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE.minus(1)});
+			await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE.minus(1)});
 		});
 	});
 	it("presale: the funds are transferred to the beneficiary correctly", async function() {
@@ -54,10 +54,11 @@ contract('Presale', function(accounts) {
 
 		const beneficiary = await presale.beneficiary();
 		const initialBeneficiaryBalance = await web3.eth.getBalance(beneficiary);
-		await presale.buy.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE});
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE});
 		const beneficiaryBalanceDelta = (await web3.eth.getBalance(beneficiary)).minus(initialBeneficiaryBalance);
 
-		assert(INITIAL_CARD_PRICE.eq(beneficiaryBalanceDelta), "beneficiary balance is incorrect after selling one card");
+		assert(INITIAL_CARD_PRICE.eq(beneficiaryBalanceDelta),
+			"beneficiary balance is incorrect after selling one card");
 	});
 	it("presale: the change is transferred back to player correctly", async function() {
 		const card = await CharacterCard.new();
@@ -66,7 +67,7 @@ contract('Presale', function(accounts) {
 
 		const player = accounts[1];
 		const initialPlayerBalance = await web3.eth.getBalance(player);
-		const txHash = await presale.buy.sendTransaction({
+		const txHash = await presale.buyRandom.sendTransaction({
 			from: player,
 			value: INITIAL_CARD_PRICE.plus(1),
 			gasPrice: 1
@@ -90,12 +91,12 @@ contract('Presale', function(accounts) {
 			const valueToSend = INITIAL_CARD_PRICE.times(random(0, 3, 2));
 			if(valueToSend.lt(INITIAL_CARD_PRICE)) {
 				await assertThrowsAsync(async function() {
-					await presale.buy.sendTransaction({from: player, value: valueToSend});
+					await presale.buyRandom.sendTransaction({from: player, value: valueToSend});
 				});
 			}
 			else {
 				const initialPlayerBalance = await web3.eth.getBalance(player);
-				const txHash = await presale.buy.sendTransaction({
+				const txHash = await presale.buyRandom.sendTransaction({
 					from: player,
 					value: valueToSend,
 					gasPrice: 1
@@ -122,7 +123,7 @@ contract('Presale', function(accounts) {
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
 
-		await presale.buyFor.sendTransaction(accounts[1], {value: INITIAL_CARD_PRICE});
+		await presale.buyRandomFor.sendTransaction(accounts[1], {value: INITIAL_CARD_PRICE});
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong balance after buying a card for " + accounts[1])
 	});
 	it("presale: its impossible to buy a card for a zero address", async function() {
@@ -130,7 +131,7 @@ contract('Presale', function(accounts) {
 		const presale = await Presale.new(card.address, accounts[2]);
 
 		await assertThrowsAsync(async function() {
-			await presale.buyFor.sendTransaction(0, {value: INITIAL_CARD_PRICE})
+			await presale.buyRandomFor.sendTransaction(0, {value: INITIAL_CARD_PRICE})
 		});
 	});
 	it("presale: its impossible to buy a card for a presale smart contract itself", async function() {
@@ -138,7 +139,7 @@ contract('Presale', function(accounts) {
 		const presale = await Presale.new(card.address, accounts[2]);
 
 		await assertThrowsAsync(async function() {
-			await presale.buyFor.sendTransaction(presale.address, {value: INITIAL_CARD_PRICE})
+			await presale.buyRandomFor.sendTransaction(presale.address, {value: INITIAL_CARD_PRICE})
 		});
 	});
 });

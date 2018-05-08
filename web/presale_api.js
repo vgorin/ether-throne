@@ -7,7 +7,8 @@
  * @constructor
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
-	const CHAR_CARD_VERSION = 7;
+	const CHAR_CARD_VERSION = 0x8;
+	const PRESALE_VERSION = 0x2;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -269,12 +270,12 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 					const presaleABI = myWeb3.eth.contract(data.abi);
 					const instance = presaleABI.at(presaleAddr);
 					try {
-						instance.CHAR_CARD_VERSION_REQUIRED(function(err, version) {
+						instance.PRESALE_VERSION(function(err, version) {
 							if(err) {
 								logError("Error accessing Presale Instance: " + err + "\nCannot access CHAR_CARD_VERSION.");
 								return;
 							}
-							if(CHAR_CARD_VERSION != version) {
+							if(PRESALE_VERSION != version) {
 								logError("Error accessing Presale Instance: not a valid instance.\nCheck if the address specified points to a Presale instance with a valid CHAR_CARD_VERSION_REQUIRED.\nVersion required: " + CHAR_CARD_VERSION + ". Version found: " + version);
 								return;
 							}
@@ -306,7 +307,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			logError("Presale API is not properly initialized. Reload the page.");
 			return 0x1;
 		}
-		presaleInstance.buy.sendTransaction({value: myWeb3.toWei(50, 'finney')}, function(err, txHash) {
+		presaleInstance.buyRandom.sendTransaction({value: myWeb3.toWei(50, 'finney')}, function(err, txHash) {
 			if(err) {
 				logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
 				return;
@@ -326,7 +327,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			logError("Presale API is not properly initialized. Reload the page.");
 			return 0x1;
 		}
-		presaleInstance.buy.sendTransaction({value: myWeb3.toBigNumber(myWeb3.toWei(50, 'finney')).times(2)}, function(err, txHash) {
+		presaleInstance.buyRandom.sendTransaction({value: myWeb3.toBigNumber(myWeb3.toWei(50, 'finney')).times(2)}, function(err, txHash) {
 			if(err) {
 				logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
 				return;
