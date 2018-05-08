@@ -273,6 +273,10 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(5, card5[RARITY_IDX], "newly minted card 5 has wrong rarity value");
 		assert.equal(0x1F, card5[ATTRIBUTES_IDX], "newly minted card 5 has wrong attributes");
 	});
+	it("mintWith: impossible to mint a card with zero ID", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {await card.mintWith(accounts[0], 0x0, 3)});
+	});
 
 	it("mintCards: batch mint few cards", async function() {
 		const card = await CharacterCard.new();
@@ -330,6 +334,12 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {
 			await card.mintCards(accounts[0], []);
+		});
+	});
+	it("mintCards: impossible to batch mint a card with zero ID", async function() {
+		const card = await CharacterCard.new();
+		await assertThrowsAsync(async function() {
+			await card.mintCards(card.address, [0x000003, 0x000103, 0x000203]);
 		});
 	});
 
