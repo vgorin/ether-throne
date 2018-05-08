@@ -10,7 +10,7 @@ import "./CharacterCard.sol";
 contract Presale {
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
-  uint32 public CHAR_CARD_VERSION_REQUIRED = 0x6;
+  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0x6;
 
   /// @dev ID of the first card to sell
   uint16 public constant OFFSET = 1;
@@ -38,7 +38,7 @@ contract Presale {
   uint16 public sold;
 
   /// @dev Emits when smart contract sells a card, buy(), buyFor()
-  event PurchaseComplete(address indexed from, address indexed to, uint8 amount);
+  event PurchaseComplete(address indexed from, address indexed to, uint16 amount);
 
   /**
    * @dev Creates a card sale smart contract instance

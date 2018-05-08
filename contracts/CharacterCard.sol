@@ -793,6 +793,7 @@ contract CharacterCard {
    *      of at least `n` cards
    * @dev For security reasons this function will throw if transferring
    *      less cards than is owned by the sender (`n != balanceOf(msg.sender)`)
+   * @dev Consumes around 38521 + 511735 * (`n` / 16) gas for `n` multiple of 16
    * @dev ERC20 compliant transfer(address, uint)
    * @param to an address where to transfer cards to,
    *        new owner of the cards

@@ -19,6 +19,15 @@ contract('CharacterCard: Gas Usage', function(accounts) {
 		assert.equal(5555263, gasUsed, "character card smart contract deployment gas usage doesn't match: " + gasUsed);
 	});
 
+	it("ERC20 transfer: transfer 192 cards requires 6179341 gas", async function() {
+		const card = await CharacterCard.new();
+		for(let i = 1; i <= 192; i++) {
+			await card.mint(accounts[0], i);
+		}
+		const result = await card.transfer(accounts[1], 192);
+		const gasUsed = result.receipt.gasUsed;
+		assert.equal(6179341, gasUsed, "transfer gas usage doesn't match: " + gasUsed);
+	});
 	it("ERC20 transfer: transfer 128 cards requires 4132401 gas", async function() {
 		const card = await CharacterCard.new();
 		for(let i = 1; i <= 128; i++) {
@@ -27,6 +36,15 @@ contract('CharacterCard: Gas Usage', function(accounts) {
 		const result = await card.transfer(accounts[1], 128);
 		const gasUsed = result.receipt.gasUsed;
 		assert.equal(4132401, gasUsed, "transfer gas usage doesn't match: " + gasUsed);
+	});
+	it("ERC20 transfer: transfer 64 cards requires 2085461 gas", async function() {
+		const card = await CharacterCard.new();
+		for(let i = 1; i <= 64; i++) {
+			await card.mint(accounts[0], i);
+		}
+		const result = await card.transfer(accounts[1], 64);
+		const gasUsed = result.receipt.gasUsed;
+		assert.equal(2085461, gasUsed, "transfer gas usage doesn't match: " + gasUsed);
 	});
 
 	it("transferCard: transfer a card requires 79671 gas", async function() {
@@ -70,23 +88,23 @@ contract('CharacterCard: Gas Usage', function(accounts) {
 		assert.equal(87047, gasUsed, "playing a game gas usage doesn't match: " + gasUsed);
 	});
 
-	it("presale: buying a single card requires 193599 gas", async function() {
+	it("presale: buying a single card requires 193549 gas", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
 		const txHash = await presale.buy.sendTransaction({value: INITIAL_CARD_PRICE});
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
-		assert.equal(193599, gasUsed, "buying a card gas usage doesn't match: " + gasUsed);
+		assert.equal(193549, gasUsed, "buying a card gas usage doesn't match: " + gasUsed);
 	});
-	it("presale: buying three cards requires 449895 gas", async function() {
+	it("presale: buying three cards requires 449845 gas", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
 		const txHash = await presale.buy.sendTransaction({value: INITIAL_CARD_PRICE.times(2)});
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
-		assert.equal(449895, gasUsed, "buying three cards gas usage doesn't match: " + gasUsed);
+		assert.equal(449845, gasUsed, "buying three cards gas usage doesn't match: " + gasUsed);
 	});
 });
 
