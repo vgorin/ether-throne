@@ -7,7 +7,7 @@
  * @constructor
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
-	const CHAR_CARD_VERSION = 6;
+	const CHAR_CARD_VERSION = 7;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
