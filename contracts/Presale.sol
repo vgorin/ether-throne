@@ -10,12 +10,12 @@ import "./CharacterCard.sol";
 contract Presale {
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
-  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0x7;
+  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0x8;
 
   /// @dev ID of the first card to sell
-  uint16 public constant OFFSET = 1;
+  uint16 public constant OFFSET = 1025;
 
-  /// @dev Number of cards to sell during the card sale
+  /// @dev Total number of cards to sell in the presale
   /// @dev Last card ID to sell is OFFSET + LENGTH - 1
   uint16 public constant LENGTH = 4000;
 
@@ -48,6 +48,9 @@ contract Presale {
    *      used to send collected funds to
    */
   constructor(address tokenAddress, address _beneficiary) public {
+    // double check that constants are not messed up
+    //assert(LENGTH == USUAL_CARDS + RARE_CARDS + ULTRA_RARE_CARDS + LEGENDARY_CARDS + HOLOGRAM_CARDS);
+
     // basic input validation
     require(tokenAddress != address(0));
     require(_beneficiary != address(0));
@@ -78,7 +81,7 @@ contract Presale {
 
   /// @dev Accepts a payment and sends card(s) back to the sender
   function buy() public payable {
-    // just delegate call to `buyFor`
+    // just delegate call to `buyRandomFor`
     buyFor(msg.sender);
   }
 
@@ -103,7 +106,7 @@ contract Presale {
     // get some randomness to init card rarity data
     // this randomness is not cryptographically secure of course
     // and may be heavily influenced by miners, but its cheap though
-    uint256 randomness = uint256(keccak256(block.number, gasleft(), tx.origin, msg.sender, to, valueReceived));
+    //uint256 randomness = uint256(keccak256(block.number, gasleft(), tx.origin, msg.sender, to, valueReceived));
 
     // total price of the cards to send
     uint256 totalPrice = single;
@@ -115,7 +118,7 @@ contract Presale {
       // mint a card with the next ID in series [OFFSET, OFFSET + LENGTH)
       // update sold cards counter accordingly
       // use low 32 bits of generated randomness to init card rarity data
-      cardInstance.mintWith(to, OFFSET + sold++, uint32(randomness), 0x00000007);
+      cardInstance.mintWith(to, OFFSET + sold++, 3);
     }
     else {
       // update total price of the three cards to sell
@@ -126,9 +129,9 @@ contract Presale {
       cardInstance.mintCards(
         to,
         __pack3Cards(
-          OFFSET + sold++, uint32(randomness >> 64), 0x00000007,
-          OFFSET + sold++, uint32(randomness >> 32), 0x00000007,
-          OFFSET + sold++, uint32(randomness), 0x00000007
+          OFFSET + sold++, 3,
+          OFFSET + sold++, 3,
+          OFFSET + sold++, 3
         )
       );
     }
@@ -148,21 +151,21 @@ contract Presale {
     emit PurchaseComplete(msg.sender, to, totalPrice == single? 1: 3);
   }
 
-  /// @dev Packs 3 cards into an uint64[3] dynamic array
+  /// @dev Packs 3 cards into an uint24[3] dynamic array
   function __pack3Cards(
-    uint16 id1, uint32 r1, uint16 a1, uint16 id2, uint32 r2, uint16 a2, uint16 id3, uint32 r3, uint16 a3
-  ) private pure returns (uint64[]) {
-    uint64[] memory data = new uint64[](3);
-    data[0] = __pack64(id1, r1, a1);
-    data[1] = __pack64(id2, r2, a2);
-    data[2] = __pack64(id3, r3, a3);
+    uint16 id1, uint32 r1, uint16 id2, uint32 r2, uint16 id3, uint32 r3
+  ) private pure returns (uint24[]) {
+    uint24[] memory data = new uint24[](3);
+    data[0] = __pack24(id1, r1);
+    data[1] = __pack24(id2, r2);
+    data[2] = __pack24(id3, r3);
     return data;
   }
 
-  /// @dev Packs single card into uint64
-  function __pack64(uint16 cardId, uint32 rarity, uint16 attributes) private pure returns (uint64) {
-    // cardId (16 bits) | rarity (32 bits) | attributes (low 16 bits)
-    return uint64(cardId) << 48 | uint48(rarity) << 16 | attributes;
+  /// @dev Packs single card into uint24
+  function __pack24(uint16 cardId, uint32 rarity) private pure returns (uint24) {
+    // cardId (16 bits) | rarity (8 bits)
+    return uint24(cardId) << 16 | uint8(0x1F & rarity);
   }
 
 }

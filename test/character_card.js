@@ -12,6 +12,8 @@ const GAME_OUTCOME_VICTORY = 3;
 const LAST_GAME_OUTCOME_BITS = 0x3;
 
 // character card structure defs
+const RARITY_IDX = 1;
+const ATTRIBUTES_IDX = 3;
 const GAMES_PLAYED_IDX = 5;
 const WINS_COUNT_IDX = 6;
 const LOSSES_COUNT_IDX = 7;
@@ -241,14 +243,45 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.mint(accounts[0], 0x0)});
 	});
 
+	it("mintWith: mint a card with rarity and check integrity of the structures involved", async function() {
+		const card = await CharacterCard.new();
+		await card.mintWith(accounts[0], 0x401, 32);
+		await card.mintWith(accounts[0], 0x402, 16);
+		await card.mintWith(accounts[0], 0x403, 10);
+		await card.mintWith(accounts[0], 0x404, 7);
+		await card.mintWith(accounts[0], 0x405, 5);
+		assert.equal(0x401, await card.collections(accounts[0], 0), accounts[0] + " card collection doesn't contain minted card");
+		await assertThrowsAsync(async function() {await card.collections(accounts[0], 5);});
+
+		const card1 = await card.cards(0x401);
+		const card2 = await card.cards(0x402);
+		const card3 = await card.cards(0x403);
+		const card4 = await card.cards(0x404);
+		const card5 = await card.cards(0x405);
+
+		assert.equal(0x401, card1[CARD_ID_IDX], "newly minted card 1 has wrong id");
+		assert.equal(0, card1[CARD_IDX_IDX], "newly minted card 1 has wrong index");
+		assert.equal(accounts[0], card1[CARD_OWNER_IDX], "newly minted card 1 has wrong owner address");
+		assert.equal(32, card1[RARITY_IDX], "newly minted card 1 has wrong rarity value");
+		assert.equal(0xFFFFFFFF, card1[ATTRIBUTES_IDX], "newly minted card 1 has wrong attributes");
+		assert.equal(16, card2[RARITY_IDX], "newly minted card 2 has wrong rarity value");
+		assert.equal(0xFFFF, card2[ATTRIBUTES_IDX], "newly minted card 2 has wrong attributes");
+		assert.equal(10, card3[RARITY_IDX], "newly minted card 3 has wrong rarity value");
+		assert.equal(0x03FF, card3[ATTRIBUTES_IDX], "newly minted card 3 has wrong attributes");
+		assert.equal(7, card4[RARITY_IDX], "newly minted card 4 has wrong rarity value");
+		assert.equal(0x7F, card4[ATTRIBUTES_IDX], "newly minted card 4 has wrong attributes");
+		assert.equal(5, card5[RARITY_IDX], "newly minted card 5 has wrong rarity value");
+		assert.equal(0x1F, card5[ATTRIBUTES_IDX], "newly minted card 5 has wrong attributes");
+	});
+
 	it("mintCards: batch mint few cards", async function() {
 		const card = await CharacterCard.new();
-		await card.mintCards(accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+		await card.mintCards(accounts[0], [0x000103, 0x000203, 0x000303]);
 		assert.equal(3, await card.balanceOf(accounts[0]), "wrong balance after minting 3 cards");
 	});
 	it("mintCards: structures integrity check after batch mint", async function() {
 		const card = await CharacterCard.new();
-		await card.mintCards(accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+		await card.mintCards(accounts[0], [0x000103, 0x000203, 0x000303]);
 		const card0x1 = await card.cards(0x1);
 		const card0x2 = await card.cards(0x2);
 		const card0x3 = await card.cards(0x3);
@@ -270,27 +303,27 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
 		await card.mintCards.sendTransaction(
-			accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007], {from: accounts[1]}
+			accounts[0], [0x000103, 0x000203, 0x000303], {from: accounts[1]}
 		);
 	});
 	it("mintCards: impossible to batch mint cards without ROLE_CARD_CREATOR permission", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {
 			await card.mintCards.sendTransaction(
-				accounts[0], [0x0001000000000007, 0x0002000000000007, 0x0003000000000007], {from: accounts[1]}
+				accounts[0], [0x000103, 0x000203, 0x000303], {from: accounts[1]}
 			);
 		});
 	});
 	it("mintCards: impossible to batch mint to a zero address", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {
-			await card.mintCards(0, [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+			await card.mintCards(0, [0x000103, 0x000203, 0x000303]);
 		});
 	});
 	it("mintCards: impossible to batch mint to a card smart contract itself", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {
-			await card.mintCards(card.address, [0x0001000000000007, 0x0002000000000007, 0x0003000000000007]);
+			await card.mintCards(card.address, [0x000103, 0x000203, 0x000303]);
 		});
 	});
 	it("mintCards: impossible to batch mint empty array of cards", async function() {
@@ -900,7 +933,7 @@ contract('CharacterCard', function(accounts) {
 
 	it("getCard: check initial card integrity", async function() {
 		const card = await CharacterCard.new();
-		await card.mintWith(accounts[0], 0x1, 15, 31);
+		await card.mintWith(accounts[0], 0x1, 3);
 		const tuple = await card.getCard(0x1);
 		const creationTime = shiftAndTrim(tuple[0], 224, 32);
 		const rarity = shiftAndTrim(tuple[0], 192, 32);
@@ -915,24 +948,24 @@ contract('CharacterCard', function(accounts) {
 		const state = shiftAndTrim(tuple[1], 192, 32);
 		const ownershipModified = shiftAndTrim(tuple[1], 160, 32);
 		const address = shiftAndTrim(tuple[1], 0, 160);
-		assert.equal(0x1, id, "card 0x1 has wrong id: " + id);
-		assert.equal(0, index, "card 0x1 has non-zero index");
 		assert(creationTime > 0, "card 0x1 has zero creation time");
-		assert.equal(0, ownershipModified, "card 0x1 has non-zero ownership modified date");
+		assert.equal(3, rarity, "card 0x1 has wrong rarity: " + rarity);
 		assert.equal(0, attributesModified, "card 0x1 has non-zero attributes modified date");
+		assert.equal(0x7, attributes, "card 0x1 has wrong attributes: " + attributes);
+		assert.equal(0, lastGamePlayed, "card 0x1 has non-zero last game played date" + lastGamePlayed);
 		assert.equal(0, gamesPlayed, "card 0x1 has non-zero games played counter");
 		assert.equal(0, wins, "card 0x1 has non-zero wins counter");
 		assert.equal(0, losses, "card 0x1 has non-zero losses counter");
+		assert.equal(1, id, "card 0x1 has wrong id: " + id);
+		assert.equal(0, index, "card 0x1 has non-zero index");
 		assert.equal(0, state, "card 0x1 has wrong state: " + state);
-		assert.equal(0xF, rarity, "card 0x1 has wrong rarity: " + rarity);
-		assert.equal(0, lastGamePlayed, "card 0x1 has non-zero last game played date" + lastGamePlayed);
-		assert.equal(0x1F, attributes, "card 0x1 has wrong attributes: " + attributes);
+		assert.equal(0, ownershipModified, "card 0x1 has non-zero ownership modified date");
 		assert.equal(accounts[0], address, "card 0x1 has wrong owner: " + address);
 	});
 	it("getCard: check cards integrity after playing a game", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x10);
-		await card.mintWith(accounts[0], 0x1, 15, 31);
+		await card.mintWith(accounts[0], 0x1, 0xF);
 		await card.mint(accounts[1], 0x2);
 		await card.battleComplete(0x1, 0x2, GAME_OUTCOME_VICTORY);
 		const tuple = await card.getCard(0x1);
@@ -949,18 +982,18 @@ contract('CharacterCard', function(accounts) {
 		const state = shiftAndTrim(tuple[1], 192, 32);
 		const ownershipModified = shiftAndTrim(tuple[1], 160, 32);
 		const address = shiftAndTrim(tuple[1], 0, 160);
-		assert.equal(0x1, id, "card 0x1 has wrong id: " + id);
-		assert.equal(1, index, "card 0x1 has wrong index: " + index);
 		assert(creationTime > 0, "card 0x1 has zero creation time");
-		assert.equal(0, ownershipModified, "card 0x1 has non-zero ownership modified date");
+		assert.equal(0xF, rarity, "card 0x1 has wrong rarity: " + rarity);
+		assert.equal(0x7FFF, attributes, "card 0x1 has wrong attributes: " + attributes);
 		assert.equal(0, attributesModified, "card 0x1 has non-zero attributes modified date");
+		assert(lastGamePlayed > 0, "card 0x1 has zero last game played date");
 		assert.equal(1, gamesPlayed, "card 0x1 has wrong games played counter: " + gamesPlayed);
 		assert.equal(1, wins, "card 0x1 has wrong wins counter: " + wins);
 		assert.equal(0, losses, "card 0x1 has non-zero losses counter");
+		assert.equal(1, id, "card 0x1 has wrong id: " + id);
+		assert.equal(1, index, "card 0x1 has wrong index: " + index);
 		assert.equal(3, state, "card 0x1 has wrong state: " + state);
-		assert.equal(0xF, rarity, "card 0x1 has wrong rarity: " + rarity);
-		assert(lastGamePlayed > 0, "card 0x1 has zero last game played date");
-		assert.equal(0x1F, attributes, "card 0x1 has wrong attributes: " + attributes);
+		assert.equal(0, ownershipModified, "card 0x1 has non-zero ownership modified date");
 		assert.equal(accounts[0], address, "card 0x1 has wrong owner: " + address);
 	});
 

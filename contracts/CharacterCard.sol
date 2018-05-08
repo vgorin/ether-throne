@@ -18,7 +18,7 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant CHAR_CARD_VERSION = 0x7;
+  uint32 public constant CHAR_CARD_VERSION = 0x8;
 
   /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
@@ -40,7 +40,7 @@ contract CharacterCard {
     /// @dev Initialized on card creation, immutable
     /// @dev Used to derive card rarity type like
     ///      casual, rare, ultra rare, legendary, hologram, etc.
-    /// @dev Only 8 lower bits are used
+    /// @dev Only 5 lower bits are used, rarity is a number in range [0-16]
     uint32 rarity;
 
     /// @dev Initially zero, changes when attributes are modified
@@ -82,7 +82,7 @@ contract CharacterCard {
     /// @dev Initially zero, stores card state data,
     ///      such as is card currently in game or not,
     ///      status of the last game played, etc
-    /// @dev Only 8 lower bits are used
+    /// @dev Only 3 lower bits are used, modified by `battleComplete` function
     uint32 state;
 
     /// @dev Initially zero, changes when ownership is transferred
@@ -713,7 +713,7 @@ contract CharacterCard {
    */
   function mint(address to, uint16 cardId) public {
     // delegate call to `mintWith`
-    mintWith(to, cardId, 0, 0);
+    mintWith(to, cardId, 3);
   }
 
   /**
@@ -723,9 +723,8 @@ contract CharacterCard {
    * @param to an address to assign created card ownership to
    * @param cardId ID of the card to create
    * @param rarity an integer, representing card's rarity
-   * @param attributes a bitmask of the card attributes
    */
-  function mintWith(address to, uint16 cardId, uint32 rarity, uint32 attributes) public {
+  function mintWith(address to, uint16 cardId, uint32 rarity) public {
     // validate destination address
     require(to != address(0));
     require(to != address(this));
@@ -737,7 +736,7 @@ contract CharacterCard {
     require(cardId != 0);
 
     // delegate call to `__mint`
-    __mint(to, cardId, rarity, attributes);
+    __mint(to, cardId, rarity);
 
     // fire ERC20 transfer event
     emit Transfer(address(0), to, 1);
@@ -751,13 +750,18 @@ contract CharacterCard {
    *      (card ID, rarity and attributes) for one card
    * @dev Only low 16 bits of attributes are packed into the
    *      `data` array elements, high 16 bits are treated to be zero
+   * @dev Card state is initialized with zero value
    * @param to an address to assign created cards ownership to
    * @param data an array of packed card data info; each element
-   *      contains a 64-bit integer, high 16 bits represent a card ID,
-   *      low 16 bits represent card attributes, and middle 32 bits
-   *      represent card rarity data
+   *      contains a 24-bit integer:
+   *        * high 16 bits represent a card ID,
+   *        * low 8 bits represent card rarity data, `rarity` is a number in range 0..16
+   *        * `attributes` are derived from rarity data:
+   *          lower n bits are set to 1 (where n = `rarity` value), for example
+   *          `rarity` value 3 corresponds to `attributes` value 7 (binary 111)
+   *          `rarity` value 5 corresponds to `attributes` value 31 (binary 11111)
    */
-  function mintCards(address to, uint64[] data) public {
+  function mintCards(address to, uint24[] data) public {
     // validate destination address
     require(to != address(0));
     require(to != address(this));
@@ -776,12 +780,7 @@ contract CharacterCard {
     for(uint256 i = 0; i < n; i++) {
       // unpack card from data element
       // and delegate call to `__mint`
-      __mint(
-        to,
-        uint16(0xFFFF & data[i] >> 48),
-        uint32(0xFFFFFFFF & data[i] >> 16),
-        uint32(0x0000FFFF & data[i])
-      );
+      __mint(to, uint16(data[i] >> 8), 0xFF & data[i]);
     }
 
     // fire ERC20 transfer event
@@ -1025,7 +1024,7 @@ contract CharacterCard {
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
   ///      checks only that the card doesn't exist yet
   /// @dev Must be kept private at all times
-  function __mint(address to, uint16 cardId, uint32 rarity, uint32 attributes) private {
+  function __mint(address to, uint16 cardId, uint32 rarity) private {
     // ensure that card with such ID doesn't exist
     require(!exists(cardId));
 
@@ -1044,7 +1043,7 @@ contract CharacterCard {
       state: 0,
       rarity: rarity,
       lastGamePlayed: 0,
-      attributes: attributes,
+      attributes: uint32((uint64(1) << uint64(0x3F & rarity)) - 1),
       owner: to
     });
 
