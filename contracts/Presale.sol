@@ -1,5 +1,6 @@
 pragma solidity 0.4.23;
 
+import "./RandomSeq.sol";
 import "./CharacterCard.sol";
 
 /**
@@ -8,10 +9,13 @@ import "./CharacterCard.sol";
  * @dev Referenced as "card sale smart contract" below
  */
 contract Presale {
+  /// @dev Using library RandomSeq for its internal structure
+  using RandomSeq for RandomSeq.Buffer;
+
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0x2;
+  uint32 public constant PRESALE_VERSION = 0x3;
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
@@ -22,13 +26,41 @@ contract Presale {
 
   /// @dev Total number of cards to sell in the presale
   /// @dev Last card ID to sell is OFFSET + LENGTH - 1
-  uint16 public constant LENGTH = 4000;
+  uint16 public constant LENGTH = TOTAL_CARDS;
 
   /// @dev Price of the first card to sell (initial price of the card)
   /// @dev Next cards' price may differ, it can be a function of cards sold,
   ///      number of cards sold in a single transaction and so on.
   ///      This behaviour is defined in the `nextPrice()` function
   uint256 public constant INITIAL_PRICE = 50 finney;
+
+  /// @dev Six different card types defined in presale:
+
+  /// @dev Hologram card, has 10 attributes
+  uint8 public constant RARITY_HOLOGRAM = 10;
+  /// @dev Legendary card, has 8 attributes
+  uint8 public constant RARITY_LEGENDARY = 8;
+  /// @dev Ultra rare card, has 6 attributes
+  uint8 public constant RARITY_ULTRA_RARE = 6;
+  /// @dev Rare card, has 5 attributes
+  uint8 public constant RARITY_RARE = 5;
+  /// @dev Usual card, has only 3 attributes
+  uint8 public constant RARITY_USUAL = 3;
+
+  uint16 public constant TOTAL_CARDS = 4000;
+  uint16 public constant HOLOGRAM_CARDS = 4;
+  uint16 public constant HOLOGRAM_OR_HIGHER = HOLOGRAM_CARDS;
+  uint16 public constant LEGENDARY_CARDS = 8;
+  uint16 public constant LEGENDARY_OR_HIGHER = LEGENDARY_CARDS + HOLOGRAM_CARDS; // 12
+  uint16 public constant ULTRA_RARE_CARDS = 16;
+  uint16 public constant ULTRA_RARE_OR_HIGHER = ULTRA_RARE_CARDS + LEGENDARY_OR_HIGHER; // 28
+  uint16 public constant RARE_CARDS = 32;
+  uint16 public constant RARE_OR_HIGHER = RARE_CARDS + ULTRA_RARE_OR_HIGHER; // 60
+  uint16 public constant USUAL_CARDS = TOTAL_CARDS - RARE_OR_HIGHER; // 3940
+
+  /// @dev Maps card rarity to a buffer of available cards for that rarity
+  mapping(uint8 => RandomSeq.Buffer) private cardBuckets;
+
 
   /// @dev CharacterCard deployed ERC721 instance
   /// @dev Used to mint cards
@@ -48,14 +80,11 @@ contract Presale {
   /**
    * @dev Creates a card sale smart contract instance
    * @param tokenAddress address of the deployed CharacterCard ERC721 token instance,
-   *      used to mint card instances (delegates a call to `CharacterCard.mint function`)
+   *      used to mint card instances (delegates a call to `CharacterCard.mintWith function`)
    * @param _beneficiary address of the beneficiary,
    *      used to send collected funds to
    */
   constructor(address tokenAddress, address _beneficiary) public {
-    // double check that constants are not messed up
-    //assert(LENGTH == USUAL_CARDS + RARE_CARDS + ULTRA_RARE_CARDS + LEGENDARY_CARDS + HOLOGRAM_CARDS);
-
     // basic input validation
     require(tokenAddress != address(0));
     require(_beneficiary != address(0));
@@ -70,6 +99,9 @@ contract Presale {
 
     // setup all the parameters left
     beneficiary = _beneficiary;
+
+    // initialize card buffers
+    __initCardBuffers();
   }
 
   /// @dev Calculates the price of the next card to sell
@@ -108,37 +140,22 @@ contract Presale {
     // there should be enough value received to buy at least one card
     require(valueReceived >= single);
 
-    // get some randomness to init card rarity data
-    // this randomness is not cryptographically secure of course
-    // and may be heavily influenced by miners, but its cheap though
-    //uint256 randomness = uint256(keccak256(block.number, gasleft(), tx.origin, msg.sender, to, valueReceived));
-
     // total price of the cards to send
     uint256 totalPrice = single;
 
     // if the value received is not enough to buy three cards
     // (33% discount) or we don't have three cards to sell left
     // we sell only one card, otherwise we sell three cards
-    if(valueReceived < triple || LENGTH - sold < 3) {
-      // mint a card with the next ID in series [OFFSET, OFFSET + LENGTH)
-      // update sold cards counter accordingly
-      // use low 32 bits of generated randomness to init card rarity data
-      cardInstance.mintWith(to, OFFSET + sold++, 3);
+    if(valueReceived < triple || TOTAL_CARDS - sold < 3) {
+      // issue one card
+      __issueSingleCard(to);
     }
     else {
       // update total price of the three cards to sell
       totalPrice = triple;
-      // mint three cards with the next IDs in series [OFFSET, OFFSET + LENGTH)
-      // update sold cards counter accordingly
-      // use low 96 bits of generated randomness to init cards rarity data
-      cardInstance.mintCards(
-        to,
-        __pack3Cards(
-          OFFSET + sold++, 3,
-          OFFSET + sold++, 3,
-          OFFSET + sold++, 3
-        )
-      );
+
+      // issue three cards
+      __issueThreeCards(to);
     }
 
     // calculate amount of change to return to the player
@@ -156,10 +173,61 @@ contract Presale {
     emit PurchaseComplete(msg.sender, to, totalPrice == single? 1: 3);
   }
 
+  /// @dev Issue one card to the address `to`
+  function __issueSingleCard(address to) private {
+    // get some randomness to init card rarity
+    // this randomness is not cryptographically secure of course
+    // and may be heavily influenced by miners, but its cheap though
+    uint256 randomness = RandomSeq.__rawRandom();
+
+    // pick random rarity
+    uint8 rarity = __randomRarity(randomness);
+    // pick random card
+    uint16 cardId = __randomCard(randomness >> 32, rarity);
+
+    // mint the card
+    cardInstance.mintWith(to, cardId, rarity);
+
+    // update `sold` cards counter accordingly
+    sold++;
+  }
+
+  /// @dev Issue three cards to the address `to`
+  function __issueThreeCards(address to) private {
+    // get some randomness to init card rarity
+    // this randomness is not cryptographically secure of course
+    // and may be heavily influenced by miners, but its cheap though
+    uint256 randomness = RandomSeq.__rawRandom();
+
+    // pick 3 random cards and their rarities
+    // using low 64 bits of `randomness`
+    // pick random rarity 1
+    uint8 rarity1 = __randomRarity(randomness);
+    // pick random card 1
+    uint16 card1Id = __randomCard(randomness >> 32, rarity1);
+
+    // next 64 bits of `randomness`
+    // pick random rarity 2
+    uint8 rarity2 = __randomRarity(randomness >> 64);
+    // pick random card 3
+    uint16 card2Id = __randomCard(randomness >> 96, rarity2);
+
+    // next 64 bits of `randomness`
+    // pick random rarity 2
+    uint8 rarity3 = __randomRarity(randomness >> 128);
+    // pick random card 3
+    uint16 card3Id = __randomCard(randomness >> 160, rarity3);
+    // at this point yet another 64 bits of `randomness` has left
+
+    // mint the cards
+    cardInstance.mintCards(to, __pack3Cards(card1Id, rarity1, card2Id, rarity2, card3Id, rarity3));
+
+    // update `sold` cards counter accordingly
+    sold += 3;
+  }
+
   /// @dev Packs 3 cards into an uint24[3] dynamic array
-  function __pack3Cards(
-    uint16 id1, uint32 r1, uint16 id2, uint32 r2, uint16 id3, uint32 r3
-  ) private pure returns (uint24[]) {
+  function __pack3Cards(uint16 id1, uint32 r1, uint16 id2, uint32 r2, uint16 id3, uint32 r3) private pure returns (uint24[]) {
     uint24[] memory data = new uint24[](3);
     data[0] = __pack24(id1, r1);
     data[1] = __pack24(id2, r2);
@@ -172,5 +240,105 @@ contract Presale {
     // cardId (16 bits) | rarity (8 bits)
     return uint24(cardId) << 16 | uint8(0x1F & rarity);
   }
+
+  /// @dev Initializes `cards` mapping
+  function __initCardBuffers() private {
+    // 4 hologram cards
+    cardBuckets[RARITY_HOLOGRAM] = RandomSeq.createBuffer(OFFSET, HOLOGRAM_CARDS);
+    // 8 legendary cards
+    cardBuckets[RARITY_LEGENDARY] = RandomSeq.createBuffer(OFFSET + HOLOGRAM_CARDS, LEGENDARY_CARDS);
+    // 16 ultra rare cards
+    cardBuckets[RARITY_ULTRA_RARE] = RandomSeq.createBuffer(OFFSET + LEGENDARY_OR_HIGHER, ULTRA_RARE_CARDS);
+    // 32 rare cards
+    cardBuckets[RARITY_RARE] = RandomSeq.createBuffer(OFFSET + ULTRA_RARE_OR_HIGHER, RARE_CARDS);
+    // 3940 usual cards
+    cardBuckets[RARITY_USUAL] = RandomSeq.createBuffer(OFFSET + RARE_OR_HIGHER, USUAL_CARDS);
+  }
+
+  /// @dev Randomly picks up a card of the suggested rarity based on
+  ///      32 bits of `randomness` given
+  function __randomCard(uint256 randomness, uint8 rarity) private returns (uint16 cardId) {
+    // based on the suggested `rarity` value get the card;
+    // first, going down from more valuable cards to less valuable,
+    // try to allocate the card based on the `rarity` value;
+    // however its possible that cards of the requested rarity are already exhausted,
+    // so we need some fallback to search all the card buckets
+    if(rarity == HOLOGRAM_CARDS && cardBuckets[RARITY_HOLOGRAM].hasNext()) {
+      // hologram card
+      return cardBuckets[RARITY_HOLOGRAM].nextRandomWith(randomness);
+    }
+    else if(rarity == LEGENDARY_OR_HIGHER && cardBuckets[RARITY_LEGENDARY].hasNext()) {
+      // legendary card
+      return cardBuckets[RARITY_LEGENDARY].nextRandomWith(randomness);
+    }
+    else if(rarity == ULTRA_RARE_OR_HIGHER && cardBuckets[RARITY_ULTRA_RARE].hasNext()) {
+      // ultra rare card
+      return cardBuckets[RARITY_ULTRA_RARE].nextRandomWith(randomness);
+    }
+    else if(rarity == RARE_OR_HIGHER && cardBuckets[RARITY_RARE].hasNext()) {
+      // rare card
+      return cardBuckets[RARITY_RARE].nextRandomWith(randomness);
+    }
+    else {
+      // at this point we'd like to pick up a usual card,
+      // however if usual cards are exhausted we go up
+      // to more valuable cards and pick up a card once possible
+      if(cardBuckets[RARITY_USUAL].hasNext()) {
+        // usual card
+        return cardBuckets[RARITY_USUAL].nextRandomWith(randomness);
+      }
+      else if(cardBuckets[RARITY_RARE].hasNext()) {
+        // rare card
+        return cardBuckets[RARITY_RARE].nextRandomWith(randomness);
+      }
+      else if(cardBuckets[RARITY_ULTRA_RARE].hasNext()) {
+        // ultra rare card
+        return cardBuckets[RARITY_ULTRA_RARE].nextRandomWith(randomness);
+      }
+      else if(cardBuckets[RARITY_LEGENDARY].hasNext()) {
+        // legendary card
+        return cardBuckets[RARITY_LEGENDARY].nextRandomWith(randomness);
+      }
+      else {
+        // at this point there should exist at least one hologram card,
+        // otherwise it means that call card buckets are exhausted
+        assert(cardBuckets[RARITY_HOLOGRAM].hasNext());
+
+        // hologram card
+        return cardBuckets[RARITY_HOLOGRAM].nextRandomWith(randomness);
+      }
+    }
+  }
+
+  /// @dev Randomly generates card rarity based on
+  ///      32 bits of `randomness` given
+  /// @dev probability of each type of cards is determined amount of each card available
+  function __randomRarity(uint256 randomness) private pure returns (uint8 rarity) {
+    // get random value in range [0, TOTAL_CARDS)
+    uint256 raritySelector = RandomSeq.__rndVal(randomness, 0xFFFFFFFF, 0, TOTAL_CARDS);
+
+    // based on the random value obtained determine the suggested rarity;
+    if(raritySelector < HOLOGRAM_CARDS) {
+      // hologram card
+      return RARITY_HOLOGRAM;
+    }
+    else if(raritySelector < LEGENDARY_OR_HIGHER) {
+      // legendary card
+      return RARITY_LEGENDARY;
+    }
+    else if(raritySelector < ULTRA_RARE_OR_HIGHER) {
+      // ultra rare card
+      return RARITY_ULTRA_RARE;
+    }
+    else if(raritySelector < RARE_OR_HIGHER) {
+      // rare card
+      return RARITY_RARE;
+    }
+    else {
+      // usual card
+      return RARITY_USUAL;
+    }
+  }
+
 
 }
