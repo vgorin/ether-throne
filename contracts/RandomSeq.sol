@@ -4,8 +4,6 @@ pragma solidity 0.4.23;
  * Library for generating a sequence of non-repeating random numbers in range
  */
 library RandomSeq {
-  uint16 private constant DEFAULT_SIZE = 64;
-
   /// @dev Data structure containing `length` elements,
   ///      starting at position `offset`,
   ///      up to `size` elements are stored in buffer (memory/storage)
@@ -39,8 +37,8 @@ library RandomSeq {
    * @return initialized buffer's data structure
    */
   function createBuffer(uint16 offset, uint16 length) internal pure returns (Buffer) {
-    // delegate call to `create` with default size
-    return createBufferWith(offset, length, DEFAULT_SIZE);
+    // delegate call to `create` with default buffer size - 64 elements
+    return createBufferWith(offset, length, 64);
   }
 
   /**
