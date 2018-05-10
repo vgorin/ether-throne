@@ -7,6 +7,7 @@ pragma solidity 0.4.23;
  *      attributes (mostly immutable by their nature) and state variables (mutable)
  * @dev A card supports minting but not burning, a card cannot be destroyed
  * @dev ERC20-compatibility: full ERC20 compatibility with only one limitation:
+ * TODO: remove this limitation
  *      `transfer` and `transferFrom` functions support sending only entire balance
  *      (`n = balanceOf(owner)`)
  * @dev ERC721-compatibility: partial - TODO: review which ERC721 function to add support for
@@ -14,6 +15,7 @@ pragma solidity 0.4.23;
  *      therefore implementing this "standard" fully doesn't make any sense
  */
 // TODO: remove all the asserts
+// TODO: improve `exists` performance by introducing existent cards bitmask
 contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
