@@ -452,6 +452,8 @@ contract CharacterCard {
    * @dev A locked card cannot be transferred
    * @dev The card is locked if it contains any bits
    *      from the `lockedBitmask` in its `state` set
+   * @dev Requires sender to have `ROLE_STATE_PROVIDER` permission.
+   * @param bitmask a value to set `lockedBitmask` to
    */
   function setLockedBitmask(uint32 bitmask) public {
     // check that the call is made by a combat provider
