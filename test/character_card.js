@@ -1,8 +1,7 @@
 // role constants copied from CharacterCard.sol as is
-const ROLE_EXCHANGE = 0x00000001;
-const ROLE_COMBAT_PROVIDER = 0x00000002;
-const ROLE_CARD_CREATOR = 0x00000004;
-const ROLE_ROLE_MANAGER = 0x00000008;
+const ROLE_COMBAT_PROVIDER = 0x00020000;
+const ROLE_CARD_CREATOR = 0x00040000;
+const ROLE_ROLE_MANAGER = 0x00100000;
 
 // game outcome constants copied from CharacterCard.sol as is
 const GAME_OUTCOME_UNDEFINED = 0;
@@ -40,28 +39,28 @@ contract('CharacterCard', function(accounts) {
 	it("roles: add an operator", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], 0x1);
-		assert(await card.isOperator(accounts[1]), accounts[1] + " must be an operator but its not");
+		assert(await card.userRoles(accounts[1]) > 0, accounts[1] + " must be an operator but its not");
 	});
 	it("roles: operator adds another operator", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_ROLE_MANAGER | 0x1);
 		await card.addOperator.sendTransaction(accounts[2], 0x1, {from: accounts[1]});
-		assert(await card.isOperator(accounts[2]), accounts[2] + " must be an operator but its not");
+		assert(await card.userRoles(accounts[2]) > 0, accounts[2] + " must be an operator but its not");
 	});
 	it("roles: remove operator", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], 0x1);
-		assert(await card.isOperator(accounts[1]), accounts[1] + " must be an operator but its not");
+		assert(await card.userRoles(accounts[1]) > 0, accounts[1] + " must be an operator but its not");
 		await card.removeOperator(accounts[1]);
-		assert(!await card.isOperator(accounts[1]), accounts[1] + " must not be an operator but it is");
+		assert(await card.userRoles(accounts[1]) == 0, accounts[1] + " must not be an operator but it is");
 	});
 	it("roles: operator removes another operator", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_ROLE_MANAGER);
 		await card.addOperator(accounts[2], 0x1);
-		assert(await card.isOperator(accounts[2]), accounts[2] + " must be an operator but its not");
+		assert(await card.userRoles(accounts[2]) > 0, accounts[2] + " must be an operator but its not");
 		await card.removeOperator.sendTransaction(accounts[2], {from: accounts[1]});
-		assert(!await card.isOperator(accounts[2]), accounts[2] + " must not be an operator but it is");
+		assert(await card.userRoles(accounts[2]) == 0, accounts[2] + " must not be an operator but it is");
 	});
 	it("roles: impossible to add more powerful operator", async function() {
 		const card = await CharacterCard.new();
@@ -114,14 +113,14 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR);
 		await card.addRole(accounts[1], ROLE_COMBAT_PROVIDER);
-		assert(await card.isUserInRole(accounts[1], ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER was not added");
+		assert(hasRole(await card.userRoles(accounts[1]), ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER was not added");
 	});
 	it("permissions: remove role", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR | ROLE_COMBAT_PROVIDER);
-		assert(await card.isUserInRole(accounts[1], ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER must be enabled initially");
+		assert(hasRole(await card.userRoles(accounts[1]), ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER must be enabled initially");
 		await card.removeRole(accounts[1], ROLE_COMBAT_PROVIDER);
-		assert(!await card.isUserInRole(accounts[1], ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER was not removed");
+		assert(!hasRole(await card.userRoles(accounts[1]), ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER was not removed");
 	});
 	it("permissions: impossible to add role without ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
@@ -152,7 +151,7 @@ contract('CharacterCard', function(accounts) {
 		await card.addOperator(accounts[1], ROLE_CARD_CREATOR | ROLE_ROLE_MANAGER);
 		await card.addOperator(accounts[2], ROLE_COMBAT_PROVIDER);
 		await card.addRole.sendTransaction(accounts[2], ROLE_CARD_CREATOR, {from: accounts[1]});
-		assert(card.isUserInRole(accounts[2], ROLE_CARD_CREATOR), "role ROLE_CARD_CREATOR was not added");
+		assert(hasRole(await card.userRoles(accounts[2]), ROLE_CARD_CREATOR), "role ROLE_CARD_CREATOR was not added");
 	});
 	it("permissions: impossible to add role using user without same role", async function() {
 		const card = await CharacterCard.new();
@@ -1049,6 +1048,11 @@ function binaryShift(number, n) {
 		number = number.multipledBy(e);
 	}
 	return number;
+}
+
+// ensures actualRole has requestedRole
+function hasRole(actualRole, requestedRole) {
+	return (actualRole & requestedRole) == requestedRole;
 }
 
 // ensures that the function passed throws an exception

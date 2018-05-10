@@ -20,7 +20,7 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant CHAR_CARD_VERSION = 0x8;
+  uint32 public constant CHAR_CARD_VERSION = 0x9;
 
   /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
@@ -160,23 +160,50 @@ contract CharacterCard {
   /// @dev Constant indicating victory of a card (defeat of an opponent card)
   uint8 public constant GAME_OUTCOME_VICTORY = 3;
 
+  // TODO: implement features
+  /// @dev A bitmask of globally enabled features, see below
+  uint32 public f;
+
+  /// @dev Enables ERC721 transfers of the cards
+  uint32 public constant FEATURE_TRANSFERS = 0x00000001;
+
+  /// @dev Enables ERC721 transfers on behalf
+  uint32 public constant FEATURE_TRANSFERS_ON_BEHALF = 0x00000002;
+
+  /// @dev Enables ERC20 transfers of the cards
+  uint32 public constant ERC20_TRANSFERS = 0x00000004;
+
+  /// @dev Enables ERC20 transfers on behalf
+  uint32 public constant ERC20_TRANSFERS_ON_BEHALF = 0x00000008;
+
+
   /// @notice Exchange is responsible for trading cards on behalf of card holders
   /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of card holders
   /// @dev Not used
-  //uint32 public constant ROLE_EXCHANGE = 0x00000001;
+  //uint32 public constant ROLE_EXCHANGE = 0x00010000;
 
   /// @notice Card game provider is responsible for enabling the game protocol
   /// @dev Role ROLE_COMBAT_PROVIDER allows modifying gamesPlayed,
   ///      wins, losses, state, lastGamePlayed, attributes
-  uint32 public constant ROLE_COMBAT_PROVIDER = 0x00000002;
+  uint32 public constant ROLE_COMBAT_PROVIDER = 0x00020000;
 
   /// @notice Card creator is responsible for creating cards
   /// @dev Role ROLE_CARD_CREATOR allows minting cards
-  uint32 public constant ROLE_CARD_CREATOR = 0x00000004;
+  uint32 public constant ROLE_CARD_CREATOR = 0x00040000;
+
+  /// @notice Card destroyer is responsible for destroying cards
+  /// @dev Role ROLE_CARD_DESTROYER allows burning cards
+  /// @dev Reserved, not used
+  //uint32 public constant ROLE_CARD_DESTROYER = 0x00080000;
 
   /// @notice Role manager is responsible for assigning the roles
   /// @dev Role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
-  uint32 public constant ROLE_ROLE_MANAGER = 0x00000008;
+  uint32 public constant ROLE_ROLE_MANAGER = 0x00100000;
+
+  /// @notice Feature manager is responsible for enabling/disabling
+  ///      global features of the smart contract
+  /// @dev Role ROLE_FEATURE_MANAGER allows enabling/disabling global features
+  uint32 public constant ROLE_FEATURE_MANAGER = 0x00200000;
 
   /// @dev Bitmask represents all the possible permissions (super admin role)
   uint32 public constant FULL_PRIVILEGES_MASK = 0xFFFFFFFF;
@@ -186,8 +213,8 @@ contract CharacterCard {
 
   /// @dev Event names are self-explanatory:
   /// @dev Fired in mint()
-  /// @dev Address `from` allows to track who created a card
-  event Minted(address indexed _from,  address indexed _to, uint16 indexed _tokenId);
+  /// @dev Address `_by` allows to track who created a card
+  event Minted(address indexed _by,  address indexed _to, uint16 indexed _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `_from` is zero
   event CardTransfer(address indexed _from, address indexed _to, uint16 indexed _tokenId);
@@ -222,6 +249,28 @@ contract CharacterCard {
   }
 
   /**
+   * @dev Updates set of the globally enabled features (`f`),
+   *      taking into account sender's permissions.
+   * @dev Requires sender to have `ROLE_FEATURE_MANAGER` permission.
+   * @param mask bitmask representing a set of features to enable/disable
+   */
+  function updateFeatures(uint32 mask) public {
+    // call sender nicely - caller
+    address caller = msg.sender;
+    // read caller's permissions
+    uint32 p = userRoles[caller];
+
+    // caller should have a permission to update global features
+    require(__hasRole(p, ROLE_FEATURE_MANAGER));
+
+    // taking into account caller's permissions,
+    // 1) enable features requested
+    f |= p & mask;
+    // 2) disable features requested
+    f &= FULL_PRIVILEGES_MASK ^ (p & (FULL_PRIVILEGES_MASK ^ mask));
+  }
+
+  /**
    * @dev Adds a new `operator` - an address which has
    *      some extended privileges over the character card smart contract,
    *      for example card minting, transferring on behalf, etc.
@@ -244,7 +293,7 @@ contract CharacterCard {
     require(userRoles[operator] == 0);
 
     // manager must have a ROLE_ROLE_MANAGER role
-    require(hasRole(p, ROLE_ROLE_MANAGER));
+    require(__hasRole(p, ROLE_ROLE_MANAGER));
 
     // recalculate permissions (role) to set:
     // we cannot create an operator more powerful then calling `manager`
@@ -271,7 +320,7 @@ contract CharacterCard {
     require(operator != msg.sender);
 
     // check if caller has ROLE_ROLE_MANAGER
-    require(isSenderInRole(ROLE_ROLE_MANAGER));
+    require(__isSenderInRole(ROLE_ROLE_MANAGER));
 
     // perform operator deletion
     delete userRoles[operator];
@@ -299,7 +348,7 @@ contract CharacterCard {
     require(userRoles[operator] != 0);
 
     // manager must have a ROLE_ROLE_MANAGER role
-    require(hasRole(p, ROLE_ROLE_MANAGER));
+    require(__hasRole(p, ROLE_ROLE_MANAGER));
 
     // recalculate permissions (role) to add:
     // we cannot make an operator more powerful then calling `manager`
@@ -333,7 +382,7 @@ contract CharacterCard {
     require(userRoles[operator] ^ role != 0);
 
     // manager must have a ROLE_ROLE_MANAGER role
-    require(hasRole(p, ROLE_ROLE_MANAGER));
+    require(__hasRole(p, ROLE_ROLE_MANAGER));
 
     // recalculate permissions (role) to remove:
     // we cannot revoke permissions which calling `manager` doesn't have
@@ -406,7 +455,7 @@ contract CharacterCard {
    */
   function setLockedBitmask(uint32 bitmask) public {
     // check that the call is made by a combat provider
-    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // update the locked bitmask
     lockedBitmask = bitmask;
@@ -435,7 +484,7 @@ contract CharacterCard {
    */
   function setState(uint16 cardId, uint32 state) public {
     // check that the call is made by a combat provider
-    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[cardId];
@@ -507,7 +556,7 @@ contract CharacterCard {
          || lastGameOutcome == GAME_OUTCOME_VICTORY && wins != 0); // victory means wins cannot be zero
 
     // check that the call is made by a combat provider
-    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get cards from the storage
     Card storage card1 = cards[card1Id];
@@ -587,7 +636,7 @@ contract CharacterCard {
    */
   function setAttributes(uint16 cardId, uint32 attributes) public {
     // check that the call is made by a combat provider
-    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[cardId];
@@ -615,7 +664,7 @@ contract CharacterCard {
    */
   function addAttributes(uint16 cardId, uint32 attributes) public {
     // check that the call is made by a combat provider
-    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[cardId];
@@ -643,7 +692,7 @@ contract CharacterCard {
    */
   function removeAttributes(uint16 cardId, uint32 attributes) public {
     // check that the call is made by a combat provider
-    require(isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[cardId];
@@ -732,7 +781,7 @@ contract CharacterCard {
     require(to != address(this));
 
     // check if caller has sufficient permissions to mint a card
-    require(isSenderInRole(ROLE_CARD_CREATOR));
+    require(__isSenderInRole(ROLE_CARD_CREATOR));
 
     // validate card ID is not zero
     require(cardId != 0);
@@ -776,7 +825,7 @@ contract CharacterCard {
     require(n != 0 && n == data.length);
 
     // check if caller has sufficient permissions to mint a card
-    require(isSenderInRole(ROLE_CARD_CREATOR));
+    require(__isSenderInRole(ROLE_CARD_CREATOR));
 
     // iterate over `data` array and mint each card specified
     for(uint256 i = 0; i < n; i++) {
@@ -991,34 +1040,22 @@ contract CharacterCard {
     emit Approval(from, to, approved);
   }
 
-  /// @notice Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
-  function isSenderInRole(uint32 roleRequired) public constant returns(bool) {
+  /// @dev Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
+  function __isSenderInRole(uint32 roleRequired) private constant returns(bool) {
     // call sender gracefully - `user`
     address user = msg.sender;
 
-    // delegate call to `isUserInRole`
-    return isUserInRole(user, roleRequired);
-  }
-
-  /// @notice Checks if `user` has all the required permissions `rolesRequired`
-  function isUserInRole(address user, uint32 roleRequired) public constant returns(bool) {
     // read user's permissions (role)
     uint32 userRole = userRoles[user];
 
-    // delegate call to `hasRole`
-    return hasRole(userRole, roleRequired);
+    // delegate call to `__hasRole`
+    return __hasRole(userRole, roleRequired);
   }
 
-  /// @notice Checks if user role `userRole` contain all the permissions required `roleRequired`
-  function hasRole(uint32 userRole, uint32 roleRequired) public pure returns(bool) {
+  /// @dev Checks if user role `userRole` contain all the permissions required `roleRequired`
+  function __hasRole(uint32 userRole, uint32 roleRequired) private pure returns(bool) {
     // check the bitmask for the role required and return the result
     return userRole & roleRequired == roleRequired;
-  }
-
-  /// @notice Checks if `user` has at least one special permission on the contract
-  function isOperator(address user) public constant returns(bool) {
-    // read `user` address role and check if its not zero
-    return userRoles[user] != 0;
   }
 
   /// @dev Creates new card with `cardId` ID specified and

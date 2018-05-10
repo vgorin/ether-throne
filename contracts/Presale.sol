@@ -19,7 +19,7 @@ contract Presale {
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
-  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0x8;
+  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0x9;
 
   /// @dev ID of the first card to sell
   uint16 public constant OFFSET = 1024;
