@@ -348,34 +348,34 @@ contract('CharacterCard', function(accounts) {
 		});
 	});
 
-	it("transferCard: transfer a card", async function() {
+	it("transferToken: transfer a card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.transferCard(accounts[1], 0x401);
+		await card.transferToken(accounts[1], 0x401);
 		assert.equal(0, await card.balanceOf(accounts[0]), "sender's card balance after transferring a card must be 0");
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
 		assert.equal(accounts[1], await card.ownerOf(0x401), "card 0x401 has wrong owner after transferring it to " + accounts[1]);
 	});
-	it("transferCard: data structures integrity check after card transfer", async function() {
+	it("transferToken: data structures integrity check after card transfer", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await card.mint(accounts[0], 0x403);
 		await card.mint(accounts[0], 0x404);
 		await card.mint(accounts[0], 0x405);
-		await card.transferCard(accounts[1], 0x402); // [1, 2, 3, 4, 5], [] -> [1, 5, 3, 4], [2]
+		await card.transferToken(accounts[1], 0x402); // [1, 2, 3, 4, 5], [] -> [1, 5, 3, 4], [2]
 		assert.equal(4, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after card transfer");
 		assert.equal(0x405, await card.collections(accounts[0], 1), "wrong card ID in the collection idx 1 after transfer");
 		assert.equal(1, (await card.cards(0x405))[CARD_IDX_IDX], "shifted card 0x5 has wrong index in the collection");
 		assert.equal(0, (await card.cards(0x402))[CARD_IDX_IDX], "transferred card 0x402 has wrong index in the collection");
-		await card.transferCard(accounts[1], 0x401); // [1, 5, 3, 4], [2] -> [4, 5, 3], [2, 1]
+		await card.transferToken(accounts[1], 0x401); // [1, 5, 3, 4], [2] -> [4, 5, 3], [2, 1]
 		assert.equal(3, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after 2 card transfers");
 		assert.equal(0x404, await card.collections(accounts[0], 0), "wrong card ID in the collection idx 0 after second transfer");
 		assert.equal(0, (await card.cards(0x404))[CARD_IDX_IDX], "shifted card 0x4 has wrong index in the collection");
 		assert.equal(1, (await card.cards(0x401))[CARD_IDX_IDX], "second transferred card 0x401 has wrong index in the collection");
-		await card.transferCard(accounts[1], 0x403); // [4, 5, 3], [2, 1] -> [4, 5], [2, 1, 3]
-		await card.transferCard(accounts[1], 0x405); // [4, 5], [2, 1, 3] -> [4], [2, 1, 3, 5]
-		await card.transferCard(accounts[1], 0x404); // [4], [2, 1, 3, 5] -> [], [2, 1, 3, 5, 4]
+		await card.transferToken(accounts[1], 0x403); // [4, 5, 3], [2, 1] -> [4, 5], [2, 1, 3]
+		await card.transferToken(accounts[1], 0x405); // [4, 5], [2, 1, 3] -> [4], [2, 1, 3, 5]
+		await card.transferToken(accounts[1], 0x404); // [4], [2, 1, 3, 5] -> [], [2, 1, 3, 5, 4]
 		assert.equal(0, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after all card transfers");
 		assert.equal(0x402, await card.collections(accounts[1], 0), "wrong card ID in the collection idx 0 after all transfers");
 		assert.equal(0x401, await card.collections(accounts[1], 1), "wrong card ID in the collection idx 1 after all transfers");
@@ -388,87 +388,87 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(4, (await card.cards(0x404))[CARD_IDX_IDX], "card 0x404 has wrong index after all transfers");
 		assert.equal(3, (await card.cards(0x405))[CARD_IDX_IDX], "card 0x405 has wrong index after all transfers");
 	});
-	it("transferCard: impossible to transfer a card which you do not own", async function() {
+	it("transferToken: impossible to transfer a card which you do not own", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x401);
-		await assertThrowsAsync(async function() {await card.transferCard(accounts[2], 0x401);});
+		await assertThrowsAsync(async function() {await card.transferToken(accounts[2], 0x401);});
 	});
-	it("transferCard: impossible to transfer a card to a zero address", async function() {
+	it("transferToken: impossible to transfer a card to a zero address", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await assertThrowsAsync(async function() {await card.transferCard(0, 0x401);});
+		await assertThrowsAsync(async function() {await card.transferToken(0, 0x401);});
 	});
-	it("transferCard: impossible to transfer a card to oneself", async function() {
+	it("transferToken: impossible to transfer a card to oneself", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await assertThrowsAsync(async function() {await card.transferCard(accounts[0], 0x401);});
+		await assertThrowsAsync(async function() {await card.transferToken(accounts[0], 0x401);});
 	});
-	it("transferCard: approval revokes after card transfer", async function() {
+	it("transferToken: approval revokes after card transfer", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.approveCard(accounts[2], 0x401);
-		await card.transferCard(accounts[1], 0x401);
+		await card.approveToken(accounts[2], 0x401);
+		await card.transferToken(accounts[1], 0x401);
 		assert.equal(0, await card.approvals(0x401), "card 0x401 still has an approval after the transfer")
 	});
 
-	it("transferCardFrom: transfer own card without any approvals", async function() {
+	it("transferTokenFrom: transfer own card without any approvals", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.transferCardFrom(accounts[0], accounts[1], 0x401);
+		await card.transferTokenFrom(accounts[0], accounts[1], 0x401);
 		assert.equal(accounts[1], await card.ownerOf(0x401), "card 0x401 has wrong owner after transferring it");
 	});
-	it("transferCardFrom: transfer a card on behalf (single card approval)", async function() {
+	it("transferTokenFrom: transfer a card on behalf (single card approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.approveCard(accounts[1], 0x401);
-		await card.transferCardFrom.sendTransaction(accounts[0], accounts[1], 0x401, {from: accounts[1]});
+		await card.approveToken(accounts[1], 0x401);
+		await card.transferTokenFrom.sendTransaction(accounts[0], accounts[1], 0x401, {from: accounts[1]});
 		assert.equal(0, await card.balanceOf(accounts[0]), "sender's card balance after transferring a card must be 0");
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
 		assert.equal(accounts[1], await card.ownerOf(0x401), "wrong card 0x401 owner after transferring to " + accounts[1]);
 	});
-	it("transferCardFrom: transfer a card on behalf (operator approval)", async function() {
+	it("transferTokenFrom: transfer a card on behalf (operator approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
 		await card.approve(accounts[1], 1);
-		await card.transferCardFrom(accounts[0], accounts[1], 0x401, {from: accounts[1]});
+		await card.transferTokenFrom(accounts[0], accounts[1], 0x401, {from: accounts[1]});
 		assert.equal(accounts[1], await card.ownerOf(0x401), "wrong card 0x401 owner after transferring to " + accounts[1]);
 	});
-	it("transferCardFrom: transfer a card on behalf (both single card and operator approvals)", async function() {
+	it("transferTokenFrom: transfer a card on behalf (both single card and operator approvals)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.approveCard(accounts[1], 0x401);
+		await card.approveToken(accounts[1], 0x401);
 		await card.approve(accounts[1], 1);
-		await card.transferCardFrom(accounts[0], accounts[1], 0x401, {from: accounts[1]});
+		await card.transferTokenFrom(accounts[0], accounts[1], 0x401, {from: accounts[1]});
 		assert.equal(0, await card.approvals(0x401), "card 0x401 still has an approval after the transfer")
 	});
-	it("transferCardFrom: impossible to transfer card on behalf without approval", async function() {
+	it("transferTokenFrom: impossible to transfer card on behalf without approval", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
 		await assertThrowsAsync(async function() {
-			await card.transferCardFrom.sendTransaction(accounts[0], accounts[1], 0x401, {from: accounts[1]});
+			await card.transferTokenFrom.sendTransaction(accounts[0], accounts[1], 0x401, {from: accounts[1]});
 		});
 	});
-	it("transferCardFrom: impossible to transfer non-existent card", async function() {
+	it("transferTokenFrom: impossible to transfer non-existent card", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {
-			await card.transferCardFrom.sendTransaction(accounts[0], accounts[1], 0x401);
+			await card.transferTokenFrom.sendTransaction(accounts[0], accounts[1], 0x401);
 		});
 	});
-	it("transferCardFrom: operator approval can be exhausted (spent)", async function() {
+	it("transferTokenFrom: operator approval can be exhausted (spent)", async function() {
 		const card = await CharacterCard.new();
 		await card.approve(accounts[0], 1, {from: accounts[1]});
 		assert.equal(1, await card.allowance(accounts[1], accounts[0]), "wrong approval left value after it was set to 1");
 		await card.mint(accounts[1], 0x401);
 		await card.mint(accounts[1], 0x402);
-		await card.transferCardFrom(accounts[1], accounts[0], 0x401);
+		await card.transferTokenFrom(accounts[1], accounts[0], 0x401);
 		assert.equal(0, await card.allowance(accounts[1], accounts[0]), "wrong approval left value after transfer on behalf");
-		await assertThrowsAsync(async function() {await card.transferCardFrom(accounts[1], accounts[0], 0x402);});
+		await assertThrowsAsync(async function() {await card.transferTokenFrom(accounts[1], accounts[0], 0x402);});
 	});
-	it("transferCardFrom: approval revokes after card transfer on behalf", async function() {
+	it("transferTokenFrom: approval revokes after card transfer on behalf", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.approveCard(accounts[2], 0x401);
-		await card.transferCardFrom(accounts[0], accounts[1], 0x401, {from: accounts[2]});
+		await card.approveToken(accounts[2], 0x401);
+		await card.transferTokenFrom(accounts[0], accounts[1], 0x401, {from: accounts[2]});
 		assert.equal(0, await card.approvals(0x401), "card 0x401 still has an approval after the transfer on behalf")
 	});
 
@@ -573,65 +573,65 @@ contract('CharacterCard', function(accounts) {
 		});
 	});
 
-	it("approveCard: newly created card is not approved to be transferred initially", async function() {
+	it("approveToken: newly created card is not approved to be transferred initially", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
 		assert.equal(0, await card.approvals(0x401), "initial approval state for card 0x401 is wrong")
 	});
-	it("approveCard: approve an address (single card approval)", async function() {
+	it("approveToken: approve an address (single card approval)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.approveCard(accounts[1], 0x401);
+		await card.approveToken(accounts[1], 0x401);
 		assert.equal(accounts[1], await card.approvals(0x401), "approval state for card 0x401 is wrong")
 	});
-	it("approveCard: revoke an approval", async function() {
+	it("approveToken: revoke an approval", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.approveCard(accounts[1], 0x401);
+		await card.approveToken(accounts[1], 0x401);
 		await card.revokeApproval(0x401);
 		assert.equal(0, await card.approvals(0x401), "approval state after revoking for card 0x401 is wrong")
 	});
-	it("approveCard: impossible to approve another's owner card", async function() {
+	it("approveToken: impossible to approve another's owner card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x401);
-		await assertThrowsAsync(async function() {await card.approveCard(accounts[0], 0x401);});
+		await assertThrowsAsync(async function() {await card.approveToken(accounts[0], 0x401);});
 	});
-	it("approveCard: impossible to revoke approval of another's owner card", async function() {
+	it("approveToken: impossible to revoke approval of another's owner card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x401);
-		await card.approveCard.sendTransaction(accounts[0], 0x401, {from: accounts[1]});
+		await card.approveToken.sendTransaction(accounts[0], 0x401, {from: accounts[1]});
 		await assertThrowsAsync(async function() {await card.revokeApproval(0x401);});
 	});
-	it("approveCard: impossible to approve non-existing card", async function() {
+	it("approveToken: impossible to approve non-existing card", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.approveCard(accounts[1], 0x401);});
+		await assertThrowsAsync(async function() {await card.approveToken(accounts[1], 0x401);});
 	});
-	it("approveCard: impossible to revoke an approval if it doesn't exist", async function() {
+	it("approveToken: impossible to revoke an approval if it doesn't exist", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[1], 0x401);
 		await assertThrowsAsync(async function() {await card.revokeApproval(0x401);});
 	});
-	it("approveCard: impossible to approve oneself", async function() {
+	it("approveToken: impossible to approve oneself", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await assertThrowsAsync(async function() {await card.approveCard(accounts[0], 0x401);});
+		await assertThrowsAsync(async function() {await card.approveToken(accounts[0], 0x401);});
 	});
-	it("approveCard: approval toggling (normal scenario)", async function() {
+	it("approveToken: approval toggling (normal scenario)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.approveCard(accounts[1], 0x401);
-		await card.approveCard(0, 0x401);
-		await card.approveCard(accounts[1], 0x401);
-		await card.approveCard(0, 0x401);
+		await card.approveToken(accounts[1], 0x401);
+		await card.approveToken(0, 0x401);
+		await card.approveToken(accounts[1], 0x401);
+		await card.approveToken(0, 0x401);
 	});
-	it("approveCard: approval toggling (wrong scenario)", async function() {
+	it("approveToken: approval toggling (wrong scenario)", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await assertThrowsAsync(async function() {await card.approveCard(0, 0x401);});
-		await card.approveCard(accounts[1], 0x401);
-		await card.approveCard(accounts[1], 0x401);
-		await card.approveCard(0, 0x401);
-		await assertThrowsAsync(async function() {await card.approveCard(0, 0x401);});
+		await assertThrowsAsync(async function() {await card.approveToken(0, 0x401);});
+		await card.approveToken(accounts[1], 0x401);
+		await card.approveToken(accounts[1], 0x401);
+		await card.approveToken(0, 0x401);
+		await assertThrowsAsync(async function() {await card.approveToken(0, 0x401);});
 	});
 
 	it("approve: create operator", async function() {
@@ -742,7 +742,7 @@ contract('CharacterCard', function(accounts) {
 		await card.setLockedBitmask(0x8000);
 		await card.mint(accounts[0], 0x401);
 		await card.setState(0x401, 0x8000);
-		await assertThrowsAsync(async function() {await card.transferCard(accounts[1], 0x401);});
+		await assertThrowsAsync(async function() {await card.transferToken(accounts[1], 0x401);});
 	});
 	it("card locking: impossible to set lockedBitmask without ROLE_COMBAT_PROVIDER permission", async function() {
 		const card = await CharacterCard.new();

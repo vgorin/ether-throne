@@ -3,14 +3,15 @@ pragma solidity 0.4.23;
 // TODO 1) review which ERC721 functions need to be added
 // TODO 2) remove all the asserts before the production release
 // TODO 3) improve `exists` performance by introducing existent cards bitmask
-// TODO 4) implement global features functionlaity
+// TODO 4) implement global features functionality
 
 /**
  * @notice Character card is unique tradable entity. Non-fungible.
- * @dev Card is an ERC721 non-fungible token, which maps Card ID,
+ *      We will call "character card" also just "token" or "card token"
+ * @dev Card is an ERC721 non-fungible token, which maps Card ID (Token ID),
  *      a number in range 1..5000 to a set of card properties -
  *      attributes (mostly immutable by their nature) and state variables (mutable)
- * @dev A card supports minting but not burning, a card cannot be destroyed
+ * @dev A card token supports minting but not burning, it cannot be destroyed
  * @dev ERC20-compatibility: full ERC20 compatibility with security limitation for transfers:
  *      `transfer` and `transferFrom` functions support sending only entire balance
  *      (`n = balanceOf(owner)`) by default; this behavior can be controlled using
@@ -23,7 +24,7 @@ contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant CHAR_CARD_VERSION = 0x9;
+  uint32 public constant CHAR_CARD_VERSION = 0xA;
 
   /// @dev Tokens within the reserved space cannot be issued/minted
   /// @dev This limitation is required to support ERC20 compatible transfers:
@@ -110,33 +111,33 @@ contract CharacterCard {
   /// @dev Maps Card ID => Card Data Structure
   mapping(uint16 => Card) public cards;
 
-  /// @dev Mapping from a card ID to an address approved to
+  /// @dev Mapping from a token ID to an address approved to
   ///      transfer ownership rights for this card
   mapping(uint16 => address) public approvals;
 
   /// @dev Mapping from owner to operator approvals
-  ///      card owner => approved card operator => approvals left (zero means no approval)
+  ///      token owner => approved token operator => approvals left (zero means no approval)
   /// @dev ERC20 compliant structure for
   ///      function allowance(address owner, address spender) public constant returns (uint256 remaining)
   mapping(address => mapping(address => uint256)) public allowance;
 
-  /// @notice Storage for a collections of cards
-  /// @notice A collection of cards is an ordered list of card IDs,
+  /// @notice Storage for a collections of tokens
+  /// @notice A collection of tokens is an ordered list of token IDs,
   ///      owned by a particular address (owner)
-  /// @dev A mapping from owner to a collection of his cards (IDs)
+  /// @dev A mapping from owner to a collection of his tokens (IDs)
   /// @dev ERC20 compliant structure for balances can be derived
   ///      as a length of each collection in the mapping
   /// @dev ERC20 balances[owner] is equal to collections[owner].length
   mapping(address => uint16[]) public collections;
 
   /// @notice Defines a privileged addresses with additional
-  ///      permissions on the smart contract, like minting cards,
+  ///      permissions on the smart contract, like minting tokens,
   ///      transferring on behalf and so on
   /// @dev Maps an address to the permissions bitmask (role), where each bit
   ///      represents a permissions; bitmask 0xFFFFFFFF represents all possible permissions
   mapping(address => uint32) public userRoles;
 
-  /// @notice Total number of existing cards
+  /// @notice Total number of existing tokens
   /// @dev ERC20 compliant field for totalSupply()
   uint16 public totalSupply;
 
@@ -172,26 +173,26 @@ contract CharacterCard {
   /// @dev A bitmask of globally enabled features, see below
   uint32 public f;
 
-  /// @dev Enables ERC721 transfers of the cards
+  /// @dev Enables ERC721 transfers of the tokens
   uint32 public constant FEATURE_TRANSFERS = 0x00000001;
 
   /// @dev Enables ERC721 transfers on behalf
   uint32 public constant FEATURE_TRANSFERS_ON_BEHALF = 0x00000002;
 
-  /// @dev Enables partial support of ERC20 transfers of the cards,
-  ///      allowing to transfer only all owned cards at once
+  /// @dev Enables partial support of ERC20 transfers of the tokens,
+  ///      allowing to transfer only all owned tokens at once
   uint32 public constant ERC20_TRANSFERS = 0x00000004;
 
   /// @dev Enables partial support of ERC20 transfers on behalf
-  ///      allowing to transfer only all owned cards at once
+  ///      allowing to transfer only all owned tokens at once
   uint32 public constant ERC20_TRANSFERS_ON_BEHALF = 0x00000008;
 
-  /// @dev Enables full support of ERC20 transfers of the cards,
-  ///      allowing to transfer arbitrary amount of the cards at once
+  /// @dev Enables full support of ERC20 transfers of the tokens,
+  ///      allowing to transfer arbitrary amount of the tokens at once
   uint32 public constant ERC20_INSECURE_TRANSFERS = 0x00000010;
 
-  /// @notice Exchange is responsible for trading cards on behalf of card holders
-  /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of card holders
+  /// @notice Exchange is responsible for trading tokens on behalf of tokens holders
+  /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of tokens holders
   /// @dev Not used
   //uint32 public constant ROLE_EXCHANGE = 0x00010000;
 
@@ -200,14 +201,14 @@ contract CharacterCard {
   ///      wins, losses, state, lastGamePlayed, attributes
   uint32 public constant ROLE_COMBAT_PROVIDER = 0x00020000;
 
-  /// @notice Card creator is responsible for creating cards
-  /// @dev Role ROLE_CARD_CREATOR allows minting cards
-  uint32 public constant ROLE_CARD_CREATOR = 0x00040000;
+  /// @notice Token creator is responsible for creating tokens
+  /// @dev Role ROLE_TOKEN_CREATOR allows minting tokens
+  uint32 public constant ROLE_TOKEN_CREATOR = 0x00040000;
 
-  /// @notice Card destroyer is responsible for destroying cards
-  /// @dev Role ROLE_CARD_DESTROYER allows burning cards
+  /// @notice Token destroyer is responsible for destroying tokens
+  /// @dev Role ROLE_TOKEN_DESTROYER allows burning tokens
   /// @dev Reserved, not used
-  //uint32 public constant ROLE_CARD_DESTROYER = 0x00080000;
+  //uint32 public constant ROLE_TOKEN_DESTROYER = 0x00080000;
 
   /// @notice Role manager is responsible for assigning the roles
   /// @dev Role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
@@ -226,17 +227,17 @@ contract CharacterCard {
 
   /// @dev Event names are self-explanatory:
   /// @dev Fired in mint()
-  /// @dev Address `_by` allows to track who created a card
+  /// @dev Address `_by` allows to track who created a token
   event Minted(address indexed _by, address indexed _to, uint16 indexed _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
-  /// @dev When minting a card, address `_from` is zero
-  event CardTransfer(address indexed _from, address indexed _to, uint16 indexed _tokenId);
+  /// @dev When minting a token, address `_from` is zero
+  event TokenTransfer(address indexed _from, address indexed _to, uint16 indexed _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
-  /// @dev When minting a card, address `_from` is zero
+  /// @dev When minting a token, address `_from` is zero
   /// @dev ERC20 compliant event
   event Transfer(address indexed _from, address indexed _to, uint256 _value);
-  /// @dev Fired in approveCard()
-  event CardApproval(address indexed _owner, address indexed _approved, uint16 indexed _tokenId);
+  /// @dev Fired in approveToken()
+  event TokenApproval(address indexed _owner, address indexed _approved, uint16 indexed _tokenId);
   /// @dev Fired in approve()
   /// @dev ERC20 compliant event
   event Approval(address indexed _owner, address indexed _spender, uint256 _value);
@@ -285,8 +286,8 @@ contract CharacterCard {
 
   /**
    * @dev Adds a new `operator` - an address which has
-   *      some extended privileges over the character card smart contract,
-   *      for example card minting, transferring on behalf, etc.
+   *      some extended privileges over the smart contract,
+   *      for example token minting, transferring on behalf, etc.
    * @dev Newly added `operator` cannot have any permissions which
    *      transaction sender doesn't have.
    * @dev Requires transaction sender to have `ROLE_ROLE_MANAGER` permission.
@@ -427,10 +428,11 @@ contract CharacterCard {
    *          ownershipModified,
    *          owner
    * @dev Throws if card doesn't exist
+   * @param tokenId ID of the card to fetch
    */
-  function getCard(uint16 cardId) public constant returns(uint256, uint256) {
+  function getCard(uint16 tokenId) public constant returns(uint256, uint256) {
     // load the card from storage
-    Card memory card = cards[cardId];
+    Card memory card = cards[tokenId];
 
     // get the card's owner address
     address owner = card.owner;
@@ -478,12 +480,12 @@ contract CharacterCard {
 
   /**
    * @dev Gets the state of a card
-   * @param cardId ID of the card to get state for
+   * @param tokenId ID of the card to get state for
    * @return a card state
    */
-  function getState(uint16 cardId) public constant returns(uint32) {
+  function getState(uint16 tokenId) public constant returns(uint32) {
     // get the card from storage
-    Card memory card = cards[cardId];
+    Card memory card = cards[tokenId];
 
     // validate card existence
     require(card.owner != address(0));
@@ -495,15 +497,15 @@ contract CharacterCard {
   /**
    * @dev Sets the state of a card
    * @dev Requires sender to have `ROLE_COMBAT_PROVIDER` permission
-   * @param cardId ID of the card to set state for
+   * @param tokenId ID of the card to set state for
    * @param state new state to set for the card
    */
-  function setState(uint16 cardId, uint32 state) public {
+  function setState(uint16 tokenId, uint32 state) public {
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId];
+    Card storage card = cards[tokenId];
 
     // check that card to set state for exists
     require(card.owner != address(0));
@@ -513,8 +515,8 @@ contract CharacterCard {
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
-    // `Card memory card = cards[cardId];`
-    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
+    // `Card memory card = cards[tokenId];`
+    //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
@@ -630,12 +632,12 @@ contract CharacterCard {
 
   /**
    * @dev Gets attributes of a card
-   * @param cardId ID of the card to get attributes for
+   * @param tokenId ID of the card to get attributes for
    * @return a card attributes bitmask
    */
-  function getAttributes(uint16 cardId) public constant returns(uint32) {
+  function getAttributes(uint16 tokenId) public constant returns(uint32) {
     // get the card from storage
-    Card memory card = cards[cardId];
+    Card memory card = cards[tokenId];
 
     // validate card existence
     require(card.owner != address(0));
@@ -647,15 +649,15 @@ contract CharacterCard {
   /**
    * @dev Sets attributes of a card
    * @dev Erases all previously set attributes
-   * @param cardId ID of the card to set attributes for
+   * @param tokenId ID of the card to set attributes for
    * @param attributes bitmask representing card attributes to set
    */
-  function setAttributes(uint16 cardId, uint32 attributes) public {
+  function setAttributes(uint16 tokenId, uint32 attributes) public {
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId];
+    Card storage card = cards[tokenId];
 
     // check that card to set attributes for exists
     require(card.owner != address(0));
@@ -668,22 +670,22 @@ contract CharacterCard {
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
-    // `Card memory card = cards[cardId];`
-    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
+    // `Card memory card = cards[tokenId];`
+    //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
    * @dev Adds attributes to a card
    * @dev Preserves all previously set attributes
-   * @param cardId ID of the card to add attributes to
+   * @param tokenId ID of the card to add attributes to
    * @param attributes bitmask representing card attributes to add
    */
-  function addAttributes(uint16 cardId, uint32 attributes) public {
+  function addAttributes(uint16 tokenId, uint32 attributes) public {
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId];
+    Card storage card = cards[tokenId];
 
     // check that card to add attributes for exists
     require(card.owner != address(0));
@@ -696,22 +698,22 @@ contract CharacterCard {
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
-    // `Card memory card = cards[cardId];`
-    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
+    // `Card memory card = cards[tokenId];`
+    //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
    * @dev Removes attributes from a card
    * @dev Preserves all the attributes which are not specified by `attributes`
-   * @param cardId ID of the card to remove attributes from
+   * @param tokenId ID of the card to remove attributes from
    * @param attributes bitmask representing card attributes to remove
    */
-  function removeAttributes(uint16 cardId, uint32 attributes) public {
+  function removeAttributes(uint16 tokenId, uint32 attributes) public {
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
-    Card storage card = cards[cardId];
+    Card storage card = cards[tokenId];
 
     // check that card to remove attributes for exists
     require(card.owner != address(0));
@@ -724,47 +726,47 @@ contract CharacterCard {
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
-    // `Card memory card = cards[cardId];`
-    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
+    // `Card memory card = cards[tokenId];`
+    //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
   }
 
   /**
-   * @notice Gets an amount of cards owned by the given address
+   * @notice Gets an amount of tokens owned by the given address
    * @dev Gets the balance of the specified address
    * @param who address to query the balance for
    * @return an amount owned by the address passed as an input parameter
    */
   function balanceOf(address who) public constant returns (uint16) {
-    // read the length of the `who`s collection of cards
+    // read the length of the `who`s collection of tokens
     return uint16(collections[who].length);
   }
 
   /**
-   * @notice Checks if specified card exists
+   * @notice Checks if specified token exists
    * @dev Returns whether the specified token ID exists
-   * @param cardId ID of the card to query the existence for
-   * @return whether the card exists (true - exists)
+   * @param tokenId ID of the token to query the existence for
+   * @return whether the token exists (true - exists)
    */
-  function exists(uint16 cardId) public constant returns (bool) {
-    // get the card's owner address from storage
-    address owner = cards[cardId].owner;
+  function exists(uint16 tokenId) public constant returns (bool) {
+    // get the token's owner address from storage
+    address owner = cards[tokenId].owner;
 
-    // check if this card exists (owner is not zero)
+    // check if this token exists (owner is not zero)
     return owner != address(0);
   }
 
   /**
-   * @notice Finds an owner address for a card specified
-   * @dev Gets the owner of the specified card from the `cards` mapping
-   * @dev Throws if a card with the ID specified doesn't exist
-   * @param cardId ID of the card to query the owner for
+   * @notice Finds an owner address for a token specified
+   * @dev Gets the owner of the specified token from the `cards` mapping
+   * @dev Throws if a token with the ID specified doesn't exist
+   * @param tokenId ID of the token to query the owner for
    * @return owner address currently marked as the owner of the given card
    */
-  function ownerOf(uint16 cardId) public constant returns (address) {
-    // get the card's owner address from storage
-    address owner = cards[cardId].owner;
+  function ownerOf(uint16 tokenId) public constant returns (address) {
+    // get the token's owner address from storage
+    address owner = cards[tokenId].owner;
 
-    // check if this card exists (owner is not zero)
+    // check if this token exists (owner is not zero)
     require(owner != address(0));
 
     // return owner's address
@@ -772,34 +774,34 @@ contract CharacterCard {
   }
 
   /**
-   * @dev Creates new card with `cardId` ID specified and
+   * @dev Creates new card with `tokenId` ID specified and
    *      assigns to an address `to` an ownership of that card
-   * @param cardId ID of the card to create
+   * @param tokenId ID of the card to create
    * @param to an address to assign created card ownership to
    */
-  function mint(address to, uint16 cardId) public {
+  function mint(address to, uint16 tokenId) public {
     // delegate call to `mintWith`
-    mintWith(to, cardId, 3);
+    mintWith(to, tokenId, 3);
   }
 
   /**
-   * @dev Creates new card with `cardId` ID specified and
+   * @dev Creates new card with `tokenId` ID specified and
    *      assigns an ownership `to` for that card
    * @dev Allows setting card's rarity / attributes
    * @param to an address to assign created card ownership to
-   * @param cardId ID of the card to create
+   * @param tokenId ID of the card to create
    * @param rarity an integer, representing card's rarity
    */
-  function mintWith(address to, uint16 cardId, uint32 rarity) public {
+  function mintWith(address to, uint16 tokenId, uint32 rarity) public {
     // validate destination address
     require(to != address(0));
     require(to != address(this));
 
     // check if caller has sufficient permissions to mint a card
-    require(__isSenderInRole(ROLE_CARD_CREATOR));
+    require(__isSenderInRole(ROLE_TOKEN_CREATOR));
 
     // delegate call to `__mint`
-    __mint(to, cardId, rarity);
+    __mint(to, tokenId, rarity);
 
     // fire ERC20 transfer event
     emit Transfer(address(0), to, 1);
@@ -837,7 +839,7 @@ contract CharacterCard {
     require(n != 0 && n == data.length);
 
     // check if caller has sufficient permissions to mint a card
-    require(__isSenderInRole(ROLE_CARD_CREATOR));
+    require(__isSenderInRole(ROLE_TOKEN_CREATOR));
 
     // iterate over `data` array and mint each card specified
     for(uint256 i = 0; i < n; i++) {
@@ -851,19 +853,19 @@ contract CharacterCard {
   }
 
   /**
-   * @notice Transfers ownership rights of `n` *arbitrary* cards
+   * @notice Transfers ownership rights of `n` *arbitrary* tokens
    *      to a new owner specified by address `to`
-   * @dev The cards are taken from the end of the owner's card collection
+   * @dev The tokens are taken from the end of the owner's token collection
    * @dev Requires the sender of the transaction to be an owner
-   *      of at least `n` cards
+   *      of at least `n` tokens
    * @dev For security reasons this function will throw if transferring
-   *      less cards than is owned by the sender (`n != balanceOf(msg.sender)`) -
+   *      less tokens than is owned by the sender (`n != balanceOf(msg.sender)`) -
    *      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
    * @dev Consumes around 38521 + 511735 * (`n` / 16) gas for `n` multiple of 16
    * @dev ERC20 compliant transfer(address, uint)
-   * @param to an address where to transfer cards to,
-   *        new owner of the cards
-   * @param n number of cards to transfer
+   * @param to an address where to transfer tokens to,
+   *        new owner of the tokens
+   * @param n number of tokens to transfer
    */
   function transfer(address to, uint16 n) public {
     // call sender gracefully - `from`
@@ -875,38 +877,38 @@ contract CharacterCard {
 
   /**
    * @notice A.k.a "transfer on behalf"
-   * @notice Transfers ownership rights of `n` *arbitrary* cards
+   * @notice Transfers ownership rights of `n` *arbitrary* tokens
    *      to a new owner specified by address `to`
-   * @dev The cards are taken from the end of the owner's card collection
+   * @dev The tokens are taken from the end of the owner's token collection
    * @dev Requires the sender of the transaction to be authorized
-   *      to "spend" at least `n` card
-   * @dev The sender is granted an authorization to "spend" the cards
-   *      by the owner of the cards using `approve` function
+   *      to "spend" at least `n` tokens
+   * @dev The sender is granted an authorization to "spend" the tokens
+   *      by the owner of the tokens using `approve` function
    * @dev For security reasons this function will throw if transferring
-   *      less cards than is owned by an owner (`n != balanceOf(from)`) -
+   *      less tokens than is owned by an owner (`n != balanceOf(from)`) -
    *      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
-   * @param from an address from where to take cards from,
-   *        current owner of the cards
-   * @param to an address where to transfer cards to,
-   *        new owner of the cards
-   * @param n number of cards to transfer
+   * @param from an address from where to take tokens from,
+   *        current owner of the tokens
+   * @param to an address where to transfer tokens to,
+   *        new owner of the tokens
+   * @param n number of tokens to transfer
    */
   function transferFrom(address from, address to, uint16 n) public {
     // call sender gracefully - `operator`
     address operator = msg.sender;
 
-    // we assume `from` has at least n cards to transfer,
+    // we assume `from` has at least n tokens to transfer,
     // this will be explicitly checked in `__transfer`
 
     // fetch how much approvals left for an operator
     uint256 approvalsLeft = allowance[from][operator];
 
-    // operator must be approved to transfer `n` cards on behalf
+    // operator must be approved to transfer `n` tokens on behalf
     // otherwise this is equal to regular transfer,
-    // where `from` is basically a transaction sender and owner of the cards
+    // where `from` is basically a transaction sender and owner of the tokens
     if(approvalsLeft < n) {
       // transaction sender doesn't have required amount of approvals left
-      // we will treat him as an owner trying to send his own cards
+      // we will treat him as an owner trying to send his own tokens
       // check `from` to be `operator` (transaction sender):
       require(from == operator);
     }
@@ -920,109 +922,109 @@ contract CharacterCard {
   }
 
   /**
-   * @notice Transfers ownership rights of a card defined
-   *      by the `cardId` to a new owner specified by address `to`
+   * @notice Transfers ownership rights of a token defined
+   *      by the `tokenId` to a new owner specified by address `to`
    * @dev Requires the sender of the transaction to be an owner
-   *      of the card specified (`cardId`)
+   *      of the token specified (`tokenId`)
    * @param to new owner address
-   * @param cardId ID of the card to transfer ownership rights for
+   * @param tokenId ID of the token to transfer ownership rights for
    */
-  function transferCard(address to, uint16 cardId) public {
+  function transferToken(address to, uint16 tokenId) public {
     // call sender gracefully - `from`
     address from = msg.sender;
 
-    // delegate call to unsafe `__transferCard`
-    __transferCard(from, to, cardId);
+    // delegate call to unsafe `__transferToken`
+    __transferToken(from, to, tokenId);
   }
 
   /**
-   * @notice A.k.a "transfer a card on behalf"
-   * @notice Transfers ownership rights of a card defined
-   *      by the `cardId` to a new owner specified by address `to`
+   * @notice A.k.a "transfer a token on behalf"
+   * @notice Transfers ownership rights of a token defined
+   *      by the `tokenId` to a new owner specified by address `to`
    * @notice Allows transferring ownership rights by a trading operator
-   *      on behalf of card owner. Allows building an exchange of cards.
-   * @dev Transfers the ownership of a given card ID to another address
+   *      on behalf of token owner. Allows building an exchange of tokens.
+   * @dev Transfers the ownership of a given token ID to another address
    * @dev Requires the transaction sender to be the owner, approved, or operator
-   * @param from current owner of the card
-   * @param to address to receive the ownership of the card
-   * @param cardId ID of the card to be transferred
+   * @param from current owner of the token
+   * @param to address to receive the ownership of the token
+   * @param tokenId ID of the token to be transferred
    */
-  function transferCardFrom(address from, address to, uint16 cardId) public {
+  function transferTokenFrom(address from, address to, uint16 tokenId) public {
     // call sender gracefully - `operator`
     address operator = msg.sender;
-    // find if an approved address exists for this card
-    address approved = approvals[cardId];
+    // find if an approved address exists for this token
+    address approved = approvals[tokenId];
 
-    // we assume `from` is an owner of the card,
-    // this will be explicitly checked in `__transfer`
+    // we assume `from` is an owner of the token,
+    // this will be explicitly checked in `__transferToken`
 
     // fetch how much approvals left for an operator
     uint256 approvalsLeft = allowance[from][operator];
 
-    // operator must have an approval to transfer this particular card
-    // or operator must be approved to transfer all the cards
+    // operator must have an approval to transfer this particular token
+    // or operator must be approved to transfer all the tokens
     // or, if nothing satisfies, this is equal to regular transfer,
-    // where `from` is basically a transaction sender and owner of the card
+    // where `from` is basically a transaction sender and owner of the token
     if(operator == approved || approvalsLeft != 0) {
       // update operator's approvals left + emit an event
       __decreaseOperatorApprovalsLeft(from, operator, 1);
     }
     else {
       // transaction sender doesn't have any special permissions
-      // we will treat him as a card owner and sender and try to perform
+      // we will treat him as a token owner and sender and try to perform
       // a regular transfer:
       // check `from` to be `operator` (transaction sender):
       require(from == operator);
     }
 
-    // delegate call to unsafe `__transferCard`
-    __transferCard(from, to, cardId);
+    // delegate call to unsafe `__transferToken`
+    __transferToken(from, to, tokenId);
   }
 
   /**
-   * @notice Approves an address to transfer the given card on behalf of its owner.
-   *      Can also be used to revoke an approval by setting `to` address to zero.
-   * @dev The zero `to` address revokes an approval for a given card.
-   * @dev There can only be one approved address per card at a given time.
-   * @dev This function can only be called by the card owner.
-   * @param to address to be approved to transfer the card on behalf of its owner
-   * @param cardId ID of the card to be approved for transfer on behalf
+   * @notice Approves an address to transfer the given token on behalf of its owner
+   *      Can also be used to revoke an approval by setting `to` address to zero
+   * @dev The zero `to` address revokes an approval for a given token
+   * @dev There can only be one approved address per token at a given time
+   * @dev This function can only be called by the token owner
+   * @param to address to be approved to transfer the token on behalf of its owner
+   * @param tokenId ID of the token to be approved for transfer on behalf
    */
-  function approveCard(address to, uint16 cardId) public {
+  function approveToken(address to, uint16 tokenId) public {
     // call sender nicely - `from`
     address from = msg.sender;
-    // get card owner address (also ensures that card exists)
-    address owner = ownerOf(cardId);
+    // get token owner address (also ensures that token exists)
+    address owner = ownerOf(tokenId);
 
-    // caller must own this card
+    // caller must own this token
     require(from == owner);
     // approval for owner himself is pointless, do not allow
     require(to != owner);
     // either we're removing approval, or setting it
-    require(approvals[cardId] != address(0) || to != address(0));
+    require(approvals[tokenId] != address(0) || to != address(0));
 
     // set an approval (deletes an approval if to == 0)
-    approvals[cardId] = to;
+    approvals[tokenId] = to;
 
     // emit an ERC721 event
-    emit CardApproval(msg.sender, to, cardId);
+    emit TokenApproval(msg.sender, to, tokenId);
   }
 
   /**
    * @notice Removes an approved address, which was previously added by `approve`
-   *      for the given card. Equivalent to calling approve(0, cardId)
-   * @dev Same as calling approve(0, cardId)
-   * @param cardId ID of the card to be remove approved address for
+   *      for the given token. Equivalent to calling approve(0, tokenId)
+   * @dev Same as calling approve(0, tokenId)
+   * @param tokenId ID of the token to remove approved address for
    */
-  function revokeApproval(uint16 cardId) public {
+  function revokeApproval(uint16 tokenId) public {
     // delegate call to `approve`
-    approveCard(address(0), cardId);
+    approveToken(address(0), tokenId);
   }
 
   /**
    * @dev Sets or unsets the approval of a given operator
-   * @dev An operator is allowed to transfer *all* cards of the sender on their behalf
-   * @param to operator address to set the approval
+   * @dev An operator is allowed to transfer *all* tokens of the sender on their behalf
+   * @param to operator address to set the approval for
    * @param approved representing the status of the approval to be set
    */
   function setApprovalForAll(address to, bool approved) public {
@@ -1032,7 +1034,7 @@ contract CharacterCard {
 
   /**
    * @dev Sets or unsets the approval of a given operator
-   * @dev An operator is allowed to transfer *all* cards of the sender on their behalf
+   * @dev An operator is allowed to transfer *all* tokens of the sender on their behalf
    * @dev ERC20 compliant approve(address, uint256) function
    * @param to operator address to set the approval
    * @param approved representing the number of approvals left to be set
@@ -1078,17 +1080,17 @@ contract CharacterCard {
     return userRole & roleRequired == roleRequired;
   }
 
-  /// @dev Creates new card with `cardId` ID specified and
+  /// @dev Creates new card with `tokenId` ID specified and
   ///      assigns an ownership `to` for this card
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
   ///      checks only that the card doesn't exist yet
   /// @dev Must be kept private at all times
-  function __mint(address to, uint16 cardId, uint32 rarity) private {
-    // check that card ID is not in the reserved space
-    require(cardId > RESERVED_TOKEN_ID_SPACE);
+  function __mint(address to, uint16 tokenId, uint32 rarity) private {
+    // check that `tokenId` is not in the reserved space
+    require(tokenId > RESERVED_TOKEN_ID_SPACE);
 
-    // ensure that card with such ID doesn't exist
-    require(!exists(cardId));
+    // ensure that token with such ID doesn't exist
+    require(!exists(tokenId));
 
     // create a new card in memory
     Card memory card = Card({
@@ -1101,7 +1103,7 @@ contract CharacterCard {
       wins: 0,
       losses: 0,
 
-      id: cardId,
+      id: tokenId,
       // card index within the owner's collection of cards
       // points to the place where the card will be placed to
       index: uint16(collections[to].length),
@@ -1111,25 +1113,25 @@ contract CharacterCard {
     });
 
     // push newly created card's ID to the owner's collection of cards
-    collections[to].push(cardId);
+    collections[to].push(tokenId);
 
     // persist card to the storage
-    cards[cardId] = card;
+    cards[tokenId] = card;
 
     // update total supply
     totalSupply++;
 
     // fire Minted event
-    emit Minted(msg.sender, to, cardId);
+    emit Minted(msg.sender, to, tokenId);
     // fire ERC721 transfer event
-    emit CardTransfer(address(0), to, cardId);
+    emit TokenTransfer(address(0), to, tokenId);
   }
 
-  /// @dev Performs a transfer of `n` cards from address `from` to address `to`
+  /// @dev Performs a transfer of `n` tokens from address `from` to address `to`
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call;
-  ///      checks only that address `from` has at least `n` cards on the balance
+  ///      checks only that address `from` has at least `n` tokens on the balance
   /// @dev For security reasons this function throws if transferring
-  ///      less cards than is owned by an owner (`n != balanceOf(from)`) -
+  ///      less tokens than is owned by an owner (`n != balanceOf(from)`) -
   ///      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
   /// @dev Is save to call from `transfer(to, n)` since it doesn't need any additional checks
   /// @dev Must be kept private at all times
@@ -1141,57 +1143,57 @@ contract CharacterCard {
     // if it happens - its a bug
     assert(from != address(0));
 
-    // for security reasons we require `n` to be within `RESERVED_CARD_ID_SPACE`
-    // otherwise it can mean an attempt to transfer a particular card (not `n` cards)
+    // for security reasons we require `n` to be within `RESERVED_TOKEN_ID_SPACE`
+    // otherwise it can mean an attempt to transfer a particular token (not `n` tokens)
     require(n > 0 && n <= RESERVED_TOKEN_ID_SPACE);
 
     // by default, when `ERC20_INSECURE_TRANSFERS` is not enabled, we
-    // verify that the source address owns exactly `n` cards -
+    // verify that the source address owns exactly `n` tokens -
     // this may be important for security reasons:
-    // we may want to secure owner from sending some amount of cards
-    // accidentally instead of sending a card by ID
+    // we may want to secure owner from sending some amount of tokens
+    // accidentally instead of sending a token by ID
     require(n == balanceOf(from) || __isFeatureEnabled(ERC20_INSECURE_TRANSFERS));
 
     // for security reasons remove approved operator
     delete allowance[from][msg.sender];
 
-    // move `n` cards
+    // move `n` tokens
     __move(from, to, n);
 
     // fire a ERC20 transfer event
     emit Transfer(from, to, n);
   }
 
-  /// @dev Performs a transfer of a card `cardId` from address `from` to address `to`
+  /// @dev Performs a transfer of a token `tokenId` from address `from` to address `to`
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call;
-  ///      checks only for card existence and that ownership belongs to `from`
-  /// @dev Is save to call from `transferCard(to, cardId)` since it doesn't need any additional checks
+  ///      checks only for token existence and that ownership belongs to `from`
+  /// @dev Is save to call from `transferToken(to, tokenId)` since it doesn't need any additional checks
   /// @dev Must be kept private at all times
-  function __transferCard(address from, address to, uint16 cardId) private {
+  function __transferToken(address from, address to, uint16 tokenId) private {
     // validate source and destination address
     require(to != address(0));
     require(to != from);
-    // impossible by design of transferCard(), transferCardFrom(),
-    // approveCard() and approve()
+    // impossible by design of transferToken(), transferTokenFrom(),
+    // approveToken() and approve()
     assert(from != address(0));
 
     // get the card pointer to the storage
-    Card storage card = cards[cardId];
+    Card storage card = cards[tokenId];
 
-    // get card's owner address
+    // get token's owner address
     address owner = card.owner;
 
-    // validate card existence
+    // validate token existence
     require(owner != address(0));
-    // validate card ownership
+    // validate token ownership
     require(owner == from);
 
     // transfer is not allowed for a locked card
     // (ex.: if card is currently in game/battle)
     require(card.state & lockedBitmask == 0);
 
-    // clear approved address for this particular card + emit event
-    __clearApprovalFor(cardId);
+    // clear approved address for this particular token + emit event
+    __clearApprovalFor(tokenId);
 
     // move card ownership,
     // update old and new owner's card collections accordingly
@@ -1199,25 +1201,25 @@ contract CharacterCard {
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
-    // `Card memory card = cards[cardId];`
-    //cards[cardId] = card; // uncomment if card is in memory (will increase gas usage!)
+    // `Card memory card = cards[tokenId];`
+    //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
 
     // fire ERC721 transfer event
-    emit CardTransfer(from, to, cardId);
+    emit TokenTransfer(from, to, tokenId);
 
     // fire a ERC20 transfer event
     emit Transfer(from, to, 1);
   }
 
-  /// @dev Clears approved address for a particular card
-  function __clearApprovalFor(uint16 cardId) private {
+  /// @dev Clears approved address for a particular token
+  function __clearApprovalFor(uint16 tokenId) private {
     // check if approval exists - we don't want to fire an event in vain
-    if(approvals[cardId] != address(0)) {
+    if(approvals[tokenId] != address(0)) {
       // clear approval
-      delete approvals[cardId];
+      delete approvals[tokenId];
 
       // emit an ERC721 event
-      emit CardApproval(msg.sender, address(0), cardId);
+      emit TokenApproval(msg.sender, address(0), tokenId);
     }
   }
 
@@ -1240,7 +1242,7 @@ contract CharacterCard {
     }
   }
 
-  /// @dev Move `n` the cards from owner `from` to a new owner `to`
+  /// @dev Move `n` the tokens from owner `from` to a new owner `to`
   /// @dev Unsafe, doesn't check for consistence
   /// @dev Must be kept private at all times
   function __move(address from, address to, uint16 n) private {
@@ -1253,10 +1255,10 @@ contract CharacterCard {
     // check `n` is in safe bounds
     require(n <= source.length);
 
-    // initial position of the cards to be moved in `destination` array
+    // initial position of the tokens to be moved in `destination` array
     uint16 offset = uint16(destination.length);
 
-    // copy last `n` cards from `source` to `destination`
+    // copy last `n` tokens from `source` to `destination`
     for(uint16 i = uint16(source.length) - n; i < source.length; i++) {
       // get the link to a card from the source collection
       Card storage card = cards[source[i]];
@@ -1282,7 +1284,7 @@ contract CharacterCard {
       destination.push(source[i]);
 
       // emit ERC721 transfer event
-      emit CardTransfer(from, to, source[i]);
+      emit TokenTransfer(from, to, source[i]);
     }
 
     // trim source (`from`) collection array by `n`
@@ -1307,13 +1309,13 @@ contract CharacterCard {
 
     // we put the last card in the collection `source` to the position released
     // get an ID of the last card in `source`
-    uint16 cardId = source[source.length - 1];
+    uint16 tokenId = source[source.length - 1];
 
     // update card index to point to proper place in the collection `source`
-    cards[cardId].index = i;
+    cards[tokenId].index = i;
 
     // put it into the position i within `source`
-    source[i] = cardId;
+    source[i] = tokenId;
 
     // trim the collection `source` by removing last element
     source.length--;
