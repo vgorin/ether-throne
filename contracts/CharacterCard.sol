@@ -441,24 +441,24 @@ contract CharacterCard {
     require(owner != address(0));
 
     // pack high 256 bits of the result
-    uint256 high = uint256(card.creationTime) << 224
-                 | uint224(card.rarity) << 192
-                 | uint192(card.attributesModified) << 160
-                 | uint160(card.attributes) << 128
-                 | uint128(card.lastGamePlayed) << 96
-                 | uint96(card.gamesPlayed) << 64
-                 | uint64(card.wins) << 32
-                 | uint32(card.losses);
+    uint256 hi = uint256(card.creationTime) << 224
+               | uint224(card.rarity) << 192
+               | uint192(card.attributesModified) << 160
+               | uint160(card.attributes) << 128
+               | uint128(card.lastGamePlayed) << 96
+               | uint96(card.gamesPlayed) << 64
+               | uint64(card.wins) << 32
+               | uint32(card.losses);
 
     // pack low 256 bits of the result
-    uint256 low = uint256(card.id) << 240
-                | uint240(card.index) << 224
-                | uint224(card.state) << 192
-                | uint192(card.ownershipModified) << 160
-                | uint160(card.owner);
+    uint256 lo = uint256(card.id) << 240
+               | uint240(card.index) << 224
+               | uint224(card.state) << 192
+               | uint192(card.ownershipModified) << 160
+               | uint160(card.owner);
 
     // return the whole 512 bits of result
-    return (high, low);
+    return (hi, lo);
   }
 
   /**
