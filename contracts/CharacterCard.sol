@@ -1,26 +1,35 @@
 pragma solidity 0.4.23;
 
+// TODO 1) review which ERC721 functions need to be added
+// TODO 2) remove all the asserts before the production release
+// TODO 3) improve `exists` performance by introducing existent cards bitmask
+// TODO 4) implement global features functionlaity
+
 /**
  * @notice Character card is unique tradable entity. Non-fungible.
  * @dev Card is an ERC721 non-fungible token, which maps Card ID,
  *      a number in range 1..5000 to a set of card properties -
  *      attributes (mostly immutable by their nature) and state variables (mutable)
  * @dev A card supports minting but not burning, a card cannot be destroyed
- * @dev ERC20-compatibility: full ERC20 compatibility with only one limitation:
- * TODO: remove this limitation
+ * @dev ERC20-compatibility: full ERC20 compatibility with security limitation for transfers:
  *      `transfer` and `transferFrom` functions support sending only entire balance
- *      (`n = balanceOf(owner)`)
- * @dev ERC721-compatibility: partial - TODO: review which ERC721 function to add support for
+ *      (`n = balanceOf(owner)`) by default; this behavior can be controlled using
+ *      `ERC20_INSECURE_TRANSFERS` feature flag
+ * @dev ERC721-compatibility: partial
  *      Note: ERC721 is still a draft at the moment of writing this smart contract,
  *      therefore implementing this "standard" fully doesn't make any sense
  */
-// TODO: remove all the asserts
-// TODO: improve `exists` performance by introducing existent cards bitmask
 contract CharacterCard {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
   uint32 public constant CHAR_CARD_VERSION = 0x9;
+
+  /// @dev Tokens within the reserved space cannot be issued/minted
+  /// @dev This limitation is required to support ERC20 compatible transfers:
+  ///      numbers outside this space are treated as token IDs, while
+  ///      numbers inside this space are treated to be token amounts
+  uint16 public constant RESERVED_TOKEN_ID_SPACE = 0x400;
 
   /// @dev ERC20 compliant token symbol
   string public constant symbol = "ET";
@@ -40,7 +49,7 @@ contract CharacterCard {
     uint32 creationTime;
 
     /// @dev Initialized on card creation, immutable
-    /// @dev Used to derive card rarity type like
+    /// @dev Defines card rarity type like
     ///      casual, rare, ultra rare, legendary, hologram, etc.
     /// @dev Only 5 lower bits are used, rarity is a number in range [0-16]
     uint32 rarity;
@@ -112,7 +121,7 @@ contract CharacterCard {
   mapping(address => mapping(address => uint256)) public allowance;
 
   /// @notice Storage for a collections of cards
-  /// @notice A collection of cards is an ordered list of cards,
+  /// @notice A collection of cards is an ordered list of card IDs,
   ///      owned by a particular address (owner)
   /// @dev A mapping from owner to a collection of his cards (IDs)
   /// @dev ERC20 compliant structure for balances can be derived
@@ -160,7 +169,6 @@ contract CharacterCard {
   /// @dev Constant indicating victory of a card (defeat of an opponent card)
   uint8 public constant GAME_OUTCOME_VICTORY = 3;
 
-  // TODO: implement features
   /// @dev A bitmask of globally enabled features, see below
   uint32 public f;
 
@@ -170,12 +178,17 @@ contract CharacterCard {
   /// @dev Enables ERC721 transfers on behalf
   uint32 public constant FEATURE_TRANSFERS_ON_BEHALF = 0x00000002;
 
-  /// @dev Enables ERC20 transfers of the cards
+  /// @dev Enables partial support of ERC20 transfers of the cards,
+  ///      allowing to transfer only all owned cards at once
   uint32 public constant ERC20_TRANSFERS = 0x00000004;
 
-  /// @dev Enables ERC20 transfers on behalf
+  /// @dev Enables partial support of ERC20 transfers on behalf
+  ///      allowing to transfer only all owned cards at once
   uint32 public constant ERC20_TRANSFERS_ON_BEHALF = 0x00000008;
 
+  /// @dev Enables full support of ERC20 transfers of the cards,
+  ///      allowing to transfer arbitrary amount of the cards at once
+  uint32 public constant ERC20_INSECURE_TRANSFERS = 0x00000010;
 
   /// @notice Exchange is responsible for trading cards on behalf of card holders
   /// @dev Role ROLE_EXCHANGE allows executing transfer on behalf of card holders
@@ -214,7 +227,7 @@ contract CharacterCard {
   /// @dev Event names are self-explanatory:
   /// @dev Fired in mint()
   /// @dev Address `_by` allows to track who created a card
-  event Minted(address indexed _by,  address indexed _to, uint16 indexed _tokenId);
+  event Minted(address indexed _by, address indexed _to, uint16 indexed _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a card, address `_from` is zero
   event CardTransfer(address indexed _from, address indexed _to, uint16 indexed _tokenId);
@@ -452,7 +465,7 @@ contract CharacterCard {
    * @dev A locked card cannot be transferred
    * @dev The card is locked if it contains any bits
    *      from the `lockedBitmask` in its `state` set
-   * @dev Requires sender to have `ROLE_STATE_PROVIDER` permission.
+   * @dev Requires sender to have `ROLE_COMBAT_PROVIDER` permission
    * @param bitmask a value to set `lockedBitmask` to
    */
   function setLockedBitmask(uint32 bitmask) public {
@@ -481,6 +494,7 @@ contract CharacterCard {
 
   /**
    * @dev Sets the state of a card
+   * @dev Requires sender to have `ROLE_COMBAT_PROVIDER` permission
    * @param cardId ID of the card to set state for
    * @param state new state to set for the card
    */
@@ -491,7 +505,7 @@ contract CharacterCard {
     // get the card pointer
     Card storage card = cards[cardId];
 
-    // check that card to set attributes for exists
+    // check that card to set state for exists
     require(card.owner != address(0));
 
     // set the state required
@@ -718,8 +732,7 @@ contract CharacterCard {
    * @notice Gets an amount of cards owned by the given address
    * @dev Gets the balance of the specified address
    * @param who address to query the balance for
-   * @return uint16 representing the amount owned by the address
-   *      passed as an input parameter
+   * @return an amount owned by the address passed as an input parameter
    */
   function balanceOf(address who) public constant returns (uint16) {
     // read the length of the `who`s collection of cards
@@ -741,8 +754,8 @@ contract CharacterCard {
   }
 
   /**
-   * @notice finds an owner address for a card specified
-   * @dev Gets the owner of the specified card from the cards mapping
+   * @notice Finds an owner address for a card specified
+   * @dev Gets the owner of the specified card from the `cards` mapping
    * @dev Throws if a card with the ID specified doesn't exist
    * @param cardId ID of the card to query the owner for
    * @return owner address currently marked as the owner of the given card
@@ -760,7 +773,7 @@ contract CharacterCard {
 
   /**
    * @dev Creates new card with `cardId` ID specified and
-   *      assigns to an address `to` an ownership of that card.
+   *      assigns to an address `to` an ownership of that card
    * @param cardId ID of the card to create
    * @param to an address to assign created card ownership to
    */
@@ -771,8 +784,8 @@ contract CharacterCard {
 
   /**
    * @dev Creates new card with `cardId` ID specified and
-   *      assigns an ownership `to` for that card.
-   * @dev Allows setting card's rarity and attributes.
+   *      assigns an ownership `to` for that card
+   * @dev Allows setting card's rarity / attributes
    * @param to an address to assign created card ownership to
    * @param cardId ID of the card to create
    * @param rarity an integer, representing card's rarity
@@ -784,9 +797,6 @@ contract CharacterCard {
 
     // check if caller has sufficient permissions to mint a card
     require(__isSenderInRole(ROLE_CARD_CREATOR));
-
-    // validate card ID is not zero
-    require(cardId != 0);
 
     // delegate call to `__mint`
     __mint(to, cardId, rarity);
@@ -847,7 +857,8 @@ contract CharacterCard {
    * @dev Requires the sender of the transaction to be an owner
    *      of at least `n` cards
    * @dev For security reasons this function will throw if transferring
-   *      less cards than is owned by the sender (`n != balanceOf(msg.sender)`)
+   *      less cards than is owned by the sender (`n != balanceOf(msg.sender)`) -
+   *      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
    * @dev Consumes around 38521 + 511735 * (`n` / 16) gas for `n` multiple of 16
    * @dev ERC20 compliant transfer(address, uint)
    * @param to an address where to transfer cards to,
@@ -872,7 +883,8 @@ contract CharacterCard {
    * @dev The sender is granted an authorization to "spend" the cards
    *      by the owner of the cards using `approve` function
    * @dev For security reasons this function will throw if transferring
-   *      less cards than is owned by an owner (`n != balanceOf(from)`)
+   *      less cards than is owned by an owner (`n != balanceOf(from)`) -
+   *      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
    * @param from an address from where to take cards from,
    *        current owner of the cards
    * @param to an address where to transfer cards to,
@@ -1042,6 +1054,12 @@ contract CharacterCard {
     emit Approval(from, to, approved);
   }
 
+  /// @dev Checks if requested feature is enabled globally on the contract
+  function __isFeatureEnabled(uint32 featureRequired) private constant returns(bool) {
+    // delegate call to `__hasRole`
+    return __hasRole(f, featureRequired);
+  }
+
   /// @dev Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
   function __isSenderInRole(uint32 roleRequired) private constant returns(bool) {
     // call sender gracefully - `user`
@@ -1066,25 +1084,29 @@ contract CharacterCard {
   ///      checks only that the card doesn't exist yet
   /// @dev Must be kept private at all times
   function __mint(address to, uint16 cardId, uint32 rarity) private {
+    // check that card ID is not in the reserved space
+    require(cardId > RESERVED_TOKEN_ID_SPACE);
+
     // ensure that card with such ID doesn't exist
     require(!exists(cardId));
 
     // create a new card in memory
     Card memory card = Card({
+      creationTime: uint32(block.number),
+      rarity: rarity,
+      attributesModified: 0,
+      attributes: uint32((uint64(1) << uint64(0x3F & rarity)) - 1),
+      lastGamePlayed: 0,
+      gamesPlayed: 0,
+      wins: 0,
+      losses: 0,
+
       id: cardId,
       // card index within the owner's collection of cards
       // points to the place where the card will be placed to
       index: uint16(collections[to].length),
-      creationTime: uint32(block.number),
-      ownershipModified: 0,
-      attributesModified: 0,
-      gamesPlayed: 0,
-      wins: 0,
-      losses: 0,
       state: 0,
-      rarity: rarity,
-      lastGamePlayed: 0,
-      attributes: uint32((uint64(1) << uint64(0x3F & rarity)) - 1),
+      ownershipModified: 0,
       owner: to
     });
 
@@ -1106,8 +1128,9 @@ contract CharacterCard {
   /// @dev Performs a transfer of `n` cards from address `from` to address `to`
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call;
   ///      checks only that address `from` has at least `n` cards on the balance
-  /// @dev For security reasons this function will throw if transferring
-  ///      less cards than is owned by an owner (`n != balanceOf(from)`)
+  /// @dev For security reasons this function throws if transferring
+  ///      less cards than is owned by an owner (`n != balanceOf(from)`) -
+  ///      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
   /// @dev Is save to call from `transfer(to, n)` since it doesn't need any additional checks
   /// @dev Must be kept private at all times
   function __transfer(address from, address to, uint16 n) private {
@@ -1118,15 +1141,21 @@ contract CharacterCard {
     // if it happens - its a bug
     assert(from != address(0));
 
-    // verify the source address owns exactly `n` cards
-    // this is important since the only meaningful usage of ERC20
-    // compatible transfer function in ERC721 context is to transfer all the cards
-    require(n == balanceOf(from));
+    // for security reasons we require `n` to be within `RESERVED_CARD_ID_SPACE`
+    // otherwise it can mean an attempt to transfer a particular card (not `n` cards)
+    require(n > 0 && n <= RESERVED_TOKEN_ID_SPACE);
+
+    // by default, when `ERC20_INSECURE_TRANSFERS` is not enabled, we
+    // verify that the source address owns exactly `n` cards -
+    // this may be important for security reasons:
+    // we may want to secure owner from sending some amount of cards
+    // accidentally instead of sending a card by ID
+    require(n == balanceOf(from) || __isFeatureEnabled(ERC20_INSECURE_TRANSFERS));
 
     // for security reasons remove approved operator
     delete allowance[from][msg.sender];
 
-    // move all the cards
+    // move `n` cards
     __move(from, to, n);
 
     // fire a ERC20 transfer event
@@ -1221,6 +1250,9 @@ contract CharacterCard {
     // get a reference to the `to` collection
     uint16[] storage destination = collections[to];
 
+    // check `n` is in safe bounds
+    require(n <= source.length);
+
     // initial position of the cards to be moved in `destination` array
     uint16 offset = uint16(destination.length);
 
@@ -1232,6 +1264,10 @@ contract CharacterCard {
       // cardId must be consistent with the collections by design
       // otherwise this is a bug
       assert(source[i] == card.id);
+
+      // moving a card is not allowed for a locked card
+      // (ex.: if card is currently in game/battle)
+      require(card.state & lockedBitmask == 0);
 
       // update card index to position in `destination` collection
       card.index = offset + i;

@@ -22,7 +22,7 @@ contract Presale {
   uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0x9;
 
   /// @dev ID of the first card to sell
-  uint16 public constant OFFSET = 1024;
+  uint16 public constant OFFSET = 0x401;
 
   /// @dev Total number of cards to sell in the presale
   /// @dev Last card ID to sell is OFFSET + LENGTH - 1
