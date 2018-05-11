@@ -7,8 +7,8 @@
  * @constructor
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
-	const CHAR_CARD_VERSION = 0x8;
-	const PRESALE_VERSION = 0x2;
+	const CHAR_CARD_VERSION = 0xA;
+	const PRESALE_VERSION = 0x3;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -41,21 +41,21 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 				logError("Error receiving Minted event: " + err);
 				return;
 			}
-			if(!(receipt && receipt.args && receipt.args._from && receipt.args._to && receipt.args._tokenId)) {
+			if(!(receipt && receipt.args && receipt.args._by && receipt.args._to && receipt.args._tokenId)) {
 				logError("Minted event received in wrong format: wrong arguments");
 				return;
 			}
-			const from = receipt.args._from;
+			const by = receipt.args._by;
 			const to = receipt.args._to;
 			const cardId = receipt.args._tokenId.toString(10);
-			logSuccess("Minted(" + from + ", " + to + ", " + cardId + ")");
+			logSuccess("Minted(" + by + ", " + to + ", " + cardId + ")");
 		});
 		logInfo("Successfully registered Minted(uint16, address, address) event listener");
 	}
 
 	function registerCardTransferEventListener(cardInstance) {
-		const cardTransferEvent = cardInstance.CardTransfer();
-		cardTransferEvent.watch(function(err, receipt) {
+		const tokenTransferEvent = cardInstance.TokenTransfer();
+		tokenTransferEvent.watch(function(err, receipt) {
 			if(err) {
 				logError("Error receiving ERC721 CardTransfer event: " + err);
 				return;
@@ -120,7 +120,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	function registerPurchaseCompleteEventListener(presaleInstance) {
 		const purchaseCompleteEvent = presaleInstance.PurchaseComplete();
 		purchaseCompleteEvent.watch(function(err, receipt) {
-
+			// TODO: implement
 		});
 		logInfo("Successfully registered PurchaseComplete(address, address, uint16) event listener");
 	}
@@ -201,98 +201,101 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			return 0x1;
 		}
 		myWeb3 = new Web3(window.web3.currentProvider);
-		if(!myWeb3.eth.accounts) {
-			logError("Cannot access accounts.\nIs MetaMask locked?");
-			return 0x2;
-		}
-		if(!myWeb3.eth.accounts[0]) {
-			logError("Cannot access default account.\nIs MetaMask locked?");
-			return 0x4;
-		}
-		myAccount = myWeb3.eth.accounts[0];
-		myNetwork = myWeb3.version.network;
-		logInfo("Web3 integration loaded. Your account is " + myAccount + ", network id " + networkName(myNetwork));
-		myWeb3.eth.getBalance(myAccount, function(err, balance) {
+		myWeb3.eth.getAccounts(function(err, accounts) {
 			if(err) {
-				logError("getBalance() error: " + err);
+				logError("getAccounts() error: " + err);
 				return;
 			}
-			if(balance > 0) {
-				logInfo("Your balance is " + myWeb3.fromWei(balance, 'ether'));
+			myAccount = accounts[0];
+			myNetwork = myWeb3.version.network;
+			if(!myAccount) {
+				logError("Cannot access default account.\nIs MetaMask locked?");
+				return;
 			}
-			else {
-				logError("Your balance is zero.\nYou won't be able to send any transaction.");
-			}
-			jQuery3.ajax({
-				async: false,
-				global: false,
-				url: "abi/CharacterCard.json",
-				dataType: "json",
-				success: function(data, textStatus, jqXHR) {
-					logInfo("Character Card ABI loaded successfully");
-					const cardABI = myWeb3.eth.contract(data.abi);
-					const instance = cardABI.at(cardAddr);
-					try {
-						instance.CHAR_CARD_VERSION(function(err, version) {
-							if(err) {
-								logError("Error accessing Character Card (ERC721) Instance: " + err + "\nCannot access CHAR_CARD_VERSION.");
-								return;
-							}
-							if(CHAR_CARD_VERSION != version) {
-								logError("Error accessing Character Card (ERC721) Instance: not a valid instance.\nCheck if the address specified points to an ERC721 instance with a valid CHAR_CARD_VERSION.\nVersion required: " + CHAR_CARD_VERSION + ". Version found: " + version);
-								return;
-							}
-							logInfo("Successfully connected to Character Card (ERC721) Instance at " + cardAddr);
-							registerMintEventListener(instance);
-							// registerCardTransferEventListener(instance);
-							// registerTransferEventListener(instance);
-							// registerBattleCompleteEventListener(instance);
-							// loadCards(instance, myAccount);
-							cardInstance = instance;
-							instanceLoaded();
-						});
-					}
-					catch(err) {
-						logError("Cannot access Character Card (ERC721) Instance: " + err);
-					}
-				},
-				error: function(jqXHR, textStatus, errorThrown) {
-					logError("Cannot load Character Card ABI: " + errorThrown);
+			logInfo("Web3 integration loaded. Your account is " + myAccount + ", network id " + networkName(myNetwork));
+			myWeb3.eth.getBalance(myAccount, function(err, balance) {
+				if(err) {
+					logError("getBalance() error: " + err);
+					return;
 				}
-			});
-			jQuery3.ajax({
-				async: false,
-				global: false,
-				url: "abi/Presale.json",
-				dataType: "json",
-				success: function(data, textStatus, jqXHR) {
-					logInfo("Presale ABI loaded successfully");
-					const presaleABI = myWeb3.eth.contract(data.abi);
-					const instance = presaleABI.at(presaleAddr);
-					try {
-						instance.PRESALE_VERSION(function(err, version) {
-							if(err) {
-								logError("Error accessing Presale Instance: " + err + "\nCannot access CHAR_CARD_VERSION.");
-								return;
-							}
-							if(PRESALE_VERSION != version) {
-								logError("Error accessing Presale Instance: not a valid instance.\nCheck if the address specified points to a Presale instance with a valid CHAR_CARD_VERSION_REQUIRED.\nVersion required: " + CHAR_CARD_VERSION + ". Version found: " + version);
-								return;
-							}
-							logInfo("Successfully connected to Presale Instance at " + presaleAddr);
-							presaleInstance = instance;
-							instanceLoaded();
-						});
-					}
-					catch(err) {
-						logError("Cannot access Presale Instance: " + err);
-					}
-				},
-				error: function(jqXHR, textStatus, errorThrown) {
-					logError("Cannot load Presale ABI: " + errorThrown);
+				if(balance > 0) {
+					logInfo("Your balance is " + myWeb3.fromWei(balance, 'ether'));
 				}
+				else {
+					logError("Your balance is zero.\nYou won't be able to send any transaction.");
+				}
+				jQuery3.ajax({
+					async: false,
+					global: false,
+					url: "abi/CharacterCard.json",
+					dataType: "json",
+					success: function(data, textStatus, jqXHR) {
+						logInfo("Character Card ABI loaded successfully");
+						const cardABI = myWeb3.eth.contract(data.abi);
+						const instance = cardABI.at(cardAddr);
+						try {
+							instance.CHAR_CARD_VERSION(function(err, version) {
+								if(err) {
+									logError("Error accessing Character Card (ERC721) Instance: " + err + "\nCannot access CHAR_CARD_VERSION.");
+									return;
+								}
+								if(CHAR_CARD_VERSION != version) {
+									logError("Error accessing Character Card (ERC721) Instance: not a valid instance.\nCheck if the address specified points to an ERC721 instance with a valid CHAR_CARD_VERSION.\nVersion required: " + CHAR_CARD_VERSION + ". Version found: " + version);
+									return;
+								}
+								logInfo("Successfully connected to Character Card (ERC721) Instance at " + cardAddr);
+								registerMintEventListener(instance);
+								// registerCardTransferEventListener(instance);
+								// registerTransferEventListener(instance);
+								// registerBattleCompleteEventListener(instance);
+								// loadCards(instance, myAccount);
+								cardInstance = instance;
+								instanceLoaded();
+							});
+						}
+						catch(err) {
+							logError("Cannot access Character Card (ERC721) Instance: " + err);
+						}
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						logError("Cannot load Character Card ABI: " + errorThrown);
+					}
+				});
+				jQuery3.ajax({
+					async: false,
+					global: false,
+					url: "abi/Presale.json",
+					dataType: "json",
+					success: function(data, textStatus, jqXHR) {
+						logInfo("Presale ABI loaded successfully");
+						const presaleABI = myWeb3.eth.contract(data.abi);
+						const instance = presaleABI.at(presaleAddr);
+						try {
+							instance.PRESALE_VERSION(function(err, version) {
+								if(err) {
+									logError("Error accessing Presale Instance: " + err + "\nCannot access CHAR_CARD_VERSION.");
+									return;
+								}
+								if(PRESALE_VERSION != version) {
+									logError("Error accessing Presale Instance: not a valid instance.\nCheck if the address specified points to a Presale instance with a valid CHAR_CARD_VERSION_REQUIRED.\nVersion required: " + CHAR_CARD_VERSION + ". Version found: " + version);
+									return;
+								}
+								logInfo("Successfully connected to Presale Instance at " + presaleAddr);
+								presaleInstance = instance;
+								instanceLoaded();
+							});
+						}
+						catch(err) {
+							logError("Cannot access Presale Instance: " + err);
+						}
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						logError("Cannot load Presale ABI: " + errorThrown);
+					}
+				});
 			});
 		});
+
 		return 0;
 	};
 
@@ -327,17 +330,20 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			logError("Presale API is not properly initialized. Reload the page.");
 			return 0x1;
 		}
-		presaleInstance.buyRandom.sendTransaction({value: myWeb3.toBigNumber(myWeb3.toWei(50, 'finney')).times(2)}, function(err, txHash) {
-			if(err) {
-				logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
-				return;
+		presaleInstance.buyRandom.sendTransaction(
+			{value: myWeb3.toBigNumber(myWeb3.toWei(50, 'finney')).times(2)},
+			function(err, txHash) {
+				if(err) {
+					logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+					return;
+				}
+				logSuccess("Buy transaction sent: " + txHash);
 			}
-			logSuccess("Buy transaction sent: " + txHash);
-		});
+		);
 	};
 
 	/**
-	 * Gets the presale status ti be used in the web page to fill in:
+	 * Gets the presale status to be used in the web page to fill in:
 	 * 	* Character Cards Sold Counter
 	 * 	* Last Being Price
 	 * 	* Next Being Price

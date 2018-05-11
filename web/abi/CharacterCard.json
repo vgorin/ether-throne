@@ -59,6 +59,20 @@
     },
     {
       "constant": true,
+      "inputs": [],
+      "name": "ROLE_FEATURE_MANAGER",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
       "inputs": [
         {
           "name": "",
@@ -141,6 +155,20 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "f",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "decimals",
       "outputs": [
         {
@@ -155,11 +183,11 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "ROLE_CARD_CREATOR",
+      "name": "RESERVED_TOKEN_ID_SPACE",
       "outputs": [
         {
           "name": "",
-          "type": "uint32"
+          "type": "uint16"
         }
       ],
       "payable": false,
@@ -188,6 +216,34 @@
         {
           "name": "",
           "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "ERC20_TRANSFERS",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "ERC20_TRANSFERS_ON_BEHALF",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
         }
       ],
       "payable": false,
@@ -267,6 +323,48 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "ROLE_TOKEN_CREATOR",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "FEATURE_TRANSFERS_ON_BEHALF",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "ERC20_INSECURE_TRANSFERS",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "GAME_OUTCOME_UNDEFINED",
       "outputs": [
         {
@@ -328,6 +426,20 @@
         {
           "name": "",
           "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "FEATURE_TRANSFERS",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
         }
       ],
       "payable": false,
@@ -415,7 +527,7 @@
       "inputs": [
         {
           "indexed": true,
-          "name": "_from",
+          "name": "_by",
           "type": "address"
         },
         {
@@ -451,7 +563,7 @@
           "type": "uint16"
         }
       ],
-      "name": "CardTransfer",
+      "name": "TokenTransfer",
       "type": "event"
     },
     {
@@ -495,7 +607,7 @@
           "type": "uint16"
         }
       ],
-      "name": "CardApproval",
+      "name": "TokenApproval",
       "type": "event"
     },
     {
@@ -556,6 +668,20 @@
       ],
       "name": "BattleComplete",
       "type": "event"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "uint32"
+        }
+      ],
+      "name": "updateFeatures",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
       "constant": false,
@@ -629,7 +755,7 @@
       "constant": true,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
@@ -666,7 +792,7 @@
       "constant": true,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
@@ -685,7 +811,7 @@
       "constant": false,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         },
         {
@@ -759,7 +885,7 @@
       "constant": true,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
@@ -778,7 +904,7 @@
       "constant": false,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         },
         {
@@ -796,7 +922,7 @@
       "constant": false,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         },
         {
@@ -814,7 +940,7 @@
       "constant": false,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         },
         {
@@ -851,7 +977,7 @@
       "constant": true,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
@@ -870,7 +996,7 @@
       "constant": true,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
@@ -893,7 +1019,7 @@
           "type": "address"
         },
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
@@ -911,15 +1037,11 @@
           "type": "address"
         },
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         },
         {
           "name": "rarity",
-          "type": "uint32"
-        },
-        {
-          "name": "attributes",
           "type": "uint32"
         }
       ],
@@ -938,7 +1060,7 @@
         },
         {
           "name": "data",
-          "type": "uint64[]"
+          "type": "uint24[]"
         }
       ],
       "name": "mintCards",
@@ -995,11 +1117,11 @@
           "type": "address"
         },
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
-      "name": "transferCard",
+      "name": "transferToken",
       "outputs": [],
       "payable": false,
       "stateMutability": "nonpayable",
@@ -1017,11 +1139,11 @@
           "type": "address"
         },
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
-      "name": "transferCardFrom",
+      "name": "transferTokenFrom",
       "outputs": [],
       "payable": false,
       "stateMutability": "nonpayable",
@@ -1035,11 +1157,11 @@
           "type": "address"
         },
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
-      "name": "approveCard",
+      "name": "approveToken",
       "outputs": [],
       "payable": false,
       "stateMutability": "nonpayable",
@@ -1049,7 +1171,7 @@
       "constant": false,
       "inputs": [
         {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
@@ -1094,90 +1216,6 @@
       "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [
-        {
-          "name": "roleRequired",
-          "type": "uint32"
-        }
-      ],
-      "name": "isSenderInRole",
-      "outputs": [
-        {
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [
-        {
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "name": "roleRequired",
-          "type": "uint32"
-        }
-      ],
-      "name": "isUserInRole",
-      "outputs": [
-        {
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [
-        {
-          "name": "userRole",
-          "type": "uint32"
-        },
-        {
-          "name": "roleRequired",
-          "type": "uint32"
-        }
-      ],
-      "name": "hasRole",
-      "outputs": [
-        {
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "pure",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [
-        {
-          "name": "user",
-          "type": "address"
-        }
-      ],
-      "name": "isOperator",
-      "outputs": [
-        {
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
     }
   ],
   "compiler": {
@@ -1194,10 +1232,10 @@
     "4": {
       "events": {},
       "links": {},
-      "address": "0xe0b6788e97175ff0a40d1e2f9f94fcbb8527e695",
-      "transactionHash": "0x6c5a1b2b9c08f57dc2194a5d94f4b0c2009b7b5c7f0b79e29ca55ca6a9928c42"
+      "address": "0x4605c0fd58afc5a3078c1f63a2a3f3605ca54546",
+      "transactionHash": "0x61eca81802c18ae94c47c04b4c0e238f1eb98f2a0a7da396e8659a8f15fcc073"
     }
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-08T11:34:36.961Z"
+  "updatedAt": "2018-05-11T13:32:28.574Z"
 }

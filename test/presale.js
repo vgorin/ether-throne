@@ -1,7 +1,7 @@
 // role constants copied from CharacterCard.sol as is
 const ROLE_CARD_CREATOR = 0x00040000;
 
-const INITIAL_CARD_PRICE = web3.toBigNumber(web3.toWei(50, 'finney'));
+const INITIAL_TOKEN_PRICE = web3.toBigNumber(web3.toWei(50, 'finney'));
 
 const CharacterCard = artifacts.require("./CharacterCard.sol");
 const DeprecatedCard = artifacts.require("./DeprecatedCard.sol");
@@ -23,7 +23,7 @@ contract('Presale', function(accounts) {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
-		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE});
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE});
 
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong card balance after buying a single card");
 	});
@@ -31,7 +31,7 @@ contract('Presale', function(accounts) {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
-		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE.times(2)});
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE.times(2)});
 
 		assert.equal(3, await card.balanceOf(accounts[1]), "wrong card balance after buying three cards");
 	});
@@ -41,7 +41,7 @@ contract('Presale', function(accounts) {
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
 
 		await assertThrowsAsync(async function () {
-			await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE.minus(1)});
+			await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE.minus(1)});
 		});
 	});
 	it("presale: the funds are transferred to the beneficiary correctly", async function() {
@@ -51,10 +51,10 @@ contract('Presale', function(accounts) {
 
 		const beneficiary = await presale.beneficiary();
 		const initialBeneficiaryBalance = await web3.eth.getBalance(beneficiary);
-		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_CARD_PRICE});
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE});
 		const beneficiaryBalanceDelta = (await web3.eth.getBalance(beneficiary)).minus(initialBeneficiaryBalance);
 
-		assert(INITIAL_CARD_PRICE.eq(beneficiaryBalanceDelta),
+		assert(INITIAL_TOKEN_PRICE.eq(beneficiaryBalanceDelta),
 			"beneficiary balance is incorrect after selling one card");
 	});
 	it("presale: the change is transferred back to player correctly", async function() {
@@ -66,12 +66,12 @@ contract('Presale', function(accounts) {
 		const initialPlayerBalance = await web3.eth.getBalance(player);
 		const txHash = await presale.buyRandom.sendTransaction({
 			from: player,
-			value: INITIAL_CARD_PRICE.plus(1),
+			value: INITIAL_TOKEN_PRICE.plus(1),
 			gasPrice: 1
 		});
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const playerBalanceDelta = initialPlayerBalance.minus(await web3.eth.getBalance(player));
-		const expectedDelta = INITIAL_CARD_PRICE.plus(txReceipt.gasUsed);
+		const expectedDelta = INITIAL_TOKEN_PRICE.plus(txReceipt.gasUsed);
 
 		assert(expectedDelta.eq(playerBalanceDelta), "player balance is incorrect after buying one card");
 	});
@@ -85,8 +85,8 @@ contract('Presale', function(accounts) {
 		// send some random amount of money to the presale 10 times in a raw and check the results
 		let expectedCardsNumber = 0;
 		for(let i = 0; i < 10; i++) {
-			const valueToSend = INITIAL_CARD_PRICE.times(random(0, 3, 2));
-			if(valueToSend.lt(INITIAL_CARD_PRICE)) {
+			const valueToSend = INITIAL_TOKEN_PRICE.times(random(0, 3, 2));
+			if(valueToSend.lt(INITIAL_TOKEN_PRICE)) {
 				await assertThrowsAsync(async function() {
 					await presale.buyRandom.sendTransaction({from: player, value: valueToSend});
 				});
@@ -101,12 +101,12 @@ contract('Presale', function(accounts) {
 				const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 				const playerBalanceDelta = initialPlayerBalance.minus(await web3.eth.getBalance(player));
 				let expectedDelta;
-				if(valueToSend.gte(INITIAL_CARD_PRICE.times(2))) {
-					expectedDelta = INITIAL_CARD_PRICE.times(2).plus(txReceipt.gasUsed);
+				if(valueToSend.gte(INITIAL_TOKEN_PRICE.times(2))) {
+					expectedDelta = INITIAL_TOKEN_PRICE.times(2).plus(txReceipt.gasUsed);
 					expectedCardsNumber += 3;
 				}
 				else {
-					expectedDelta = INITIAL_CARD_PRICE.plus(txReceipt.gasUsed);
+					expectedDelta = INITIAL_TOKEN_PRICE.plus(txReceipt.gasUsed);
 					expectedCardsNumber++;
 				}
 				assert(expectedDelta.eq(playerBalanceDelta),
@@ -120,7 +120,7 @@ contract('Presale', function(accounts) {
 		const presale = await Presale.new(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
 
-		await presale.buyRandomFor.sendTransaction(accounts[1], {value: INITIAL_CARD_PRICE});
+		await presale.buyRandomFor.sendTransaction(accounts[1], {value: INITIAL_TOKEN_PRICE});
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong balance after buying a card for " + accounts[1])
 	});
 	it("presale: its impossible to buy a card for a zero address", async function() {
@@ -128,7 +128,7 @@ contract('Presale', function(accounts) {
 		const presale = await Presale.new(card.address, accounts[2]);
 
 		await assertThrowsAsync(async function() {
-			await presale.buyRandomFor.sendTransaction(0, {value: INITIAL_CARD_PRICE})
+			await presale.buyRandomFor.sendTransaction(0, {value: INITIAL_TOKEN_PRICE})
 		});
 	});
 	it("presale: its impossible to buy a card for a presale smart contract itself", async function() {
@@ -136,7 +136,7 @@ contract('Presale', function(accounts) {
 		const presale = await Presale.new(card.address, accounts[2]);
 
 		await assertThrowsAsync(async function() {
-			await presale.buyRandomFor.sendTransaction(presale.address, {value: INITIAL_CARD_PRICE})
+			await presale.buyRandomFor.sendTransaction(presale.address, {value: INITIAL_TOKEN_PRICE})
 		});
 	});
 });

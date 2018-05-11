@@ -1,7 +1,7 @@
 // game outcome constants copied from CharacterCard.sol as is
 const GAME_OUTCOME_DRAW = 2;
 
-const ROLE_CARD_CREATOR = 0x00040000;
+const ROLE_TOKEN_CREATOR = 0x00040000;
 const INITIAL_CARD_PRICE = web3.toBigNumber(web3.toWei(50, 'finney'));
 
 const CharacterCard = artifacts.require("./CharacterCard.sol");
@@ -96,7 +96,7 @@ contract('Gas Usage', function(accounts) {
 	it("presale: buying a single card requires 209720 gas", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 		const txHash = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE});
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
@@ -105,7 +105,7 @@ contract('Gas Usage', function(accounts) {
 	it("presale: buying three cards requires 487171 gas", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 		const txHash = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE.times(2)});
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
