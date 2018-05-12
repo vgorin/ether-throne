@@ -144,20 +144,6 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "INITIAL_PRICE",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
       "name": "TOTAL_CARDS",
       "outputs": [
         {
@@ -177,6 +163,39 @@
         {
           "name": "",
           "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "bitmap",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "currentPrice",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
         }
       ],
       "payable": false,
@@ -363,15 +382,55 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "nextPrice",
+      "name": "getBitmapSegment",
       "outputs": [
         {
           "name": "",
-          "type": "uint256"
+          "type": "uint256[]"
         }
       ],
       "payable": false,
-      "stateMutability": "pure",
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "index",
+          "type": "uint16"
+        },
+        {
+          "name": "cardId",
+          "type": "uint16"
+        }
+      ],
+      "name": "buyUsual",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "name": "index",
+          "type": "uint16"
+        },
+        {
+          "name": "cardId",
+          "type": "uint16"
+        }
+      ],
+      "name": "buyUsualFor",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
       "type": "function"
     },
     {
@@ -404,5 +463,5 @@
   },
   "networks": {},
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-11T13:32:28.519Z"
+  "updatedAt": "2018-05-12T17:32:05.811Z"
 }

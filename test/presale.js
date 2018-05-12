@@ -35,6 +35,14 @@ contract('Presale', function(accounts) {
 
 		assert.equal(3, await card.balanceOf(accounts[1]), "wrong card balance after buying three cards");
 	});
+	it("presale: it is possible to buy usual card", async function() {
+		const card = await CharacterCard.new();
+		const presale = await Presale.new(card.address, accounts[2]);
+		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await presale.buyUsual.sendTransaction(0, 0x43D, {from: accounts[1], value: INITIAL_TOKEN_PRICE.times(5)});
+
+		assert.equal(1, await card.balanceOf(accounts[1]), "wrong card balance after buying usual card");
+	});
 	it("presale: it is not possible to buy a card if sending too little ether", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);

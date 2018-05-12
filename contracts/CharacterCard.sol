@@ -146,7 +146,7 @@ contract CharacterCard {
   /// @dev A locked card cannot be transferred
   /// @dev The card is locked if it contains any bits
   ///      from the `lockedBitmask` in its `state` set
-  uint32 public lockedBitmask = DEFAULT_IN_GAME_BIT;
+  uint32 public lockedBitmask = DEFAULT_IN_BATTLE_BIT;
 
   /// @dev Default bitmask indicating that the card is `in game`
   /// @dev Consists of a single bit at position 3 – binary 100
@@ -156,7 +156,7 @@ contract CharacterCard {
   ///      1: defeat
   ///      2: draw
   ///      3: victory
-  uint8 public constant DEFAULT_IN_GAME_BIT = 0x4; // bit number 3
+  uint8 public constant DEFAULT_IN_BATTLE_BIT = 0x4; // bit number 3
   /// @dev Bits 1-2 mask, used to read/write game outcome data
   uint8 public constant LAST_GAME_OUTCOME_BITS = 0x3; // bits 1-2
   /// @dev Bits 1-3 mask, used in battleComplete to clear game outcome and card state
@@ -431,34 +431,31 @@ contract CharacterCard {
    * @param tokenId ID of the card to fetch
    */
   function getCard(uint16 tokenId) public constant returns(uint256, uint256) {
+    // validate card existence
+    require(exists(tokenId));
+
     // load the card from storage
     Card memory card = cards[tokenId];
 
-    // get the card's owner address
-    address owner = card.owner;
-
-    // validate card existence
-    require(owner != address(0));
-
     // pack high 256 bits of the result
-    uint256 hi = uint256(card.creationTime) << 224
-               | uint224(card.rarity) << 192
-               | uint192(card.attributesModified) << 160
-               | uint160(card.attributes) << 128
-               | uint128(card.lastGamePlayed) << 96
-               | uint96(card.gamesPlayed) << 64
-               | uint64(card.wins) << 32
-               | uint32(card.losses);
+    uint256 high = uint256(card.creationTime) << 224
+                 | uint224(card.rarity) << 192
+                 | uint192(card.attributesModified) << 160
+                 | uint160(card.attributes) << 128
+                 | uint128(card.lastGamePlayed) << 96
+                 | uint96(card.gamesPlayed) << 64
+                 | uint64(card.wins) << 32
+                 | uint32(card.losses);
 
     // pack low 256 bits of the result
-    uint256 lo = uint256(card.id) << 240
-               | uint240(card.index) << 224
-               | uint224(card.state) << 192
-               | uint192(card.ownershipModified) << 160
-               | uint160(card.owner);
+    uint256 low  = uint256(card.id) << 240
+                 | uint240(card.index) << 224
+                 | uint224(card.state) << 192
+                 | uint192(card.ownershipModified) << 160
+                 | uint160(card.owner);
 
     // return the whole 512 bits of result
-    return (hi, lo);
+    return (high, low);
   }
 
   /**
@@ -484,14 +481,11 @@ contract CharacterCard {
    * @return a card state
    */
   function getState(uint16 tokenId) public constant returns(uint32) {
-    // get the card from storage
-    Card memory card = cards[tokenId];
-
     // validate card existence
-    require(card.owner != address(0));
+    require(exists(tokenId));
 
     // obtain card's state and return
-    return card.state;
+    return cards[tokenId].state;
   }
 
   /**
@@ -501,17 +495,52 @@ contract CharacterCard {
    * @param state new state to set for the card
    */
   function setState(uint16 tokenId, uint32 state) public {
+    // check that card to set state for exists
+    require(exists(tokenId));
+
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
-    // get the card pointer
-    Card storage card = cards[tokenId];
-
-    // check that card to set state for exists
-    require(card.owner != address(0));
-
     // set the state required
-    card.state = state;
+    cards[tokenId].state = state;
+
+    // persist card back into the storage
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[tokenId];`
+    //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+  }
+
+  /**
+   * @dev Adds state attributes to a card
+   * @dev Preserves all previously set state attributes
+   * @param tokenId ID of the card to add state attributes to
+   * @param state bitmask representing card state attributes to add
+   */
+  function addStateAttributes(uint16 tokenId, uint32 state) internal {
+    // check that card to add state attributes for exists
+    require(exists(tokenId));
+
+    // add the state attributes required
+    cards[tokenId].state |= state;
+
+    // persist card back into the storage
+    // this may be required only if cards structure is loaded into memory, like
+    // `Card memory card = cards[tokenId];`
+    //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+  }
+
+  /**
+   * @dev Removes state attributes from a card
+   * @dev Preserves all the state attributes which are not specified by `state`
+   * @param tokenId ID of the card to remove state attributes from
+   * @param state bitmask representing card state attributes to remove
+   */
+  function removeStateAttributes(uint16 tokenId, uint32 state) internal {
+    // check that card to remove state attributes from exists
+    require(exists(tokenId));
+
+    // add the attributes required
+    cards[tokenId].state &= 0xFFFFFFFF ^ state;
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
@@ -558,6 +587,10 @@ contract CharacterCard {
     uint32 gamesPlayed,
     uint8 lastGameOutcome
   ) public {
+    // check if both card exist
+    require(exists(card1Id));
+    require(exists(card2Id));
+
     // arithmetic overflow check
     require(wins <= wins + losses);
     // first check is enough, symmetric situation is impossible
@@ -579,10 +612,6 @@ contract CharacterCard {
     // get cards from the storage
     Card storage card1 = cards[card1Id];
     Card storage card2 = cards[card2Id];
-
-    // check if both card exist
-    require(card1.owner != address(0));
-    require(card2.owner != address(0));
 
     // check if two cards have different owners
     require(card1.owner != card2.owner);
@@ -636,14 +665,11 @@ contract CharacterCard {
    * @return a card attributes bitmask
    */
   function getAttributes(uint16 tokenId) public constant returns(uint32) {
-    // get the card from storage
-    Card memory card = cards[tokenId];
-
     // validate card existence
-    require(card.owner != address(0));
+    require(exists(tokenId));
 
     // read the attributes and return
-    return card.attributes;
+    return cards[tokenId].attributes;
   }
 
   /**
@@ -653,14 +679,14 @@ contract CharacterCard {
    * @param attributes bitmask representing card attributes to set
    */
   function setAttributes(uint16 tokenId, uint32 attributes) public {
+    // check that card to set attributes for exists
+    require(exists(tokenId));
+
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[tokenId];
-
-    // check that card to set attributes for exists
-    require(card.owner != address(0));
 
     // set attributes modified timestamp
     card.attributesModified = uint32(block.number);
@@ -681,14 +707,14 @@ contract CharacterCard {
    * @param attributes bitmask representing card attributes to add
    */
   function addAttributes(uint16 tokenId, uint32 attributes) public {
+    // check that card to add attributes for exists
+    require(exists(tokenId));
+
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[tokenId];
-
-    // check that card to add attributes for exists
-    require(card.owner != address(0));
 
     // set attributes modified timestamp
     card.attributesModified = uint32(block.number);
@@ -709,14 +735,14 @@ contract CharacterCard {
    * @param attributes bitmask representing card attributes to remove
    */
   function removeAttributes(uint16 tokenId, uint32 attributes) public {
+    // check that card to remove attributes for exists
+    require(exists(tokenId));
+
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[tokenId];
-
-    // check that card to remove attributes for exists
-    require(card.owner != address(0));
 
     // set attributes modified timestamp
     card.attributesModified = uint32(block.number);
@@ -748,11 +774,8 @@ contract CharacterCard {
    * @return whether the token exists (true - exists)
    */
   function exists(uint16 tokenId) public constant returns (bool) {
-    // get the token's owner address from storage
-    address owner = cards[tokenId].owner;
-
     // check if this token exists (owner is not zero)
-    return owner != address(0);
+    return cards[tokenId].owner != address(0);
   }
 
   /**
@@ -763,14 +786,11 @@ contract CharacterCard {
    * @return owner address currently marked as the owner of the given card
    */
   function ownerOf(uint16 tokenId) public constant returns (address) {
-    // get the token's owner address from storage
-    address owner = cards[tokenId].owner;
+    // check if this token exists
+    require(exists(tokenId));
 
-    // check if this token exists (owner is not zero)
-    require(owner != address(0));
-
-    // return owner's address
-    return owner;
+    // return card's owner (address)
+    return cards[tokenId].owner;
   }
 
   /**
@@ -1180,13 +1200,11 @@ contract CharacterCard {
     // get the card pointer to the storage
     Card storage card = cards[tokenId];
 
-    // get token's owner address
-    address owner = card.owner;
-
     // validate token existence
-    require(owner != address(0));
+    require(exists(tokenId));
+
     // validate token ownership
-    require(owner == from);
+    require(card.owner == from);
 
     // transfer is not allowed for a locked card
     // (ex.: if card is currently in game/battle)

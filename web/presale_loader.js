@@ -1,9 +1,9 @@
 // create an API client
 const presale = new PresaleApi(
 	// deployed card instance address
-	"0x9f82b96e86b6d08da37a717d750763c6ef1312b3",
+	"0xa96ea5c58b0a95a09e7805ce97ae02107b3454e4",
 	// deployed presale instance address
-	"0xfc30c43699f4046747c31ab7c1e76c76897b0e1d",
+	"0xad9ec2e6228c91c2591f6b45d931f5a06eafcf35",
 	// callback handlers, use bootstrap notify
 	{
 		errorHandler: function(msg) {
@@ -35,9 +35,30 @@ presale.init();
 // register button listeners, display presale status
 $(document).ready(function() {
 	$('span:contains("BUY BEING (1)")').bind("click", function() {
-		presale.buy();
+		presale.buyRandom();
 	});
 	$('span:contains("BUY BEING (3)")').bind("click", function() {
-		presale.buy3();
+		presale.buyRandom3();
+	});
+	$('img[src="img/mcard-1.png"]').bind("click", function() {
+		presale.buyUsual(0, 1085);
+	});
+	$('img[src="img/small_aldamean_card.png"]').bind("click", function() {
+		presale.buyUsual(1, 1086);
+	});
+	$('img[src="img/small_chupatelo_card.png"]').bind("click", function() {
+		presale.buyUsual(2, 1087);
+	});
+	$('img[src="img/small_droodoo_card.png"]').bind("click", function() {
+		presale.buyUsual(3, 1088);
+	});
+	$('img[src="img/small_shinderra_card.png"]').bind("click", function() {
+		presale.buyUsual(4, 1089);
+	});
+	$('img[src="img/small_spike_card.png"]').bind("click", function() {
+		presale.buyUsual(5, 1090);
+	});
+	$('img[src="img/small_vipassana_card.png"]').bind("click", function() {
+		presale.buyUsual(6, 1091);
 	});
 });

@@ -1,5 +1,6 @@
 pragma solidity 0.4.23;
 
+import "./Bitmaps.sol";
 import "./RandomSeq.sol";
 import "./CharacterCard.sol";
 
@@ -9,13 +10,16 @@ import "./CharacterCard.sol";
  * @dev Referenced as "card sale smart contract" below
  */
 contract Presale {
+  /// @dev Using library Bitmaps for bitmap arrays
+  using Bitmaps for uint256[];
+
   /// @dev Using library RandomSeq for its internal structure
   using RandomSeq for RandomSeq.Buffer;
 
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0x3;
+  uint32 public constant PRESALE_VERSION = 0x4;
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.version`/`CharacterCard.version()`
@@ -27,12 +31,6 @@ contract Presale {
   /// @dev Total number of cards to sell in the presale
   /// @dev Last card ID to sell is OFFSET + LENGTH - 1
   uint16 public constant LENGTH = TOTAL_CARDS;
-
-  /// @dev Price of the first card to sell (initial price of the card)
-  /// @dev Next cards' price may differ, it can be a function of cards sold,
-  ///      number of cards sold in a single transaction and so on.
-  ///      This behaviour is defined in the `nextPrice()` function
-  uint256 public constant INITIAL_PRICE = 50 finney;
 
   /// @dev Six different card types defined in presale:
 
@@ -58,9 +56,17 @@ contract Presale {
   uint16 public constant RARE_OR_HIGHER = RARE_CARDS + ULTRA_RARE_OR_HIGHER; // 60
   uint16 public constant USUAL_CARDS = TOTAL_CARDS - RARE_OR_HIGHER; // 3940
 
+  /// @dev A bitmap representing all the issued tokens
+  /// @dev Consists of 256 256-bit numbers – 65536 bits in total,
+  ///      each bit represents a token existence flag,
+  ///      0 - token doesn't exist, 1 - token exists
+  /// @dev If token with ID `id` [1024, 65536) exists, then
+  ///      `bitmap[id / 256] << (255 - (id % 256)) >> (255 - (id % 256)) >> (id % 256)` is equal to one
+  /// @dev Initial size 16x256 = 4096 - enough to store 4000 cards to sell
+  uint256[] public bitmap = new uint256[](16);
+
   /// @dev Maps card rarity to a buffer of available cards for that rarity
   mapping(uint8 => RandomSeq.Buffer) private cardBuckets;
-
 
   /// @dev CharacterCard deployed ERC721 instance
   /// @dev Used to mint cards
@@ -73,6 +79,13 @@ contract Presale {
 
   /// @dev Number of cards sold, next card to sell number is `sold + OFFSET`
   uint16 public sold;
+
+  /// @dev Price of the first card to sell (initial price of the card)
+  /// @dev Next cards' price may differ, it can be a function of cards sold,
+  ///      number of cards sold in a single transaction and so on.
+  ///      This behaviour is defined in the `nextPrice()` function
+  /// @dev This value is updated after each successful card purchase
+  uint256 public currentPrice = 50 finney;
 
   /// @dev Emits when smart contract sells a card, buy(), buyFor()
   event PurchaseComplete(address indexed from, address indexed to, uint16 amount);
@@ -100,20 +113,84 @@ contract Presale {
     // setup all the parameters left
     beneficiary = _beneficiary;
 
+    // set the bitmap to ones - available cards
+    bitmap.flip();
+
     // initialize card buffers
     __initCardBuffers();
   }
 
-  /// @dev Calculates the price of the next card to sell
-  function nextPrice() public pure returns (uint256) {
-    /* // TODO: implement the following formula:
+  /**
+   * @dev A convenient function to retrieve 1kb of character bitmap data
+   * @return 1kb of issued cards IDs bitmap data
+   */
+  function getBitmapSegment() public constant returns(uint256[]) {
+    // delegate call to `bitmap.bulkGet`
+    return bitmap.bulkGet(0, 16);
+  }
+
+  /// @dev Allows to retrieve cards available for sale right now
+  function availableCards(uint8 rarity) public constant returns(uint16[]) {
+    // just read the buffer and return its contents
+    return cardBuckets[rarity].buffer;
+  }
+
+  /// @dev Updates the price of the next card to sell
+  function update(uint16 soldDelta) private {
+  /*
     Initial pre-sale cost will start at 0.05 ETH, increasing 0.01 ETH every 20 character cards sold
     until reaching 0.25 ETH. Once reached, it will remain until the first 1000 cards are sold
     and after that the value of the cards will increase to 0.3 ETH for the next 1000,
     0.35 ETH for the next 1000 and 0.4 ETH for the next 500 and 0.45 ETH for the final 500 cards.
-    */
-    // basic implementation just returns `initialPrice`
-    return INITIAL_PRICE;
+  */
+
+    // Initial pre-sale cost will start at 0.05 ETH,
+    if(currentPrice < 250 finney && sold / 20 != (sold + soldDelta) / 20) {
+      // increasing 0.01 ETH every 20 character cards sold until reaching 0.25 ETH
+      currentPrice += 10 finney;
+    }
+    // Once reached, it will remain until the first 1000 cards are sold
+    else if(sold < 1000 && sold + soldDelta >= 1000) {
+      // and after that the value of the cards will increase to 0.3 ETH for the next 1000,
+      currentPrice = 300 finney;
+    }
+    // 0.35 ETH for the next 1000
+    else if(sold < 2000 && sold + soldDelta >= 2000) {
+      currentPrice = 350 finney;
+    }
+    // and 0.4 ETH for the next 500
+    else if(sold < 3000 && sold + soldDelta >= 3000) {
+      currentPrice = 400 finney;
+    }
+    // and 0.45 ETH for the final 500 cards
+    else if(sold < 3500 && sold + soldDelta >= 3500) {
+      currentPrice = 450 finney;
+    }
+
+    // update sold counter
+    sold += soldDelta;
+  }
+
+  /// @dev Accepts a payment and sends a specific card back to the sender
+  function buyUsual(uint16 index, uint16 cardId) public payable {
+    // just delegate call to `buyRandomFor`
+    buyUsualFor(msg.sender, index, cardId);
+  }
+
+  /// @dev Accepts a payment and sends a specific card to the player
+  function buyUsualFor(address to, uint16 index, uint16 cardId) public payable {
+    // validate the card recipient address
+    require(to != address(0));
+    require(to != address(this));
+
+    // calculate price of the specific card, its higher then random
+    uint256 specificPrice = 5 * currentPrice; // 400% extra charge
+
+    // there should be enough value received to buy specific card
+    require(msg.value >= specificPrice);
+
+    // delegate call to `__issueUsualCard`
+    __issueUsualCard(to, index, cardId);
   }
 
   /// @dev Accepts a payment and sends card(s) back to the sender
@@ -128,34 +205,31 @@ contract Presale {
     require(to != address(0));
     require(to != address(this));
 
-    // get the price of a single card in current transaction
-    uint256 single = nextPrice();
-
     // calculate price of the three cards in a single transaction
-    uint256 triple = 2 * single; // 33% discount
+    uint256 triplePrice = 2 * currentPrice; // 33% discount
 
     // amount of funds we received from player in this transaction
     uint256 valueReceived = msg.value;
 
     // there should be enough value received to buy at least one card
-    require(valueReceived >= single);
+    require(valueReceived >= currentPrice);
 
     // total price of the cards to send
-    uint256 totalPrice = single;
+    uint256 totalPrice = currentPrice;
 
     // if the value received is not enough to buy three cards
     // (33% discount) or we don't have three cards to sell left
     // we sell only one card, otherwise we sell three cards
-    if(valueReceived < triple || TOTAL_CARDS - sold < 3) {
+    if(valueReceived < triplePrice || TOTAL_CARDS - sold < 3) {
       // issue one card
-      __issueSingleCard(to);
+      __issueRandomCard(to);
     }
     else {
       // update total price of the three cards to sell
-      totalPrice = triple;
+      totalPrice = triplePrice;
 
       // issue three cards
-      __issueThreeCards(to);
+      __issueThreeRandomCards(to);
     }
 
     // calculate amount of change to return to the player
@@ -170,11 +244,53 @@ contract Presale {
     }
 
     // emit an `PurchaseComplete` event
-    emit PurchaseComplete(msg.sender, to, totalPrice == single? 1: 3);
+    emit PurchaseComplete(msg.sender, to, totalPrice == currentPrice ? 1: 3);
+  }
+
+  /// @dev Issue a specific usual card to the address `to`
+  function __issueUsualCard(address to, uint16 index, uint16 cardId) private {
+    // only usual cards are available for this price
+    require(cardId >= OFFSET + RARE_OR_HIGHER);
+
+    // pop the card from the buffer
+    uint16 actualId = cardBuckets[RARITY_USUAL].pop(index);
+
+    // check if this is the desired card
+    require(actualId == cardId);
+
+    // mint the card
+    cardInstance.mintWith(to, cardId, RARITY_USUAL);
+
+    // update the bitmask of sold cards
+    bitmap.disable(cardId - OFFSET);
+
+    // update presale state: `sold` cards count and `currentPrice`
+    update(1);
+  }
+
+
+  /// @dev Issue rare card to the address `to`
+  function __issueRareCard(address to, uint8 rarity) private {
+    // get some randomness to init card rarity
+    // this randomness is not cryptographically secure of course
+    // and may be heavily influenced by miners, but its cheap though
+    uint256 randomness = RandomSeq.__rawRandom();
+
+    // pick random card
+    uint16 cardId = cardBuckets[rarity].nextRandomWith(randomness);
+
+    // mint the card
+    cardInstance.mintWith(to, cardId, rarity);
+
+    // update the bitmask of sold cards
+    bitmap.disable(cardId - OFFSET);
+
+    // update presale state: `sold` cards count and `currentPrice`
+    update(1);
   }
 
   /// @dev Issue one card to the address `to`
-  function __issueSingleCard(address to) private {
+  function __issueRandomCard(address to) private {
     // get some randomness to init card rarity
     // this randomness is not cryptographically secure of course
     // and may be heavily influenced by miners, but its cheap though
@@ -188,12 +304,15 @@ contract Presale {
     // mint the card
     cardInstance.mintWith(to, cardId, rarity);
 
-    // update `sold` cards counter accordingly
-    sold++;
+    // update the bitmask of sold cards
+    bitmap.enable(cardId - OFFSET);
+
+    // update presale state: `sold` cards count and `currentPrice`
+    update(1);
   }
 
   /// @dev Issue three cards to the address `to`
-  function __issueThreeCards(address to) private {
+  function __issueThreeRandomCards(address to) private {
     // get some randomness to init card rarity
     // this randomness is not cryptographically secure of course
     // and may be heavily influenced by miners, but its cheap though
@@ -222,8 +341,13 @@ contract Presale {
     // mint the cards
     cardInstance.mintCards(to, __pack3Cards(card1Id, rarity1, card2Id, rarity2, card3Id, rarity3));
 
-    // update `sold` cards counter accordingly
-    sold += 3;
+    // update the bitmask of sold cards
+    bitmap.disable(card1Id - OFFSET);
+    bitmap.disable(card2Id - OFFSET);
+    bitmap.disable(card3Id - OFFSET);
+
+    // update presale state: `sold` cards count and `currentPrice`
+    update(3);
   }
 
   /// @dev Packs 3 cards into an uint24[3] dynamic array
@@ -238,7 +362,7 @@ contract Presale {
   /// @dev Packs single card into uint24
   function __pack24(uint16 cardId, uint32 rarity) private pure returns (uint24) {
     // cardId (16 bits) | rarity (8 bits)
-    return uint24(cardId) << 16 | uint8(0x1F & rarity);
+    return uint24(cardId) << 8 | uint8(0x1F & rarity);
   }
 
   /// @dev Initializes `cards` mapping
@@ -263,19 +387,19 @@ contract Presale {
     // try to allocate the card based on the `rarity` value;
     // however its possible that cards of the requested rarity are already exhausted,
     // so we need some fallback to search all the card buckets
-    if(rarity == HOLOGRAM_CARDS && cardBuckets[RARITY_HOLOGRAM].hasNext()) {
+    if(rarity == RARITY_HOLOGRAM && cardBuckets[RARITY_HOLOGRAM].hasNext()) {
       // hologram card
       return cardBuckets[RARITY_HOLOGRAM].nextRandomWith(randomness);
     }
-    else if(rarity == LEGENDARY_OR_HIGHER && cardBuckets[RARITY_LEGENDARY].hasNext()) {
+    else if(rarity == RARITY_LEGENDARY && cardBuckets[RARITY_LEGENDARY].hasNext()) {
       // legendary card
       return cardBuckets[RARITY_LEGENDARY].nextRandomWith(randomness);
     }
-    else if(rarity == ULTRA_RARE_OR_HIGHER && cardBuckets[RARITY_ULTRA_RARE].hasNext()) {
+    else if(rarity == RARITY_ULTRA_RARE && cardBuckets[RARITY_ULTRA_RARE].hasNext()) {
       // ultra rare card
       return cardBuckets[RARITY_ULTRA_RARE].nextRandomWith(randomness);
     }
-    else if(rarity == RARE_OR_HIGHER && cardBuckets[RARITY_RARE].hasNext()) {
+    else if(rarity == RARITY_RARE && cardBuckets[RARITY_RARE].hasNext()) {
       // rare card
       return cardBuckets[RARITY_RARE].nextRandomWith(randomness);
     }

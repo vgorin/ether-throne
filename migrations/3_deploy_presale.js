@@ -1,5 +1,6 @@
 const Card = artifacts.require("./CharacterCard");
 const Presale = artifacts.require("./Presale");
+const Bitmaps = artifacts.require("./Bitmaps");
 const RandomSeq = artifacts.require("./RandomSeq");
 
 const ROLE_TOKEN_CREATOR = 0x00040000;
@@ -16,6 +17,9 @@ module.exports = async function(deployer, network, accounts) {
 
 	// get the deployed card instance from previous script - 2_deploy_character_card.js
 	const cardInstance = await Card.deployed();
+
+	await deployer.deploy(Bitmaps);
+	await deployer.link(Bitmaps, Presale);
 
 	await deployer.deploy(RandomSeq);
 	await deployer.link(RandomSeq, Presale);

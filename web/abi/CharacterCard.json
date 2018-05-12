@@ -4,20 +4,6 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "DEFAULT_IN_GAME_BIT",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
       "name": "name",
       "outputs": [
         {
@@ -51,6 +37,20 @@
         {
           "name": "",
           "type": "uint16"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "DEFAULT_IN_BATTLE_BIT",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8"
         }
       ],
       "payable": false,
@@ -1232,10 +1232,10 @@
     "4": {
       "events": {},
       "links": {},
-      "address": "0x4605c0fd58afc5a3078c1f63a2a3f3605ca54546",
-      "transactionHash": "0x61eca81802c18ae94c47c04b4c0e238f1eb98f2a0a7da396e8659a8f15fcc073"
+      "address": "0x8780e8d168b12e8e66b7415921dd9f28b5dd7ed7",
+      "transactionHash": "0x6432e64d231fdd89f6e024db84d19f12afdddb8337ff3f57c4eb5372ecf94b21"
     }
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-11T13:32:28.574Z"
+  "updatedAt": "2018-05-12T17:32:05.764Z"
 }

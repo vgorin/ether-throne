@@ -95,7 +95,7 @@ library RandomSeq {
     uint16 i = uint16(__rndVal(randomness, 0xFFFF, 0, buf.buffer.length));
 
     // delegate call to `__next`
-    return __next(buf, i);
+    return pop(buf, i);
   }
 
   /**
@@ -121,7 +121,7 @@ library RandomSeq {
   /// @param buf source of the values to pop from
   /// @param i index to pop value from;
   ///     the value is trimmed to fit into buffer length
-  function __next(Buffer storage buf, uint16 i) private returns (uint16) {
+  function pop(Buffer storage buf, uint16 i) internal returns (uint16) {
     // make sure i doesn't exceed buffer's length
     i %= uint16(buf.buffer.length);
 
