@@ -26,7 +26,7 @@ contract CharacterCard is AccessControl {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant CHAR_CARD_VERSION = 0xA;
+  uint32 public constant CHAR_CARD_VERSION = 0xB;
 
   /// @dev Tokens within the reserved space cannot be issued/minted
   /// @dev This limitation is required to support ERC20 compatible transfers:
@@ -477,9 +477,10 @@ contract CharacterCard is AccessControl {
    * @dev Allows setting card's rarity / attributes
    * @param to an address to assign created card ownership to
    * @param tokenId ID of the card to create
-   * @param attributes an integer, representing card's initial attributes set
+   * @param rarity an integer, representing card's initial attributes set -
+   *      attributes have `rarity` low bits set
    */
-  function mintWith(address to, uint16 tokenId, uint64 attributes) public {
+  function mintWith(address to, uint16 tokenId, uint8 rarity) public {
     // validate destination address
     require(to != address(0));
     require(to != address(this));
@@ -488,7 +489,7 @@ contract CharacterCard is AccessControl {
     require(__isSenderInRole(ROLE_TOKEN_CREATOR));
 
     // delegate call to `__mint`
-    __mint(to, tokenId, attributes);
+    __mint(to, tokenId, rarity);
 
     // fire ERC20 transfer event
     emit Transfer(address(0), to, 1);
@@ -532,7 +533,7 @@ contract CharacterCard is AccessControl {
     for(uint256 i = 0; i < n; i++) {
       // unpack card from data element
       // and delegate call to `__mint`
-      __mint(to, uint16(data[i] >> 8), uint64(1 << uint256(0xFF & data[i])) - 1);
+      __mint(to, uint16(data[i] >> 8), uint8(data[i]));
     }
 
     // fire ERC20 transfer event
@@ -743,12 +744,16 @@ contract CharacterCard is AccessControl {
     emit Approval(from, to, approved);
   }
 
+  function __attributes(uint8 rarity) public pure returns(uint64) {
+    return uint64(1 << uint256(rarity)) - 1;
+  }
+
   /// @dev Creates new card with `tokenId` ID specified and
   ///      assigns an ownership `to` for this card
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
   ///      checks only that the card doesn't exist yet
   /// @dev Must be kept private at all times
-  function __mint(address to, uint16 tokenId, uint64 attributes) private {
+  function __mint(address to, uint16 tokenId, uint8 rarity) private {
     // check that `tokenId` is not in the reserved space
     require(tokenId > RESERVED_TOKEN_ID_SPACE);
 
@@ -758,7 +763,7 @@ contract CharacterCard is AccessControl {
     // create a new card in memory
     Card memory card = Card({
       attributesModified: 0,
-      attributes: attributes,
+      attributes: __attributes(rarity),
       stateModified: 0,
       state: 0,
 

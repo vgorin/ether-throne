@@ -243,11 +243,11 @@ contract('CharacterCard', function(accounts) {
 
 	it("mintWith: mint a card with attributes and check integrity of the structures involved", async function() {
 		const card = await CharacterCard.new();
-		await card.mintWith(accounts[0], 0x401, (1 << 32) - 1);
-		await card.mintWith(accounts[0], 0x402, (1 << 16) - 1);
-		await card.mintWith(accounts[0], 0x403, (1 << 10) - 1);
-		await card.mintWith(accounts[0], 0x404, (1 << 7) - 1);
-		await card.mintWith(accounts[0], 0x405, (1 << 5) - 1);
+		await card.mintWith(accounts[0], 0x401, 32);
+		await card.mintWith(accounts[0], 0x402, 16);
+		await card.mintWith(accounts[0], 0x403, 10);
+		await card.mintWith(accounts[0], 0x404, 7);
+		await card.mintWith(accounts[0], 0x405, 5);
 		assert.equal(0x401, await card.collections(accounts[0], 0), accounts[0] + " card collection doesn't contain minted card");
 		await assertThrowsAsync(async function() {await card.collections(accounts[0], 5);});
 
@@ -260,7 +260,7 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0x401, card1[CARD_ID_IDX], "newly minted card 1 has wrong id");
 		assert.equal(0, card1[CARD_IDX_IDX], "newly minted card 1 has wrong index");
 		assert.equal(accounts[0], card1[CARD_OWNER_IDX], "newly minted card 1 has wrong owner address");
-		// assert.equal(0xFFFFFFFF, card1[ATTRIBUTES_IDX], "newly minted card 1 has wrong attributes");
+		assert.equal(0xFFFFFFFF, card1[ATTRIBUTES_IDX], "newly minted card 1 has wrong attributes");
 		assert.equal(0xFFFF, card2[ATTRIBUTES_IDX], "newly minted card 2 has wrong attributes");
 		assert.equal(0x03FF, card3[ATTRIBUTES_IDX], "newly minted card 3 has wrong attributes");
 		assert.equal(0x7F, card4[ATTRIBUTES_IDX], "newly minted card 4 has wrong attributes");
@@ -268,7 +268,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("mintWith: impossible to mint a card with zero ID", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.mintWith(accounts[0], 0x0, (1 << 3) - 1)});
+		await assertThrowsAsync(async function() {await card.mintWith(accounts[0], 0x0, 3)});
 	});
 
 	it("mintCards: batch mint few cards", async function() {
@@ -737,7 +737,7 @@ contract('CharacterCard', function(accounts) {
 
 	it("getPacked: check initial card integrity", async function() {
 		const card = await CharacterCard.new();
-		await card.mintWith(accounts[0], 0x401, (1 << 3) - 1);
+		await card.mintWith(accounts[0], 0x401, 3);
 		const tuple = await card.getPacked(0x401);
 		const attributesModified = shiftAndTrim(tuple[0], 224, 32);
 		const attributes =  shiftAndTrim(tuple[0], 160, 64);
