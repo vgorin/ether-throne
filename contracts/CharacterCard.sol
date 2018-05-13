@@ -1,5 +1,7 @@
 pragma solidity 0.4.23;
 
+import "./AccessControl.sol";
+
 // TODO 1) review which ERC721 functions need to be added
 // TODO 2) remove all the asserts before the production release
 // TODO 3) improve `exists` performance by introducing existent cards bitmask
@@ -20,7 +22,7 @@ pragma solidity 0.4.23;
  *      Note: ERC721 is still a draft at the moment of writing this smart contract,
  *      therefore implementing this "standard" fully doesn't make any sense
  */
-contract CharacterCard {
+contract CharacterCard is AccessControl {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
@@ -130,13 +132,6 @@ contract CharacterCard {
   /// @dev ERC20 balances[owner] is equal to collections[owner].length
   mapping(address => uint16[]) public collections;
 
-  /// @notice Defines a privileged addresses with additional
-  ///      permissions on the smart contract, like minting tokens,
-  ///      transferring on behalf and so on
-  /// @dev Maps an address to the permissions bitmask (role), where each bit
-  ///      represents a permissions; bitmask 0xFFFFFFFF represents all possible permissions
-  mapping(address => uint32) public userRoles;
-
   /// @notice Total number of existing tokens
   /// @dev ERC20 compliant field for totalSupply()
   uint16 public totalSupply;
@@ -169,9 +164,6 @@ contract CharacterCard {
   uint8 public constant GAME_OUTCOME_DRAW = 2;
   /// @dev Constant indicating victory of a card (defeat of an opponent card)
   uint8 public constant GAME_OUTCOME_VICTORY = 3;
-
-  /// @dev A bitmask of globally enabled features, see below
-  uint32 public f;
 
   /// @dev Enables ERC721 transfers of the tokens
   uint32 public constant FEATURE_TRANSFERS = 0x00000001;
@@ -210,18 +202,6 @@ contract CharacterCard {
   /// @dev Reserved, not used
   //uint32 public constant ROLE_TOKEN_DESTROYER = 0x00080000;
 
-  /// @notice Role manager is responsible for assigning the roles
-  /// @dev Role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
-  uint32 public constant ROLE_ROLE_MANAGER = 0x00100000;
-
-  /// @notice Feature manager is responsible for enabling/disabling
-  ///      global features of the smart contract
-  /// @dev Role ROLE_FEATURE_MANAGER allows enabling/disabling global features
-  uint32 public constant ROLE_FEATURE_MANAGER = 0x00200000;
-
-  /// @dev Bitmask represents all the possible permissions (super admin role)
-  uint32 public constant FULL_PRIVILEGES_MASK = 0xFFFFFFFF;
-
   /// @dev The number is used as unlimited approvals number
   uint256 public constant UNLIMITED_APPROVALS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
@@ -250,164 +230,6 @@ contract CharacterCard {
     uint32 gamesPlayed,    // card1 games played = card2 games played
     uint8  lastGameOutcome // card1 last game outcome = 4 - card2 last game outcome
   );
-
-  /**
-   * @dev Creates a character card as a ERC721 token
-   */
-  constructor() public {
-    // call sender gracefully - contract `creator`
-    address creator = msg.sender;
-
-    // creator has full privileges
-    userRoles[creator] = FULL_PRIVILEGES_MASK;
-  }
-
-  /**
-   * @dev Updates set of the globally enabled features (`f`),
-   *      taking into account sender's permissions.
-   * @dev Requires sender to have `ROLE_FEATURE_MANAGER` permission.
-   * @param mask bitmask representing a set of features to enable/disable
-   */
-  function updateFeatures(uint32 mask) public {
-    // call sender nicely - caller
-    address caller = msg.sender;
-    // read caller's permissions
-    uint32 p = userRoles[caller];
-
-    // caller should have a permission to update global features
-    require(__hasRole(p, ROLE_FEATURE_MANAGER));
-
-    // taking into account caller's permissions,
-    // 1) enable features requested
-    f |= p & mask;
-    // 2) disable features requested
-    f &= FULL_PRIVILEGES_MASK ^ (p & (FULL_PRIVILEGES_MASK ^ mask));
-  }
-
-  /**
-   * @dev Adds a new `operator` - an address which has
-   *      some extended privileges over the smart contract,
-   *      for example token minting, transferring on behalf, etc.
-   * @dev Newly added `operator` cannot have any permissions which
-   *      transaction sender doesn't have.
-   * @dev Requires transaction sender to have `ROLE_ROLE_MANAGER` permission.
-   * @dev Cannot update existing operator. Throws if `operator` already exists.
-   * @param operator address of the operator to add
-   * @param role bitmask representing a set of permissions which
-   *      newly created operator will have
-   */
-  function addOperator(address operator, uint32 role) public {
-    // call sender gracefully - `manager`
-    address manager = msg.sender;
-
-    // read manager's permissions (role)
-    uint32 p = userRoles[manager];
-
-    // check that `operator` doesn't exist
-    require(userRoles[operator] == 0);
-
-    // manager must have a ROLE_ROLE_MANAGER role
-    require(__hasRole(p, ROLE_ROLE_MANAGER));
-
-    // recalculate permissions (role) to set:
-    // we cannot create an operator more powerful then calling `manager`
-    uint32 r = role & p;
-
-    // check if we still have some permissions (role) to set
-    require(r != 0);
-
-    // create an operator by persisting his permissions (roles) to storage
-    userRoles[operator] = r;
-  }
-
-  /**
-   * @dev Deletes an existing `operator`.
-   * @dev Requires sender to have `ROLE_ROLE_MANAGER` permission.
-   * @param operator address of the operator to delete
-   */
-  function removeOperator(address operator) public {
-    // check if an `operator` exists
-    require(userRoles[operator] != 0);
-
-    // do not allow transaction sender to remove himself
-    // protects from an accidental removal of all the operators
-    require(operator != msg.sender);
-
-    // check if caller has ROLE_ROLE_MANAGER
-    require(__isSenderInRole(ROLE_ROLE_MANAGER));
-
-    // perform operator deletion
-    delete userRoles[operator];
-  }
-
-  /**
-   * @dev Updates an existing `operator`, adding a specified role to it.
-   * @dev Note that `operator` cannot receive permission which
-   *      transaction sender doesn't have.
-   * @dev Requires transaction sender to have `ROLE_ROLE_MANAGER` permission.
-   * @dev Cannot create a new operator. Throws if `operator` doesn't exist.
-   * @dev Existing permissions of the `operator` are preserved
-   * @param operator address of the operator to update
-   * @param role bitmask representing a set of permissions which
-   *      `operator` will have
-   */
-  function addRole(address operator, uint32 role) public {
-    // call sender gracefully - `manager`
-    address manager = msg.sender;
-
-    // read manager's permissions (role)
-    uint32 p = userRoles[manager];
-
-    // check that `operator` exists
-    require(userRoles[operator] != 0);
-
-    // manager must have a ROLE_ROLE_MANAGER role
-    require(__hasRole(p, ROLE_ROLE_MANAGER));
-
-    // recalculate permissions (role) to add:
-    // we cannot make an operator more powerful then calling `manager`
-    uint32 r = role & p;
-
-    // check if we still have some permissions (role) to add
-    require(r != 0);
-
-    // update operator's permissions (roles) in the storage
-    userRoles[operator] |= r;
-  }
-
-  /**
-   * @dev Updates an existing `operator`, removing a specified role from it.
-   * @dev Note that  permissions which transaction sender doesn't have
-   *      cannot be removed.
-   * @dev Requires transaction sender to have `ROLE_ROLE_MANAGER` permission.
-   * @dev Cannot remove all permissions. Throws on such an attempt.
-   * @param operator address of the operator to update
-   * @param role bitmask representing a set of permissions which
-   *      will be removed from the `operator`
-   */
-  function removeRole(address operator, uint32 role) public {
-    // call sender gracefully - `manager`
-    address manager = msg.sender;
-
-    // read manager's permissions (role)
-    uint32 p = userRoles[manager];
-
-    // check that we're not removing all the `operator`s permissions
-    require(userRoles[operator] ^ role != 0);
-
-    // manager must have a ROLE_ROLE_MANAGER role
-    require(__hasRole(p, ROLE_ROLE_MANAGER));
-
-    // recalculate permissions (role) to remove:
-    // we cannot revoke permissions which calling `manager` doesn't have
-    uint32 r = role & p;
-
-    // check if we still have some permissions (role) to revoke
-    require(r != 0);
-
-    // update operator's permissions (roles) in the storage
-    userRoles[operator] &= FULL_PRIVILEGES_MASK ^ r;
-  }
 
   /**
    * @dev Gets a card by ID, representing it as two integers.
@@ -1074,30 +896,6 @@ contract CharacterCard {
 
     // emit an ERC20 compliant event
     emit Approval(from, to, approved);
-  }
-
-  /// @dev Checks if requested feature is enabled globally on the contract
-  function __isFeatureEnabled(uint32 featureRequired) private constant returns(bool) {
-    // delegate call to `__hasRole`
-    return __hasRole(f, featureRequired);
-  }
-
-  /// @dev Checks if transaction sender `msg.sender` has all the required permissions `roleRequired`
-  function __isSenderInRole(uint32 roleRequired) private constant returns(bool) {
-    // call sender gracefully - `user`
-    address user = msg.sender;
-
-    // read user's permissions (role)
-    uint32 userRole = userRoles[user];
-
-    // delegate call to `__hasRole`
-    return __hasRole(userRole, roleRequired);
-  }
-
-  /// @dev Checks if user role `userRole` contain all the permissions required `roleRequired`
-  function __hasRole(uint32 userRole, uint32 roleRequired) private pure returns(bool) {
-    // check the bitmask for the role required and return the result
-    return userRole & roleRequired == roleRequired;
   }
 
   /// @dev Creates new card with `tokenId` ID specified and

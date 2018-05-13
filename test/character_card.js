@@ -36,6 +36,10 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.collections(accounts[0], 0);});
 	});
 
+	it("roles: creator has full privileges", async function() {
+		const card = await CharacterCard.new();
+		assert(await card.userRoles(accounts[0]) > 0, accounts[0] + " must have full privileges, but it doesn't");
+	});
 	it("roles: add an operator", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], 0x1);
