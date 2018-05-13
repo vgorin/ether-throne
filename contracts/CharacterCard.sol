@@ -46,58 +46,40 @@ contract CharacterCard is AccessControl {
   /// @dev Occupies 64 bytes of storage (512 bits)
   struct Card {
     /// High 256 bits
-    /// @dev Card creation time, immutable, cannot be zero
-    /// @dev Stored as Ethereum Block Number of the transaction
-    ///      when the card was created
-    uint32 creationTime;
-
-    /// @dev Initialized on card creation, immutable
-    /// @dev Defines card rarity type like
-    ///      casual, rare, ultra rare, legendary, hologram, etc.
-    /// @dev Only 5 lower bits are used, rarity is a number in range [0-16]
-    uint32 rarity;
-
     /// @dev Initially zero, changes when attributes are modified
     /// @dev Stored as Ethereum Block Number of the transaction
     ///      when the card's attributes were changed
     uint32 attributesModified;
 
     /// @dev A bitmask of the card attributes, allows storing up
-    ///      to 32 attributes
+    ///      to 64 attributes
     /// @dev Common attributes are stored on lower bits,
     ///      while higher bits store more rare attributes
     /// @dev Is initialized with at least 3 active attributes
     ///      (three lowest bits set to 1)
-    /// @dev Only 16 lower bits are used
-    uint32 attributes;
+    uint64 attributes;
 
-    /// @dev Initially zero, changes after each game played
+    /// @dev Initially zero, changes when state gets modified
     /// @dev Stored as Ethereum Block Number of the transaction
-    ///      when the card's played a game (released from a game)
-    uint32 lastGamePlayed;
+    ///      when the card's state was changed
+    uint32 stateModified;
 
-    /// @dev Initially zero, increases after each game played
-    uint32 gamesPlayed;
-
-    /// @dev Initially zero, increases after each game won
-    uint32 wins;
-
-    /// @dev Initially zero, increases after each game lost
-    uint32 losses;
-
+    /// @dev Initially zero, may be used to store card state data,
+    ///      such as is card currently in game or not,
+    ///      status of the last game played, etc
+    uint128 state;
 
     /// Low 256 bits
+    /// @dev Card creation time, immutable, cannot be zero
+    /// @dev Stored as Ethereum Block Number of the transaction
+    ///      when the card was created
+    uint32 creationTime;
+
     /// @dev Card ID, immutable, cannot be zero
     uint16 id;
 
     /// @dev Card index within an owner's collection of cards
     uint16 index;
-
-    /// @dev Initially zero, stores card state data,
-    ///      such as is card currently in game or not,
-    ///      status of the last game played, etc
-    /// @dev Only 3 lower bits are used, modified by `battleComplete` function
-    uint32 state;
 
     /// @dev Initially zero, changes when ownership is transferred
     /// @dev Stored as Ethereum Block Number of the transaction
@@ -141,29 +123,7 @@ contract CharacterCard is AccessControl {
   /// @dev A locked card cannot be transferred
   /// @dev The card is locked if it contains any bits
   ///      from the `lockedBitmask` in its `state` set
-  uint32 public lockedBitmask = DEFAULT_IN_BATTLE_BIT;
-
-  /// @dev Default bitmask indicating that the card is `in game`
-  /// @dev Consists of a single bit at position 3 – binary 100
-  /// @dev This bit is cleared by `battleComplete`
-  /// @dev First 2 lower bits are used by the last game status outcome data:
-  ///      0: undefined
-  ///      1: defeat
-  ///      2: draw
-  ///      3: victory
-  uint8 public constant DEFAULT_IN_BATTLE_BIT = 0x4; // bit number 3
-  /// @dev Bits 1-2 mask, used to read/write game outcome data
-  uint8 public constant LAST_GAME_OUTCOME_BITS = 0x3; // bits 1-2
-  /// @dev Bits 1-3 mask, used in battleComplete to clear game outcome and card state
-  uint8 public constant BATTLE_COMPLETE_CLEAR_BITS = 0x7; // bits 1-3: outcome + in game
-  /// @dev Constant indicating no game outcome (card never played a game)
-  uint8 public constant GAME_OUTCOME_UNDEFINED = 0;
-  /// @dev Constant indicating the defeat of a card (victory of an opponent card)
-  uint8 public constant GAME_OUTCOME_DEFEAT = 1;
-  /// @dev Constant indicating the draw
-  uint8 public constant GAME_OUTCOME_DRAW = 2;
-  /// @dev Constant indicating victory of a card (defeat of an opponent card)
-  uint8 public constant GAME_OUTCOME_VICTORY = 3;
+  uint32 public lockedBitmask = 0x4;
 
   /// @dev Enables ERC721 transfers of the tokens
   uint32 public constant FEATURE_TRANSFERS = 0x00000001;
@@ -188,11 +148,6 @@ contract CharacterCard is AccessControl {
   /// @dev Not used
   //uint32 public constant ROLE_EXCHANGE = 0x00010000;
 
-  /// @notice Card game provider is responsible for enabling the game protocol
-  /// @dev Role ROLE_COMBAT_PROVIDER allows modifying gamesPlayed,
-  ///      wins, losses, state, lastGamePlayed, attributes
-  uint32 public constant ROLE_COMBAT_PROVIDER = 0x00020000;
-
   /// @notice Token creator is responsible for creating tokens
   /// @dev Role ROLE_TOKEN_CREATOR allows minting tokens
   uint32 public constant ROLE_TOKEN_CREATOR = 0x00040000;
@@ -201,6 +156,14 @@ contract CharacterCard is AccessControl {
   /// @dev Role ROLE_TOKEN_DESTROYER allows burning tokens
   /// @dev Reserved, not used
   //uint32 public constant ROLE_TOKEN_DESTROYER = 0x00080000;
+
+  /// @notice Card attributes provider is part of the game protocol
+  /// @dev Role ROLE_ATTR_PROVIDER allows modifying card state
+  uint32 public constant ROLE_ATTR_PROVIDER = 0x00100000;
+
+  /// @notice Card state provider is part of the game protocol
+  /// @dev Role ROLE_STATE_PROVIDER allows modifying card state
+  uint32 public constant ROLE_STATE_PROVIDER = 0x00200000;
 
   /// @dev The number is used as unlimited approvals number
   uint256 public constant UNLIMITED_APPROVALS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
@@ -221,15 +184,6 @@ contract CharacterCard is AccessControl {
   /// @dev Fired in approve()
   /// @dev ERC20 compliant event
   event Approval(address indexed _owner, address indexed _spender, uint256 _value);
-  /// @dev Fired in battlesComplete(), battleComplete()
-  event BattleComplete(
-    uint16 indexed card1Id,// card1 ID
-    uint16 indexed card2Id,// card2 ID
-    uint32 wins,           // card1 wins = card2 losses
-    uint32 losses,         // card1 losses = card2 wins
-    uint32 gamesPlayed,    // card1 games played = card2 games played
-    uint8  lastGameOutcome // card1 last game outcome = 4 - card2 last game outcome
-  );
 
   /**
    * @dev Gets a card by ID, representing it as two integers.
@@ -252,7 +206,7 @@ contract CharacterCard is AccessControl {
    * @dev Throws if card doesn't exist
    * @param tokenId ID of the card to fetch
    */
-  function getCard(uint16 tokenId) public constant returns(uint256, uint256) {
+  function getPacked(uint16 tokenId) public constant returns(uint256, uint256) {
     // validate card existence
     require(exists(tokenId));
 
@@ -260,19 +214,15 @@ contract CharacterCard is AccessControl {
     Card memory card = cards[tokenId];
 
     // pack high 256 bits of the result
-    uint256 high = uint256(card.creationTime) << 224
-                 | uint224(card.rarity) << 192
-                 | uint192(card.attributesModified) << 160
-                 | uint160(card.attributes) << 128
-                 | uint128(card.lastGamePlayed) << 96
-                 | uint96(card.gamesPlayed) << 64
-                 | uint64(card.wins) << 32
-                 | uint32(card.losses);
+    uint256 high = uint256(card.attributesModified) << 224
+                 | uint224(card.attributes) << 160
+                 | uint160(card.stateModified) << 128
+                 | uint128(card.state);
 
     // pack low 256 bits of the result
-    uint256 low  = uint256(card.id) << 240
-                 | uint240(card.index) << 224
-                 | uint224(card.state) << 192
+    uint256 low  = uint256(card.creationTime) << 224
+                 | uint224(card.id) << 208
+                 | uint208(card.index) << 192
                  | uint192(card.ownershipModified) << 160
                  | uint160(card.owner);
 
@@ -291,7 +241,7 @@ contract CharacterCard is AccessControl {
    */
   function setLockedBitmask(uint32 bitmask) public {
     // check that the call is made by a combat provider
-    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_STATE_PROVIDER));
 
     // update the locked bitmask
     lockedBitmask = bitmask;
@@ -302,7 +252,7 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the card to get state for
    * @return a card state
    */
-  function getState(uint16 tokenId) public constant returns(uint32) {
+  function getState(uint16 tokenId) public constant returns(uint128) {
     // validate card existence
     require(exists(tokenId));
 
@@ -316,12 +266,12 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the card to set state for
    * @param state new state to set for the card
    */
-  function setState(uint16 tokenId, uint32 state) public {
+  function setState(uint16 tokenId, uint128 state) public {
     // check that card to set state for exists
     require(exists(tokenId));
 
     // check that the call is made by a combat provider
-    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
+    require(__isSenderInRole(ROLE_STATE_PROVIDER));
 
     // set the state required
     cards[tokenId].state = state;
@@ -338,9 +288,12 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the card to add state attributes to
    * @param state bitmask representing card state attributes to add
    */
-  function addStateAttributes(uint16 tokenId, uint32 state) internal {
+  function addStateAttributes(uint16 tokenId, uint128 state) public {
     // check that card to add state attributes for exists
     require(exists(tokenId));
+
+    // check that the call is made by a combat provider
+    require(__isSenderInRole(ROLE_STATE_PROVIDER));
 
     // add the state attributes required
     cards[tokenId].state |= state;
@@ -357,12 +310,15 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the card to remove state attributes from
    * @param state bitmask representing card state attributes to remove
    */
-  function removeStateAttributes(uint16 tokenId, uint32 state) internal {
+  function removeStateAttributes(uint16 tokenId, uint128 state) public {
     // check that card to remove state attributes from exists
     require(exists(tokenId));
 
+    // check that the call is made by a combat provider
+    require(__isSenderInRole(ROLE_STATE_PROVIDER));
+
     // add the attributes required
-    cards[tokenId].state &= 0xFFFFFFFF ^ state;
+    cards[tokenId].state &= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF ^ state;
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
@@ -371,122 +327,11 @@ contract CharacterCard is AccessControl {
   }
 
   /**
-   * @dev A mechanism to update two cards which were engaged in a battle
-   * @param card1Id first card's ID engaged in a battle
-   * @param card2Id second card's ID engaged in a battle
-   * @param outcome game outcome,
-   *      1 means that first card lost and second card won,
-   *      2 means draw,
-   *      3 means that first card won and second card lost
-   */
-  function battleComplete(uint16 card1Id, uint16 card2Id, uint8 outcome) public {
-    // the check if outcome is one of [1, 2, 3] is done in
-    // a call to `battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)`
-
-    // prepare wins/losses variables to delegate call
-    // to `battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)`
-    uint32 wins = outcome == GAME_OUTCOME_VICTORY? 1: 0;
-    uint32 losses = outcome == GAME_OUTCOME_DEFEAT? 1: 0;
-
-    // delegate call to `battleComplete(uint16, uint16, uint32, uint32, uint32, uint8)`
-    battlesComplete(card1Id, card2Id, wins, losses, 1, outcome);
-  }
-
-  /**
-   * @dev A mechanism to update two cards which were engaged in several battles
-   * @dev Same as `battleComplete(uint16, uint16, outcome)` but allows for a batch update
-   * @param card1Id first card's ID engaged in a battle
-   * @param card2Id second card's ID engaged in a battle
-   * @param wins number of times 1st card won (2nd lost)
-   * @param losses number of times 1st card lost (2nd won)
-   * @param gamesPlayed total games played, cannot exceed wins + losses, cannot be zero
-   */
-  function battlesComplete(
-    uint16 card1Id,
-    uint16 card2Id,
-    uint32 wins,
-    uint32 losses,
-    uint32 gamesPlayed,
-    uint8 lastGameOutcome
-  ) public {
-    // check if both card exist
-    require(exists(card1Id));
-    require(exists(card2Id));
-
-    // arithmetic overflow check
-    require(wins <= wins + losses);
-    // first check is enough, symmetric situation is impossible
-    assert(losses <= wins + losses);
-
-    // input data sanity check
-    require(gamesPlayed != 0);
-    require(wins + losses <= gamesPlayed);
-
-    // check if last game outcome is one of [1, 2, 3]
-    // check if it is consistent with wins/losses counters
-    require(lastGameOutcome == GAME_OUTCOME_DEFEAT && losses != 0   // defeat means losses cannot be zero
-         || lastGameOutcome == GAME_OUTCOME_DRAW && wins + losses < gamesPlayed
-         || lastGameOutcome == GAME_OUTCOME_VICTORY && wins != 0); // victory means wins cannot be zero
-
-    // check that the call is made by a combat provider
-    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
-
-    // get cards from the storage
-    Card storage card1 = cards[card1Id];
-    Card storage card2 = cards[card2Id];
-
-    // check if two cards have different owners
-    require(card1.owner != card2.owner);
-
-    // arithmetic overflow checks before updating cards
-    require(card1.gamesPlayed + gamesPlayed > card1.gamesPlayed);
-    require(card2.gamesPlayed + gamesPlayed > card2.gamesPlayed);
-
-    // no need to check for arithmetic overflows in wins/losses,
-    // since these numbers cannot exceed gamesPlayed number
-    // if these validations do not pass – it's a bug
-    assert(card1.wins + wins >= card1.wins);
-    assert(card1.losses + losses >= card1.losses);
-    assert(card2.wins + losses >= card2.wins);
-    assert(card2.losses + wins >= card2.losses);
-
-    // update games played counters
-    card1.gamesPlayed += gamesPlayed;
-    card2.gamesPlayed += gamesPlayed;
-
-    // update outcomes
-    // for card1 its straight forward
-    card1.wins += wins;
-    card1.losses += losses;
-    // for card2 its vice versa (card1 victory = card2 defeat)
-    card2.wins += losses;
-    card2.losses += wins;
-
-    // update last game played timestamps
-    card1.lastGamePlayed = uint32(block.number);
-    card2.lastGamePlayed = uint32(block.number);
-
-    // update last game played statuses (outcomes),
-    // clear 'in game' bit for both cards – move cards out of game
-    card1.state = card1.state & (0xFFFFFFFF ^ BATTLE_COMPLETE_CLEAR_BITS) | lastGameOutcome;
-    card2.state = card2.state & (0xFFFFFFFF ^ BATTLE_COMPLETE_CLEAR_BITS) | (4 - lastGameOutcome);
-
-    // persist cards back into the storage
-    // this may be required only if cards structure is loaded into memory, like
-    // `Card memory card = cards[cardId];`
-    //cards[card1Id] = card1; // uncomment if card is in memory (will increase gas usage!)
-    //cards[card2Id] = card2; // uncomment if card is in memory (will increase gas usage!)
-
-    // fire an event
-    emit BattleComplete(card1Id, card2Id, wins, losses, gamesPlayed, lastGameOutcome);
-  }
-
-  /**
    * @dev Gets attributes of a card
    * @param tokenId ID of the card to get attributes for
    * @return a card attributes bitmask
    */
-  function getAttributes(uint16 tokenId) public constant returns(uint32) {
+  function getAttributes(uint16 tokenId) public constant returns(uint64) {
     // validate card existence
     require(exists(tokenId));
 
@@ -500,12 +345,12 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the card to set attributes for
    * @param attributes bitmask representing card attributes to set
    */
-  function setAttributes(uint16 tokenId, uint32 attributes) public {
+  function setAttributes(uint16 tokenId, uint64 attributes) public {
     // check that card to set attributes for exists
     require(exists(tokenId));
 
-    // check that the call is made by a combat provider
-    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
+    // check that the call is made by a attributes provider
+    require(__isSenderInRole(ROLE_ATTR_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[tokenId];
@@ -528,12 +373,12 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the card to add attributes to
    * @param attributes bitmask representing card attributes to add
    */
-  function addAttributes(uint16 tokenId, uint32 attributes) public {
+  function addAttributes(uint16 tokenId, uint64 attributes) public {
     // check that card to add attributes for exists
     require(exists(tokenId));
 
-    // check that the call is made by a combat provider
-    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
+    // check that the call is made by a attributes provider
+    require(__isSenderInRole(ROLE_ATTR_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[tokenId];
@@ -556,12 +401,12 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the card to remove attributes from
    * @param attributes bitmask representing card attributes to remove
    */
-  function removeAttributes(uint16 tokenId, uint32 attributes) public {
+  function removeAttributes(uint16 tokenId, uint64 attributes) public {
     // check that card to remove attributes for exists
     require(exists(tokenId));
 
-    // check that the call is made by a combat provider
-    require(__isSenderInRole(ROLE_COMBAT_PROVIDER));
+    // check that the call is made by a attributes provider
+    require(__isSenderInRole(ROLE_ATTR_PROVIDER));
 
     // get the card pointer
     Card storage card = cards[tokenId];
@@ -570,7 +415,7 @@ contract CharacterCard is AccessControl {
     card.attributesModified = uint32(block.number);
 
     // add the attributes required
-    card.attributes &= 0xFFFFFFFF ^ attributes;
+    card.attributes &= 0xFFFFFFFFFFFFFFFF ^ attributes;
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
@@ -632,9 +477,9 @@ contract CharacterCard is AccessControl {
    * @dev Allows setting card's rarity / attributes
    * @param to an address to assign created card ownership to
    * @param tokenId ID of the card to create
-   * @param rarity an integer, representing card's rarity
+   * @param attributes an integer, representing card's initial attributes set
    */
-  function mintWith(address to, uint16 tokenId, uint32 rarity) public {
+  function mintWith(address to, uint16 tokenId, uint64 attributes) public {
     // validate destination address
     require(to != address(0));
     require(to != address(this));
@@ -643,7 +488,7 @@ contract CharacterCard is AccessControl {
     require(__isSenderInRole(ROLE_TOKEN_CREATOR));
 
     // delegate call to `__mint`
-    __mint(to, tokenId, rarity);
+    __mint(to, tokenId, attributes);
 
     // fire ERC20 transfer event
     emit Transfer(address(0), to, 1);
@@ -687,7 +532,7 @@ contract CharacterCard is AccessControl {
     for(uint256 i = 0; i < n; i++) {
       // unpack card from data element
       // and delegate call to `__mint`
-      __mint(to, uint16(data[i] >> 8), 0xFF & data[i]);
+      __mint(to, uint16(data[i] >> 8), uint64(1 << uint256(0xFF & data[i])) - 1);
     }
 
     // fire ERC20 transfer event
@@ -903,7 +748,7 @@ contract CharacterCard is AccessControl {
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
   ///      checks only that the card doesn't exist yet
   /// @dev Must be kept private at all times
-  function __mint(address to, uint16 tokenId, uint32 rarity) private {
+  function __mint(address to, uint16 tokenId, uint64 attributes) private {
     // check that `tokenId` is not in the reserved space
     require(tokenId > RESERVED_TOKEN_ID_SPACE);
 
@@ -912,20 +757,16 @@ contract CharacterCard is AccessControl {
 
     // create a new card in memory
     Card memory card = Card({
-      creationTime: uint32(block.number),
-      rarity: rarity,
       attributesModified: 0,
-      attributes: uint32((uint64(1) << uint64(0x3F & rarity)) - 1),
-      lastGamePlayed: 0,
-      gamesPlayed: 0,
-      wins: 0,
-      losses: 0,
+      attributes: attributes,
+      stateModified: 0,
+      state: 0,
 
+      creationTime: uint32(block.number),
       id: tokenId,
       // card index within the owner's collection of cards
       // points to the place where the card will be placed to
       index: uint16(collections[to].length),
-      state: 0,
       ownershipModified: 0,
       owner: to
     });

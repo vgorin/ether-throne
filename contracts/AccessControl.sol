@@ -9,12 +9,12 @@ pragma solidity 0.4.23;
 contract AccessControl {
   /// @notice Role manager is responsible for assigning the roles
   /// @dev Role ROLE_ROLE_MANAGER allows executing addOperator/removeOperator
-  uint256 private constant ROLE_ROLE_MANAGER = 0x00100000;
+  uint256 private constant ROLE_ROLE_MANAGER = 0x10000000;
 
   /// @notice Feature manager is responsible for enabling/disabling
   ///      global features of the smart contract
   /// @dev Role ROLE_FEATURE_MANAGER allows enabling/disabling global features
-  uint256 private constant ROLE_FEATURE_MANAGER = 0x00200000;
+  uint256 private constant ROLE_FEATURE_MANAGER = 0x20000000;
 
   /// @dev Bitmask representing all the possible permissions (super admin role)
   uint256 private constant FULL_PRIVILEGES_MASK = 0xFFFFFFFF;//FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;

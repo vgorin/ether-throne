@@ -1,5 +1,5 @@
-// role constants copied from CharacterCard.sol as is
-const ROLE_CARD_CREATOR = 0x00040000;
+// role constants copied from AccessControl.sol as is
+const ROLE_TOKEN_CREATOR = 0x00040000;
 
 const INITIAL_TOKEN_PRICE = web3.toBigNumber(web3.toWei(50, 'finney'));
 
@@ -22,7 +22,7 @@ contract('Presale', function(accounts) {
 	it("presale: it is possible to buy a card", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE});
 
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong card balance after buying a single card");
@@ -30,7 +30,7 @@ contract('Presale', function(accounts) {
 	it("presale: it is possible to buy three cards", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE.times(2)});
 
 		assert.equal(3, await card.balanceOf(accounts[1]), "wrong card balance after buying three cards");
@@ -38,7 +38,7 @@ contract('Presale', function(accounts) {
 	it("presale: it is possible to buy usual card", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 		await presale.buyUsual.sendTransaction(0, 0x43D, {from: accounts[1], value: INITIAL_TOKEN_PRICE.times(5)});
 
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong card balance after buying usual card");
@@ -46,7 +46,7 @@ contract('Presale', function(accounts) {
 	it("presale: it is not possible to buy a card if sending too little ether", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
 		await assertThrowsAsync(async function () {
 			await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE.minus(1)});
@@ -55,7 +55,7 @@ contract('Presale', function(accounts) {
 	it("presale: the funds are transferred to the beneficiary correctly", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
 		const beneficiary = await presale.beneficiary();
 		const initialBeneficiaryBalance = await web3.eth.getBalance(beneficiary);
@@ -68,7 +68,7 @@ contract('Presale', function(accounts) {
 	it("presale: the change is transferred back to player correctly", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
 		const player = accounts[1];
 		const initialPlayerBalance = await web3.eth.getBalance(player);
@@ -86,7 +86,7 @@ contract('Presale', function(accounts) {
 	it("presale: the funds and change are transferred correctly", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
 		const player = accounts[1];
 
@@ -126,7 +126,7 @@ contract('Presale', function(accounts) {
 	it("presale: its possible to buy a card for someone else", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_CARD_CREATOR);
+		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
 		await presale.buyRandomFor.sendTransaction(accounts[1], {value: INITIAL_TOKEN_PRICE});
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong balance after buying a card for " + accounts[1])

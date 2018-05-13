@@ -1,25 +1,17 @@
+// role constants copied from AccessControl.sol as is
+const ROLE_ATTR_PROVIDER = 0x00100000;
+const ROLE_STATE_PROVIDER = 0x00200000;
+const ROLE_ROLE_MANAGER = 0x10000000;
+
 // role constants copied from CharacterCard.sol as is
-const ROLE_COMBAT_PROVIDER = 0x00020000;
 const ROLE_TOKEN_CREATOR = 0x00040000;
-const ROLE_ROLE_MANAGER = 0x00100000;
 
-// game outcome constants copied from CharacterCard.sol as is
-const GAME_OUTCOME_UNDEFINED = 0;
-const GAME_OUTCOME_DEFEAT = 1;
-const GAME_OUTCOME_DRAW = 2;
-const GAME_OUTCOME_VICTORY = 3;
-const LAST_GAME_OUTCOME_BITS = 0x3;
-
-// character card structure defs
-const RARITY_IDX = 1;
-const ATTRIBUTES_IDX = 3;
-const GAMES_PLAYED_IDX = 5;
-const WINS_COUNT_IDX = 6;
-const LOSSES_COUNT_IDX = 7;
-const CARD_ID_IDX = 8;
-const CARD_IDX_IDX = 9;
-const CARD_OWN_MOD_IDX = 11;
-const CARD_OWNER_IDX = 12;
+// character card structure definitions
+const ATTRIBUTES_IDX = 1;
+const CARD_ID_IDX = 5;
+const CARD_IDX_IDX = 6;
+const CARD_OWN_MOD_IDX = 7;
+const CARD_OWNER_IDX = 8;
 
 const CharacterCard = artifacts.require("./CharacterCard.sol");
 
@@ -106,7 +98,7 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.addOperator(accounts[0], 0x1);});
 	});
-	it("roles: ROLE_CARD_SELLER role is enough to mint a card", async function() {
+	it("roles: ROLE_TOKEN_CREATOR role is enough to mint a card", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR);
 		await card.mint.sendTransaction(accounts[1], 0x401, {from: accounts[1]});
@@ -122,44 +114,44 @@ contract('CharacterCard', function(accounts) {
 	it("permissions: add role", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR);
-		await card.addRole(accounts[1], ROLE_COMBAT_PROVIDER);
-		assert(hasRole(await card.userRoles(accounts[1]), ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER was not added");
+		await card.addRole(accounts[1], ROLE_STATE_PROVIDER);
+		assert(hasRole(await card.userRoles(accounts[1]), ROLE_STATE_PROVIDER), "role ROLE_COMBAT_PROVIDER was not added");
 	});
 	it("permissions: remove role", async function() {
 		const card = await CharacterCard.new();
-		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR | ROLE_COMBAT_PROVIDER);
-		assert(hasRole(await card.userRoles(accounts[1]), ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER must be enabled initially");
-		await card.removeRole(accounts[1], ROLE_COMBAT_PROVIDER);
-		assert(!hasRole(await card.userRoles(accounts[1]), ROLE_COMBAT_PROVIDER), "role ROLE_COMBAT_PROVIDER was not removed");
+		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR | ROLE_STATE_PROVIDER);
+		assert(hasRole(await card.userRoles(accounts[1]), ROLE_STATE_PROVIDER), "role ROLE_COMBAT_PROVIDER must be enabled initially");
+		await card.removeRole(accounts[1], ROLE_STATE_PROVIDER);
+		assert(!hasRole(await card.userRoles(accounts[1]), ROLE_STATE_PROVIDER), "role ROLE_COMBAT_PROVIDER was not removed");
 	});
 	it("permissions: impossible to add role without ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR);
-		await card.addOperator(accounts[2], ROLE_COMBAT_PROVIDER);
+		await card.addOperator(accounts[2], ROLE_STATE_PROVIDER);
 		await assertThrowsAsync(async function() {
 			await card.addRole.sendTransaction(accounts[2], ROLE_TOKEN_CREATOR, {from: accounts[1]});
 		});
 	});
 	it("permissions: impossible to remove role without ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
-		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR | ROLE_COMBAT_PROVIDER);
-		await card.addOperator(accounts[2], ROLE_TOKEN_CREATOR | ROLE_COMBAT_PROVIDER);
+		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR | ROLE_STATE_PROVIDER);
+		await card.addOperator(accounts[2], ROLE_TOKEN_CREATOR | ROLE_STATE_PROVIDER);
 		await assertThrowsAsync(async function() {
-			await card.removeRole.sendTransaction(accounts[2], ROLE_COMBAT_PROVIDER, {from: accounts[1]});
+			await card.removeRole.sendTransaction(accounts[2], ROLE_STATE_PROVIDER, {from: accounts[1]});
 		});
 	});
 	it("permissions: impossible to remove role which caller doesn't have", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR | ROLE_ROLE_MANAGER);
-		await card.addOperator(accounts[2], ROLE_TOKEN_CREATOR | ROLE_COMBAT_PROVIDER);
+		await card.addOperator(accounts[2], ROLE_TOKEN_CREATOR | ROLE_STATE_PROVIDER);
 		await assertThrowsAsync(async function() {
-			await card.removeRole.sendTransaction(accounts[2], ROLE_COMBAT_PROVIDER, {from: accounts[1]});
+			await card.removeRole.sendTransaction(accounts[2], ROLE_STATE_PROVIDER, {from: accounts[1]});
 		});
 	});
 	it("permissions: add role using ROLE_ROLE_MANAGER permission", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR | ROLE_ROLE_MANAGER);
-		await card.addOperator(accounts[2], ROLE_COMBAT_PROVIDER);
+		await card.addOperator(accounts[2], ROLE_STATE_PROVIDER);
 		await card.addRole.sendTransaction(accounts[2], ROLE_TOKEN_CREATOR, {from: accounts[1]});
 		assert(hasRole(await card.userRoles(accounts[2]), ROLE_TOKEN_CREATOR), "role ROLE_CARD_CREATOR was not added");
 	});
@@ -168,7 +160,7 @@ contract('CharacterCard', function(accounts) {
 		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR | ROLE_ROLE_MANAGER);
 		await card.addOperator(accounts[2], ROLE_TOKEN_CREATOR);
 		await assertThrowsAsync(async function() {
-			await card.addRole.sendTransaction(accounts[2], ROLE_COMBAT_PROVIDER, {from: accounts[1]});
+			await card.addRole.sendTransaction(accounts[2], ROLE_STATE_PROVIDER, {from: accounts[1]});
 		});
 	});
 	it("permissions: impossible to add role to non-existing operator", async function() {
@@ -238,12 +230,9 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint(card.address, 0x401);});
 	});
-	it("mint: impossible to mint a card without ROLE_CARD_CREATOR permission", async function() {
+	it("mint: minting a card requires ROLE_TOKEN_CREATOR permission", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.mint.sendTransaction(accounts[1], 0x401, {from: accounts[1]});});
-	});
-	it("mint: minting a card requires ROLE_CARD_CREATOR permission", async function() {
-		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR);
 		await card.mint.sendTransaction(accounts[1], 0x401, {from: accounts[1]});
 	});
@@ -252,13 +241,13 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.mint(accounts[0], 0x0)});
 	});
 
-	it("mintWith: mint a card with rarity and check integrity of the structures involved", async function() {
+	it("mintWith: mint a card with attributes and check integrity of the structures involved", async function() {
 		const card = await CharacterCard.new();
-		await card.mintWith(accounts[0], 0x401, 32);
-		await card.mintWith(accounts[0], 0x402, 16);
-		await card.mintWith(accounts[0], 0x403, 10);
-		await card.mintWith(accounts[0], 0x404, 7);
-		await card.mintWith(accounts[0], 0x405, 5);
+		await card.mintWith(accounts[0], 0x401, (1 << 32) - 1);
+		await card.mintWith(accounts[0], 0x402, (1 << 16) - 1);
+		await card.mintWith(accounts[0], 0x403, (1 << 10) - 1);
+		await card.mintWith(accounts[0], 0x404, (1 << 7) - 1);
+		await card.mintWith(accounts[0], 0x405, (1 << 5) - 1);
 		assert.equal(0x401, await card.collections(accounts[0], 0), accounts[0] + " card collection doesn't contain minted card");
 		await assertThrowsAsync(async function() {await card.collections(accounts[0], 5);});
 
@@ -271,20 +260,15 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(0x401, card1[CARD_ID_IDX], "newly minted card 1 has wrong id");
 		assert.equal(0, card1[CARD_IDX_IDX], "newly minted card 1 has wrong index");
 		assert.equal(accounts[0], card1[CARD_OWNER_IDX], "newly minted card 1 has wrong owner address");
-		assert.equal(32, card1[RARITY_IDX], "newly minted card 1 has wrong rarity value");
-		assert.equal(0xFFFFFFFF, card1[ATTRIBUTES_IDX], "newly minted card 1 has wrong attributes");
-		assert.equal(16, card2[RARITY_IDX], "newly minted card 2 has wrong rarity value");
+		// assert.equal(0xFFFFFFFF, card1[ATTRIBUTES_IDX], "newly minted card 1 has wrong attributes");
 		assert.equal(0xFFFF, card2[ATTRIBUTES_IDX], "newly minted card 2 has wrong attributes");
-		assert.equal(10, card3[RARITY_IDX], "newly minted card 3 has wrong rarity value");
 		assert.equal(0x03FF, card3[ATTRIBUTES_IDX], "newly minted card 3 has wrong attributes");
-		assert.equal(7, card4[RARITY_IDX], "newly minted card 4 has wrong rarity value");
 		assert.equal(0x7F, card4[ATTRIBUTES_IDX], "newly minted card 4 has wrong attributes");
-		assert.equal(5, card5[RARITY_IDX], "newly minted card 5 has wrong rarity value");
 		assert.equal(0x1F, card5[ATTRIBUTES_IDX], "newly minted card 5 has wrong attributes");
 	});
 	it("mintWith: impossible to mint a card with zero ID", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.mintWith(accounts[0], 0x0, 3)});
+		await assertThrowsAsync(async function() {await card.mintWith(accounts[0], 0x0, (1 << 3) - 1)});
 	});
 
 	it("mintCards: batch mint few cards", async function() {
@@ -312,20 +296,17 @@ contract('CharacterCard', function(accounts) {
 		assert.equal(accounts[0], card2[CARD_OWNER_IDX], "wrong card 0x402 owner after batch mint");
 		assert.equal(accounts[0], card3[CARD_OWNER_IDX], "wrong card 0x403 owner after batch mint");
 	});
-	it("mintCards: batch mint requires sender to have ROLE_CARD_CREATOR permission", async function() {
-		const card = await CharacterCard.new();
-		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR);
-		await card.mintCards.sendTransaction(
-			accounts[0], [0x040103, 0x040203, 0x040303], {from: accounts[1]}
-		);
-	});
-	it("mintCards: impossible to batch mint cards without ROLE_CARD_CREATOR permission", async function() {
+	it("mintCards: batch mint requires sender to have ROLE_TOKEN_CREATOR permission", async function() {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {
 			await card.mintCards.sendTransaction(
 				accounts[0], [0x040103, 0x040203, 0x040303], {from: accounts[1]}
 			);
 		});
+		await card.addOperator(accounts[1], ROLE_TOKEN_CREATOR);
+		await card.mintCards.sendTransaction(
+			accounts[0], [0x040103, 0x040203, 0x040303], {from: accounts[1]}
+		);
 	});
 	it("mintCards: impossible to batch mint to a zero address", async function() {
 		const card = await CharacterCard.new();
@@ -701,10 +682,11 @@ contract('CharacterCard', function(accounts) {
 		await card.removeAttributes(0x401, 2);
 		assert.equal(5, await card.getAttributes(0x401), "wrong attributes for card 0x401");
 	});
-	it("card updates: setting attributes requires ROLE_COMBAT_PROVIDER permissions", async function() {
+	it("card updates: setting attributes requires ROLE_ATTR_PROVIDER permissions", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
-		await card.addOperator(accounts[1], ROLE_COMBAT_PROVIDER);
+		await assertThrowsAsync(async function() {await card.setAttributes.sendTransaction(0x401, 7, {from: accounts[1]});});
+		await card.addOperator(accounts[1], ROLE_ATTR_PROVIDER);
 		await card.setAttributes.sendTransaction(0x401, 7, {from: accounts[1]});
 		await card.addAttributes.sendTransaction(0x401, 1, {from: accounts[1]});
 		await card.removeAttributes.sendTransaction(0x401, 2, {from: accounts[1]});
@@ -753,271 +735,29 @@ contract('CharacterCard', function(accounts) {
 		await assertThrowsAsync(async function() {await card.setLockedBitmask.sendTransaction(0x8000, {from: accounts[1]});});
 	});
 
-	it("battle: it is possible to play a game", async function() {
+	it("getPacked: check initial card integrity", async function() {
 		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DRAW);
-		assert.equal(1, (await card.cards(0x401))[GAMES_PLAYED_IDX], "card 0x401 games played counter is incorrect");
-		assert.equal(1, (await card.cards(0x402))[GAMES_PLAYED_IDX], "card 0x402 games played counter is incorrect");
-	});
-	it("battle: game counters are stored correctly", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_VICTORY); // card1 won card2
-
-		const card1V = await card.cards(0x401);
-		const card2V = await card.cards(0x402);
-		assert.equal(1, card1V[GAMES_PLAYED_IDX], "card 0x401 games played counter is incorrect");
-		assert.equal(1, card1V[WINS_COUNT_IDX], "card 0x401 wins counter is incorrect");
-		assert.equal(0, card1V[LOSSES_COUNT_IDX], "card 0x401 losses counter is incorrect");
-		assert.equal(1, card2V[GAMES_PLAYED_IDX], "card 0x402 games played counter is incorrect");
-		assert.equal(0, card2V[WINS_COUNT_IDX], "card 0x402 wins counter is incorrect");
-		assert.equal(1, card2V[LOSSES_COUNT_IDX], "card 0x402 losses counter is incorrect");
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DEFEAT); // card1 lost card2
-
-		const card1D = await card.cards(0x401);
-		const card2D = await card.cards(0x402);
-		assert.equal(2, card1D[GAMES_PLAYED_IDX], "card 0x401 games played counter is incorrect");
-		assert.equal(1, card1D[WINS_COUNT_IDX], "card 0x401 wins counter is incorrect");
-		assert.equal(1, card1D[LOSSES_COUNT_IDX], "card 0x401 losses counter is incorrect");
-		assert.equal(2, card2D[GAMES_PLAYED_IDX], "card 0x402 games played counter is incorrect");
-		assert.equal(1, card2D[WINS_COUNT_IDX], "card 0x402 wins counter is incorrect");
-		assert.equal(1, card2D[LOSSES_COUNT_IDX], "card 0x402 losses counter is incorrect");
-	});
-	it("battle: last game outcome is GAME_OUTCOME_UNDEFINED initially", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		const state = await card.getState(0x401);
-		const outcome = LAST_GAME_OUTCOME_BITS & state;
-		assert.equal(GAME_OUTCOME_UNDEFINED, outcome, "initial game outcome for any card must be GAME_OUTCOME_UNDEFINED");
-	});
-	it("battle: last game outcome is stored correctly", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DRAW);
-		let state1 = await card.getState(0x401);
-		let state2 = await card.getState(0x402);
-		let outcome1 = LAST_GAME_OUTCOME_BITS & state1;
-		let outcome2 = LAST_GAME_OUTCOME_BITS & state2;
-		assert.equal(GAME_OUTCOME_DRAW, outcome1, "card 0x401 last game outcome is incorrect");
-		assert.equal(GAME_OUTCOME_DRAW, outcome2, "card 0x402 last game outcome is incorrect");
-	});
-	it("battle: last game outcome is updated correctly", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DRAW);
-		let state1 = await card.getState(0x401);
-		let state2 = await card.getState(0x402);
-		let outcome1 = LAST_GAME_OUTCOME_BITS & state1;
-		let outcome2 = LAST_GAME_OUTCOME_BITS & state2;
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_VICTORY);
-		state1 = await card.getState(0x401);
-		state2 = await card.getState(0x402);
-		outcome1 = LAST_GAME_OUTCOME_BITS & state1;
-		outcome2 = LAST_GAME_OUTCOME_BITS & state2;
-		assert.equal(GAME_OUTCOME_VICTORY, outcome1, "card 0x401 last game outcome is incorrect (2nd game)");
-		assert.equal(GAME_OUTCOME_DEFEAT, outcome2, "card 0x402 last game outcome is incorrect (2nd game)");
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DEFEAT);
-		state1 = await card.getState(0x401);
-		state2 = await card.getState(0x402);
-		outcome1 = LAST_GAME_OUTCOME_BITS & state1;
-		outcome2 = LAST_GAME_OUTCOME_BITS & state2;
-		assert.equal(GAME_OUTCOME_DEFEAT, outcome1, "card 0x401 last game outcome is incorrect (3d game)");
-		assert.equal(GAME_OUTCOME_VICTORY, outcome2, "card 0x402 last game outcome is incorrect (3d game)");
-	});
-	it("battle: impossible to play a card game with oneself", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[0], 0x402);
-		await assertThrowsAsync(async function() {await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DRAW);});
-	});
-	it("battle: impossible to play a card game with one non-existent card", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await assertThrowsAsync(async function() {await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DRAW);});
-		await assertThrowsAsync(async function() {await card.battleComplete(0x402, 0x401, GAME_OUTCOME_DRAW);});
-	});
-	it("battle: impossible to play a card game with both non-existent cards", async function() {
-		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.battleComplete(0x401, 0x402, GAME_OUTCOME_DRAW);});
-		await assertThrowsAsync(async function() {await card.battleComplete(0x402, 0x401, GAME_OUTCOME_DRAW);});
-	});
-	it("battle: impossible to update card battle without ROLE_COMBAT_PROVIDER permission", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-		await assertThrowsAsync(async function() {
-			await card.battleComplete.sendTransaction(0x401, 0x402, GAME_OUTCOME_DRAW, {from: accounts[1]});
-		});
-	});
-	it("battle: ROLE_COMBAT_PROVIDER permission is enough to update card battle", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-		await card.addOperator(accounts[1], ROLE_COMBAT_PROVIDER);
-		await card.battleComplete.sendTransaction(0x401, 0x402, GAME_OUTCOME_DRAW, {from: accounts[1]});
-		assert.equal(1, (await card.cards(0x401))[GAMES_PLAYED_IDX], "card 0x401 games played counter is incorrect");
-		assert.equal(1, (await card.cards(0x402))[GAMES_PLAYED_IDX], "card 0x402 games played counter is incorrect");
-	});
-
-	it("battle: batch update", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-
-		await card.battlesComplete(0x401, 0x402, 149999, 50001, 299999, GAME_OUTCOME_VICTORY);
-
-		// check the results
-		const card1 = await card.cards(0x401);
-		const card2 = await card.cards(0x402);
-		assert(299999, card1[GAMES_PLAYED_IDX], "card 0x401 has wrong total games played counter");
-		assert(299999, card2[GAMES_PLAYED_IDX], "card 0x402 has wrong total games played counter");
-		assert(149999, card1[WINS_COUNT_IDX], "card 0x401 has wrong wins counter");
-		assert( 50001, card2[WINS_COUNT_IDX], "card 0x402 has wrong wins counter");
-		assert( 50001, card1[LOSSES_COUNT_IDX], "card 0x401 has wrong losses counter");
-		assert(149999, card2[LOSSES_COUNT_IDX], "card 0x402 has wrong losses counter");
-	});
-	it("battle: impossible to batch update if gamesPlayed is zero", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-
-		// check it throws if gamesPlayed is zero
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 0, 0, 0, GAME_OUTCOME_DRAW);
-		});
-	});
-	it("battle: impossible to batch update if wins + loses is greater then gamesPlayed", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-
-		// check it throws if wins + loses is greater then gamesPlayed
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 1, 1, 1, GAME_OUTCOME_VICTORY);
-		});
-	});
-	it("battle: impossible to batch update if lastGameOutcome is inconsistent with wins/losses", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-
-		// check it throws if wins + loses is greater then gamesPlayed
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 0, 1, 1, GAME_OUTCOME_VICTORY);
-		});
-		// check it throws if wins + loses is greater then gamesPlayed
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 1, 0, 1, GAME_OUTCOME_DEFEAT);
-		});
-		// check it throws if wins + loses is greater then gamesPlayed
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 1, 0, 1, GAME_OUTCOME_DRAW);
-		});
-	});
-	it("battle: arithmetic overflow check in input parameters", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-
-		// check arithmetic overflow on wins
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 4294967295, 1, 1, GAME_OUTCOME_VICTORY);
-		});
-		// check arithmetic overflow on losses
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 1, 4294967295, 1, GAME_OUTCOME_VICTORY);
-		});
-	});
-	it("battle: arithmetic overflow check on card state", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x401);
-		await card.mint(accounts[1], 0x402);
-		await card.mint(accounts[2], 0x403);
-
-		await card.battlesComplete(0x401, 0x402, 1, 4294967294, 4294967295, GAME_OUTCOME_VICTORY);
-
-		// check arithmetic overflow on gamesPlayed card1
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x401, 0x402, 1, 0, 1, GAME_OUTCOME_VICTORY);
-		});
-
-		// check arithmetic overflow on gamesPlayed card2
-		await assertThrowsAsync(async function() {
-			await card.battlesComplete(0x403, 0x402, 1, 0, 1, GAME_OUTCOME_VICTORY);
-		});
-	});
-
-	it("getCard: check initial card integrity", async function() {
-		const card = await CharacterCard.new();
-		await card.mintWith(accounts[0], 0x401, 3);
-		const tuple = await card.getCard(0x401);
-		const creationTime = shiftAndTrim(tuple[0], 224, 32);
-		const rarity = shiftAndTrim(tuple[0], 192, 32);
-		const attributesModified = shiftAndTrim(tuple[0], 160, 32);
-		const attributes =  shiftAndTrim(tuple[0], 128, 32);
-		const lastGamePlayed = shiftAndTrim(tuple[0], 96, 32);
-		const gamesPlayed = shiftAndTrim(tuple[0], 64, 32);
-		const wins = shiftAndTrim(tuple[0], 32, 32);
-		const losses = shiftAndTrim(tuple[0], 0, 32);
-		const id = shiftAndTrim(tuple[1], 240, 16);
-		const index = shiftAndTrim(tuple[1], 224, 16);
-		const state = shiftAndTrim(tuple[1], 192, 32);
+		await card.mintWith(accounts[0], 0x401, (1 << 3) - 1);
+		const tuple = await card.getPacked(0x401);
+		const attributesModified = shiftAndTrim(tuple[0], 224, 32);
+		const attributes =  shiftAndTrim(tuple[0], 160, 64);
+		const stateModified = shiftAndTrim(tuple[0], 128, 32);
+		const state = shiftAndTrim(tuple[0], 0, 128);
+		const creationTime = shiftAndTrim(tuple[1], 224, 32);
+		const id = shiftAndTrim(tuple[1], 208, 16);
+		const index = shiftAndTrim(tuple[1], 192, 16);
 		const ownershipModified = shiftAndTrim(tuple[1], 160, 32);
 		const address = shiftAndTrim(tuple[1], 0, 160);
-		assert(creationTime > 0, "card 0x401 has zero creation time");
-		assert.equal(3, rarity, "card 0x401 has wrong rarity: " + rarity);
 		assert.equal(0, attributesModified, "card 0x401 has non-zero attributes modified date");
 		assert.equal(0x7, attributes, "card 0x401 has wrong attributes: " + attributes);
-		assert.equal(0, lastGamePlayed, "card 0x401 has non-zero last game played date" + lastGamePlayed);
-		assert.equal(0, gamesPlayed, "card 0x401 has non-zero games played counter");
-		assert.equal(0, wins, "card 0x401 has non-zero wins counter");
-		assert.equal(0, losses, "card 0x401 has non-zero losses counter");
+		assert.equal(0, stateModified, "card 0x401 has wrong state: " + stateModified);
+		assert.equal(0, state, "card 0x401 has wrong state: " + state);
+		assert(creationTime > 0, "card 0x401 has zero creation time");
 		assert.equal(0x401, id, "card 0x401 has wrong id: " + id);
 		assert.equal(0, index, "card 0x401 has non-zero index");
-		assert.equal(0, state, "card 0x401 has wrong state: " + state);
 		assert.equal(0, ownershipModified, "card 0x401 has non-zero ownership modified date");
 		assert.equal(accounts[0], address, "card 0x401 has wrong owner: " + address);
 	});
-	it("getCard: check cards integrity after playing a game", async function() {
-		const card = await CharacterCard.new();
-		await card.mint(accounts[0], 0x4010);
-		await card.mintWith(accounts[0], 0x401, 0xF);
-		await card.mint(accounts[1], 0x402);
-		await card.battleComplete(0x401, 0x402, GAME_OUTCOME_VICTORY);
-		const tuple = await card.getCard(0x401);
-		const creationTime = shiftAndTrim(tuple[0], 224, 32);
-		const rarity = shiftAndTrim(tuple[0], 192, 32);
-		const attributesModified = shiftAndTrim(tuple[0], 160, 32);
-		const attributes =  shiftAndTrim(tuple[0], 128, 32);
-		const lastGamePlayed = shiftAndTrim(tuple[0], 96, 32);
-		const gamesPlayed = shiftAndTrim(tuple[0], 64, 32);
-		const wins = shiftAndTrim(tuple[0], 32, 32);
-		const losses = shiftAndTrim(tuple[0], 0, 32);
-		const id = shiftAndTrim(tuple[1], 240, 16);
-		const index = shiftAndTrim(tuple[1], 224, 16);
-		const state = shiftAndTrim(tuple[1], 192, 32);
-		const ownershipModified = shiftAndTrim(tuple[1], 160, 32);
-		const address = shiftAndTrim(tuple[1], 0, 160);
-		assert(creationTime > 0, "card 0x401 has zero creation time");
-		assert.equal(0xF, rarity, "card 0x401 has wrong rarity: " + rarity);
-		assert.equal(0x7FFF, attributes, "card 0x401 has wrong attributes: " + attributes);
-		assert.equal(0, attributesModified, "card 0x401 has non-zero attributes modified date");
-		assert(lastGamePlayed > 0, "card 0x401 has zero last game played date");
-		assert.equal(1, gamesPlayed, "card 0x401 has wrong games played counter: " + gamesPlayed);
-		assert.equal(1, wins, "card 0x401 has wrong wins counter: " + wins);
-		assert.equal(0, losses, "card 0x401 has non-zero losses counter");
-		assert.equal(0x401, id, "card 0x401 has wrong id: " + id);
-		assert.equal(1, index, "card 0x401 has wrong index: " + index);
-		assert.equal(3, state, "card 0x401 has wrong state: " + state);
-		assert.equal(0, ownershipModified, "card 0x401 has non-zero ownership modified date");
-		assert.equal(accounts[0], address, "card 0x401 has wrong owner: " + address);
-	});
-
 });
 
 // equal to `number >> n & (1 << k) - 1` but works with BigNumber
