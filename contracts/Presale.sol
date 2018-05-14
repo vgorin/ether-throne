@@ -22,7 +22,7 @@ contract Presale {
   uint32 public constant PRESALE_VERSION = 0x4;
 
   /// @dev Version of the CharacterCard smart contract to work with
-  /// @dev See `CharacterCard.version`/`CharacterCard.version()`
+  /// @dev See `CharacterCard.CHAR_CARD_VERSION`
   uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0xB;
 
   /// @dev ID of the first card to sell
