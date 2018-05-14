@@ -273,6 +273,9 @@ contract CharacterCard is AccessControl {
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_STATE_PROVIDER));
 
+    // set state modified timestamp
+    cards[tokenId].stateModified = uint32(block.number);
+
     // set the state required
     cards[tokenId].state = state;
 
@@ -294,6 +297,9 @@ contract CharacterCard is AccessControl {
 
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_STATE_PROVIDER));
+
+    // set state modified timestamp
+    cards[tokenId].stateModified = uint32(block.number);
 
     // add the state attributes required
     cards[tokenId].state |= state;
@@ -317,7 +323,10 @@ contract CharacterCard is AccessControl {
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_STATE_PROVIDER));
 
-    // add the attributes required
+    // set state modified timestamp
+    cards[tokenId].stateModified = uint32(block.number);
+
+    // add the state attributes required
     cards[tokenId].state &= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF ^ state;
 
     // persist card back into the storage
@@ -695,7 +704,7 @@ contract CharacterCard is AccessControl {
     approvals[tokenId] = to;
 
     // emit an ERC721 event
-    emit TokenApproval(msg.sender, to, tokenId);
+    emit TokenApproval(from, to, tokenId);
   }
 
   /**

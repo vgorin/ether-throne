@@ -167,10 +167,16 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await assertThrowsAsync(async function() {await card.addRole(accounts[1], 0x1);});
 	});
-	it("permissions: impossible to remove last role leaving operator without any permissions", async function() {
+	it("permissions: impossible to remove role which manager doesn't have", async function() {
 		const card = await CharacterCard.new();
 		await card.addOperator(accounts[1], 0x1);
-		await assertThrowsAsync(async function() {await card.removeRole(accounts[1], 0x1);});
+		await card.addOperator(accounts[2], ROLE_ROLE_MANAGER);
+		await assertThrowsAsync(async function() {
+			await card.removeRole.sendTransaction(accounts[1], 0x1, {from: accounts[2]});
+		});
+		await card.addRole(accounts[2], 0x1);
+		await card.removeRole.sendTransaction(accounts[1], 0x1, {from: accounts[2]});
+		assert.equal(0, await card.userRoles(accounts[1]), "role was not removed for account " + accounts[1]);
 	});
 
 	it("mint: mint a card", async function() {

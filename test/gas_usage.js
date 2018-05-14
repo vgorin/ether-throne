@@ -14,12 +14,12 @@ const BattleProvider = artifacts.require("./BattleProvider.sol");
 const Presale = artifacts.require("./Presale.sol");
 
 contract('Gas Usage', function(accounts) {
-	it("deployment: deploying a character cards requires 4319119 gas", async function() {
+	it("deployment: deploying a character cards requires 4722932 gas", async function() {
 		const card = await CharacterCard.new();
 		const txHash = card.transactionHash;
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
-		assertEqual(4319119, gasUsed, "character card deployment gas usage doesn't match: " + gasUsed);
+		assertEqual(4722932, gasUsed, "character card deployment gas usage doesn't match: " + gasUsed);
 	});
 	it("deployment: deploying a presale requires 4186439 gas", async function() {
 		const card = await CharacterCard.new();
@@ -109,7 +109,7 @@ contract('Gas Usage', function(accounts) {
 		assertEqual(444577, gasUsed, "buying three cards gas usage doesn't match: " + gasUsed);
 	});
 
-	it("battle: playing a game requires 140006 gas", async function() {
+	it("battle: playing a game requires 150830 gas", async function() {
 		const card = await CharacterCard.new();
 		const battleProvider = await BattleProvider.new(card.address);
 		await card.addOperator(battleProvider.address, ROLE_STATE_PROVIDER);
@@ -117,7 +117,7 @@ contract('Gas Usage', function(accounts) {
 		await card.mint(accounts[1], 0x402);
 		const result = await battleProvider.battleComplete(0x401, 0x402, GAME_OUTCOME_DRAW);
 		const gasUsed = result.receipt.gasUsed;
-		assertEqual(140006, gasUsed, "playing a game gas usage doesn't match: " + gasUsed);
+		assertEqual(150830, gasUsed, "playing a game gas usage doesn't match: " + gasUsed);
 	});
 });
 
