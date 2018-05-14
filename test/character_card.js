@@ -2,6 +2,7 @@
 const ROLE_ATTR_PROVIDER = 0x00100000;
 const ROLE_STATE_PROVIDER = 0x00200000;
 const ROLE_ROLE_MANAGER = 0x10000000;
+const ROLE_FULL_ADMIN = 0xFFFFFFFF;
 
 // role constants copied from CharacterCard.sol as is
 const ROLE_TOKEN_CREATOR = 0x00040000;
@@ -58,7 +59,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("roles: operator removes another operator", async function() {
 		const card = await CharacterCard.new();
-		await card.addOperator(accounts[1], ROLE_ROLE_MANAGER);
+		await card.addOperator(accounts[1], ROLE_FULL_ADMIN);
 		await card.addOperator(accounts[2], 0x1);
 		assert(await card.userRoles(accounts[2]) > 0, accounts[2] + " must be an operator but its not");
 		await card.removeOperator.sendTransaction(accounts[2], {from: accounts[1]});
