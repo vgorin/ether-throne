@@ -178,11 +178,11 @@ contract CharacterCard is AccessControl {
   event Minted(address indexed _by, address indexed _to, uint16 _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a token, address `_from` is zero
-  event TokenTransfer(address indexed _by, address indexed _from, address indexed _to, uint16 _tokenId);
+  event TokenTransfer(address indexed _from, address indexed _to, uint16 _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a token, address `_from` is zero
   /// @dev ERC20 compliant event
-  event Transfer(address indexed _by, address indexed _from, address indexed _to, uint256 _value);
+  event Transfer(address indexed _from, address indexed _to, uint256 _value);
   /// @dev Fired in approveToken()
   event TokenApproval(address indexed _owner, address indexed _approved, uint16 _tokenId);
   /// @dev Fired in approve()
@@ -526,7 +526,7 @@ contract CharacterCard is AccessControl {
     __mint(to, tokenId, rarity);
 
     // fire ERC20 transfer event
-    emit Transfer(msg.sender, address(0), to, 1);
+    emit Transfer(address(0), to, 1);
   }
 
   /**
@@ -571,67 +571,67 @@ contract CharacterCard is AccessControl {
     }
 
     // fire ERC20 transfer event
-    emit Transfer(msg.sender, address(0), to, n);
+    emit Transfer(address(0), to, n);
   }
 
   /**
-   * @notice Transfers ownership rights of `n` *arbitrary* tokens
-   *      to a new owner specified by address `to`
+   * @notice Transfers ownership rights of `_value` *arbitrary* tokens
+   *      to a new owner specified by address `_to`
    * @dev The tokens are taken from the end of the owner's token collection
    * @dev Requires the sender of the transaction to be an owner
-   *      of at least `n` tokens
+   *      of at least `_value` tokens
    * @dev For security reasons this function will throw if transferring
-   *      less tokens than is owned by the sender (`n != balanceOf(msg.sender)`) -
+   *      less tokens than is owned by the sender (`_value != balanceOf(msg.sender)`) -
    *      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
-   * @dev Consumes around 38521 + 511735 * (`n` / 16) gas for `n` multiple of 16
+   * @dev Consumes around 38521 + 511735 * (`_value` / 16) gas for `_value` multiple of 16
    * @dev ERC20 compliant transfer(address, uint)
-   * @param to an address where to transfer tokens to,
+   * @param _to an address where to transfer tokens to,
    *        new owner of the tokens
-   * @param n number of tokens to transfer
+   * @param _value number of tokens to transfer
    */
-  function transfer(address to, uint16 n) public {
+  function transfer(address _to, uint256 _value) public {
     // check if ERC20 transfers feature is enabled
     require(__isFeatureEnabled(ERC20_TRANSFERS));
 
     // delegate call to unsafe `__transfer`
-    __transfer(msg.sender, to, n);
+    __transfer(msg.sender, _to, _value);
   }
 
   /**
    * @notice A.k.a "transfer on behalf"
-   * @notice Transfers ownership rights of `n` *arbitrary* tokens
-   *      to a new owner specified by address `to`
+   * @notice Transfers ownership rights of `_value` *arbitrary* tokens
+   *      to a new owner specified by address `_to`
    * @dev The tokens are taken from the end of the owner's token collection
    * @dev Requires the sender of the transaction to be authorized
-   *      to "spend" at least `n` tokens
+   *      to "spend" at least `_value` tokens
    * @dev The sender is granted an authorization to "spend" the tokens
    *      by the owner of the tokens using `approve` function
    * @dev For security reasons this function will throw if transferring
-   *      less tokens than is owned by an owner (`n != balanceOf(from)`) -
+   *      less tokens than is owned by an owner (`_value != balanceOf(_from)`) -
    *      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
-   * @param from an address from where to take tokens from,
+   * @param _from an address from where to take tokens from,
    *        current owner of the tokens
-   * @param to an address where to transfer tokens to,
+   * @param _to an address where to transfer tokens to,
    *        new owner of the tokens
-   * @param n number of tokens to transfer
+   * @param _value number of tokens to transfer
    */
-  function transferFrom(address from, address to, uint16 n) public {
+  function transferFrom(address _from, address _to, uint256 _value) public {
     // check if ERC20 transfers on behalf feature is enabled
     require(__isFeatureEnabled(ERC20_TRANSFERS_ON_BEHALF));
 
     // call sender gracefully - `operator`
     address operator = msg.sender;
 
-    // we assume `from` has at least n tokens to transfer,
+    // we assume `from` has at least `_value` tokens to transfer,
     // this will be explicitly checked in `__transfer`
 
     // fetch how much approvals left for an operator
-    uint256 approvalsLeft = allowance[from][operator];
+    uint256 approvalsLeft = allowance[_from][operator];
 
-    // operator must be approved to transfer `n` tokens on behalf
+    // operator must be approved to transfer `_value` tokens on behalf
     // otherwise this is equal to regular transfer,
     // where `from` is basically a transaction sender and owner of the tokens
-    if(approvalsLeft < n) {
+    if(approvalsLeft < _value) {
       // transaction sender doesn't have required amount of approvals left
       // we will treat him as an owner trying to send his own tokens
       // try to perform regular ERC20 transfer
@@ -640,15 +640,15 @@ contract CharacterCard is AccessControl {
       require(__isFeatureEnabled(ERC20_TRANSFERS));
 
       // check `from` to be `operator` (transaction sender):
-      require(from == operator);
+      require(_from == operator);
     }
     else {
       // update operator's approvals left + emit an event
-      __decreaseOperatorApprovalsLeft(from, operator, n);
+      __decreaseOperatorApprovalsLeft(_from, operator, _value);
     }
 
     // delegate call to unsafe `__transfer`
-    __transfer(from, to, n);
+    __transfer(_from, _to, _value);
   }
 
   /**
@@ -834,7 +834,7 @@ contract CharacterCard is AccessControl {
     // fire Minted event
     emit Minted(msg.sender, to, tokenId);
     // fire ERC721 transfer event
-    emit TokenTransfer(msg.sender, address(0), to, tokenId);
+    emit TokenTransfer(address(0), to, tokenId);
   }
 
   /// @dev Performs a transfer of `n` tokens from address `from` to address `to`
@@ -845,7 +845,7 @@ contract CharacterCard is AccessControl {
   ///      as long as feature `ERC20_INSECURE_TRANSFERS` is not enabled
   /// @dev Is save to call from `transfer(to, n)` since it doesn't need any additional checks
   /// @dev Must be kept private at all times
-  function __transfer(address from, address to, uint16 n) private {
+  function __transfer(address from, address to, uint256 n) private {
     // validate source and destination address
     require(to != address(0));
     require(to != from);
@@ -872,7 +872,7 @@ contract CharacterCard is AccessControl {
     __move(from, to, n);
 
     // fire a ERC20 transfer event
-    emit Transfer(msg.sender, from, to, n);
+    emit Transfer(from, to, n);
   }
 
   /// @dev Performs a transfer of a token `tokenId` from address `from` to address `to`
@@ -914,10 +914,10 @@ contract CharacterCard is AccessControl {
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
 
     // fire ERC721 transfer event
-    emit TokenTransfer(msg.sender, from, to, tokenId);
+    emit TokenTransfer(from, to, tokenId);
 
     // fire a ERC20 transfer event
-    emit Transfer(msg.sender, from, to, 1);
+    emit Transfer(from, to, 1);
   }
 
   /// @dev Clears approved address for a particular token
@@ -954,21 +954,25 @@ contract CharacterCard is AccessControl {
   /// @dev Move `n` the tokens from owner `from` to a new owner `to`
   /// @dev Unsafe, doesn't check for consistence
   /// @dev Must be kept private at all times
-  function __move(address from, address to, uint16 n) private {
+  function __move(address from, address to, uint256 n) private {
     // get a reference to the `from` collection
     uint16[] storage source = collections[from];
 
     // get a reference to the `to` collection
     uint16[] storage destination = collections[to];
 
+    // `source` and `destination` arrays size is limited to uint16 space
+    assert(source.length < 65536);
+    assert(destination.length < 65536);
+
     // check `n` is in safe bounds
     require(n <= source.length);
 
     // initial position of the tokens to be moved in `destination` array
-    uint16 offset = uint16(destination.length);
+    uint256 offset = destination.length;
 
     // copy last `n` tokens from `source` to `destination`
-    for(uint16 i = uint16(source.length) - n; i < source.length; i++) {
+    for(uint256 i = source.length - n; i < source.length; i++) {
       // get the link to a card from the source collection
       Card storage card = cards[source[i]];
 
@@ -981,7 +985,7 @@ contract CharacterCard is AccessControl {
       require(card.state & lockedBitmask == 0);
 
       // update card index to position in `destination` collection
-      card.index = offset + i;
+      card.index = uint16(offset + i);
 
       // update card owner
       card.owner = to;
@@ -993,7 +997,7 @@ contract CharacterCard is AccessControl {
       destination.push(source[i]);
 
       // emit ERC721 transfer event
-      emit TokenTransfer(msg.sender, from, to, source[i]);
+      emit TokenTransfer(from, to, source[i]);
     }
 
     // trim source (`from`) collection array by `n`

@@ -16,7 +16,7 @@
 			box-shadow: none;
 		}
 		.hidden {
-			display: none;
+			/*display: none;*/
 		}
 	</style>
 	<script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
@@ -26,12 +26,12 @@
 <table>
 	<tr>
 		<td><label for="CharacterCardAddress" title="Deployed Instance Address">Character Card (ERC721) Instance Address:</label></td>
-		<td><input id="CharacterCardAddress" type="text" value="0xa96ea5c58b0a95a09e7805ce97ae02107b3454e4" size="42"/></td>
+		<td><input id="CharacterCardAddress" type="text" value="0x6919decb3ea1f2280eab15706b57406eb0471749" size="42"/></td>
 		<td><input type="button" value="Connect" onclick="connect()"/></td>
 	</tr>
 	<tr>
 		<td><label for="PresaleAddress" title="Deployed Instance Address">Presale Instance Address:</label></td>
-		<td><input id="PresaleAddress" type="text" value="0xad9ec2e6228c91c2591f6b45d931f5a06eafcf35" size="42"/></td>
+		<td><input id="PresaleAddress" type="text" value="0x86b267db76b12aa90d9805b48769ba4c90673623" size="42"/></td>
 		<td><input type="button" value="Buy" onclick="buy()"/></td>
 	</tr>
 </table>
@@ -46,16 +46,21 @@
 	<tr>
 		<td><label for="transfer_to">Transfer To Address:</label></td>
 		<td><input id="transfer_to" type="text" size="42" value="0x2f4Fe9f655FF9316335D7200169Cd07d598ff7BC"/></td>
-		<td><input type="button" value="Transfer" onclick="transfer()"/></td>
+		<td><input type="button" value="Transfer" onclick="transferToken()"/></td>
 	</tr>
 </table>
 </fieldset>
-<fieldset><legend>Transfer all Cards</legend>
+<fieldset><legend>ERC20 Transfer</legend>
 	<table>
 		<tr>
-			<td><label for="transfer_all_to">Transfer To Address:</label></td>
-			<td><input id="transfer_all_to" type="text" size="42" value="0x2f4Fe9f655FF9316335D7200169Cd07d598ff7BC"/></td>
-			<td><input type="button" value="Transfer" onclick="transferAll()"/></td>
+			<td><label for="erc20_transfer_amt">Transfer Amount:</label></td>
+			<td><input id="erc20_transfer_amt" type="number" min="1" max="1024" size="4" value="1"/></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td><label for="erc20_transfer_to">Transfer To Address:</label></td>
+			<td><input id="erc20_transfer_to" type="text" size="42" value="0x2f4Fe9f655FF9316335D7200169Cd07d598ff7BC"/></td>
+			<td><input type="button" value="Transfer" onclick="transfer()"/></td>
 		</tr>
 	</table>
 </fieldset>
@@ -63,15 +68,12 @@
 	<table>
 		<tr>
 			<td><label for="mint_card_id">Card ID:</label></td>
-			<td><input id="mint_card_id" type="text" size="5"/> [1 &dash; 65535]</td>
+			<td><input id="mint_card_id" type="number" min="1025" max="65535" size="5" value="1025"/> [1 &dash; 65535]</td>
 		</tr>
 		<tr>
 			<td><label for="mint_card_rarity">Rarity:</label></td>
 			<td>
-				<input id="mint_card_rarity" type="text" size="10"/>
-				<a title="generate" href="javascript:document.getElementById('mint_card_rarity').value = Math.floor(Math.random() * 4294967296);">
-					[0 &dash; 4294967295]
-				</a>
+				<input id="mint_card_rarity" type="number" min="0" max="32" size="2" value="3"/>
 			</td>
 		</tr>
 		<tr>
@@ -117,8 +119,8 @@
 <script type="text/javascript">
 const jQuery3 = jQuery.noConflict(true);
 
-const CHAR_CARD_VERSION = 0x8;
-const PRESALE_VERSION = 0x2;
+const CHAR_CARD_VERSION = 0xB;
+const PRESALE_VERSION = 0x4;
 
 let myWeb3;
 let myAccount;
@@ -217,33 +219,32 @@ function connect() {
 					printError("Error receiving Minted event: " + err);
 					return;
 				}
-				if(!(receipt && receipt.args && receipt.args._from && receipt.args._to && receipt.args._tokenId)) {
+				if(!(receipt && receipt.args && receipt.args._by && receipt.args._to && receipt.args._tokenId)) {
 					printError("Minted event received in wrong format: wrong arguments");
 					return;
 				}
-				const from = receipt.args._from;
+				const by = receipt.args._by;
 				const to = receipt.args._to;
 				const cardId = receipt.args._tokenId.toString(10);
-				printLog("Minted(" + from + ", " + to + ", " + cardId + ")");
+				printLog("Minted(" + by + ", " + to + ", " + cardId + ")");
 			});
 			printLog("Successfully registered Minted(address, address, uint16) event listener");
-			const cardTransferEvent = cardInstance.CardTransfer();
-			cardTransferEvent.watch(function(err, receipt) {
+			const tokenTransferEvent = cardInstance.TokenTransfer();
+			tokenTransferEvent.watch(function(err, receipt) {
 				if(err) {
-					printError("Error receiving ERC721 CardTransfer event: " + err);
+					printError("Error receiving ERC721 TokenTransfer event: " + err);
 					return;
 				}
-				if(!(receipt && receipt.args && receipt.args._tokenId && receipt.args._from && receipt.args._to)) {
-					printError("ERC721 CardTransfer event received in wrong format: wrong arguments");
+				if(!(receipt && receipt.args && receipt.args._from && receipt.args._to && receipt.args._tokenId)) {
+					printError("ERC721 TokenTransfer event received in wrong format: wrong arguments");
 					return;
 				}
 				const from = receipt.args._from;
 				const to = receipt.args._to;
-				const cardId = receipt.args._tokenId.toString(10);
-				printLog("ERC721 CardTransfer(" + to + ", " + from + ", " + cardId + ")");
+				const tokenId = receipt.args._tokenId.toString(10);
+				printLog("ERC721 TokenTransfer(" + from + ", " + to + ", " + tokenId + ")");
 			});
 			printLog("Successfully registered CardTransfer(address, address, uint16) event listener");
-			const battleCompleteEvent = cardInstance.BattleComplete();
 			const transferEvent = cardInstance.Transfer();
 			transferEvent.watch(function(err, receipt) {
 				if(err) {
@@ -260,6 +261,8 @@ function connect() {
 				printLog("ERC20 Transfer(" + from + ", " + to + ", " + value + ")");
 			});
 			printLog("Successfully registered ERC20 Transfer(address, address, uint16) event listener");
+/*
+			const battleCompleteEvent = cardInstance.BattleComplete();
 			battleCompleteEvent.watch(function(err, receipt) {
 				if(err) {
 					printError("Error receiving BattleComplete event: " + err);
@@ -282,6 +285,7 @@ function connect() {
 				printLog("BattleComplete(0x" + card1Id + ", 0x" + card2Id + ", " + wins + ", " + losses + ", " + gamesPlayed + ", " + lastGameOutcome + ")");
 			});
 			printLog("Successfully registered BattleComplete(uint16, uint16, uint32, uint32, uint32, uint8) event listener");
+*/
 			cardInstance.balanceOf(myAccount, function(err, balance) {
 				if(err) {
 					printError("Unable to read card balance: " + err);
@@ -291,17 +295,17 @@ function connect() {
 				if(balance > 0) {
 					printLog("You own " + balance + " card(s):");
 					for(let i = 0; i < balance; i++) {
-						cardInstance.collections(myAccount, i, function(err, cardId) {
+						cardInstance.collections(myAccount, i, function(err, tokenId) {
 							if(err) {
 								printError("Cannot load list of the cards");
 								return;
 							}
-							cardInstance.getCard(cardId, function(err, card) {
+							cardInstance.getPacked(tokenId, function(err, card) {
 								if(err) {
-									printError("Cannot load card " + cardId);
+									printError("Cannot load card " + tokenId);
 									return;
 								}
-								printLog("0x" + cardId.toString(16) + ": " + cardToString(card));
+								printLog("0x" + tokenId.toString(16) + ": " + cardToString(card));
 							})
 						});
 					}
@@ -358,14 +362,14 @@ function buy() {
 }
 
 
-function transfer() {
+function transferToken() {
 	if(!(myWeb3 && cardABI && myAccount && cardInstance)) {
 		printError("Not connected to a Character Card (ERC721) Instance");
 		return;
 	}
-	const cardId = document.getElementById("transfer_card_id").value;
+	const tokenId = document.getElementById("transfer_card_id").value;
 	const to = document.getElementById("transfer_to").value;
-	if(isNaN(cardId) || cardId <= 0 || cardId >= 65536) {
+	if(isNaN(tokenId) || tokenId <= 0 || tokenId >= 65536) {
 		printError("Card ID must be a number in range 1 - 65535");
 		return;
 	}
@@ -373,37 +377,57 @@ function transfer() {
 		printError("Please provide a valid Transfer To Address");
 		return;
 	}
-	cardInstance.exists(cardId, function(err, exists) {
+	cardInstance.exists(tokenId, function(err, exists) {
 		if(err) {
 			printError("Cannot check if card exists" + err);
 			return;
 		}
 		if(!exists) {
-			printError("Card " + cardId + " doesn't exist!");
+			printError("Card " + tokenId + " doesn't exist!");
 			return;
 		}
-		cardInstance.ownerOf(cardId, function(err, owner) {
+		cardInstance.ownerOf(tokenId, function(err, owner) {
 			if(err) {
 				printError("Cannot get the owner a card" + err);
 				return;
 			}
 			if(owner != myAccount) {
-				printError("You cannot transfer other's owner card. Card " + cardId + " belongs to " + owner);
+				printError("You cannot transfer other's owner card. Card " + tokenId + " belongs to " + owner);
 				return;
 			}
-			cardInstance.transferCard.sendTransaction(to, cardId, function(err, txHash) {
+			cardInstance.transferToken.sendTransaction(to, tokenId, function(err, txHash) {
 				if(err) {
-					printError("Card transfer transaction failed: " + err.toString().split("\n")[0]);
+					printError("Token transfer transaction failed: " + err.toString().split("\n")[0]);
 					return;
 				}
-				printLog("Card transfer transaction sent: " + txHash);
+				printLog("Token transfer transaction sent: " + txHash);
 			});
 		});
 	});
 }
 
-function transferAll() {
-	printError("not yet implemented");
+function transfer() {
+	if(!(myWeb3 && cardABI && myAccount && cardInstance)) {
+		printError("Not connected to a Character Card (ERC721) Instance");
+		return;
+	}
+	const amount = document.getElementById("erc20_transfer_amt").value;
+	const to = document.getElementById("transfer_to").value;
+	if(isNaN(amount) || amount <= 0 || amount > 1024) {
+		printError("Amount must be a number in range 1 - 1024");
+		return;
+	}
+	if(!myWeb3.isAddress(to)) {
+		printError("Please provide a valid Transfer To Address");
+		return;
+	}
+	cardInstance.transfer.sendTransaction(to, amount, function(err, txHash) {
+		if(err) {
+			printError("ERC20 token transfer transaction failed: " + err.toString().split("\n")[0]);
+			return;
+		}
+		printLog("ERC20 token transfer transaction sent: " + txHash);
+	});
 }
 
 function mint() {
@@ -441,7 +465,7 @@ function mint() {
 			printError("Card " + cardId + " already exists!");
 			return;
 		}
-		cardInstance.mintWith.sendTransaction(owner, cardId, rarity, attributes, function(err, txHash) {
+		cardInstance.mintWith.sendTransaction(owner, cardId, rarity, function(err, txHash) {
 			if(err) {
 				printError("Mint transaction failed: " + err.toString().split("\n")[0]);
 				return;
