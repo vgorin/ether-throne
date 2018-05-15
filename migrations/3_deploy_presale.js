@@ -17,6 +17,7 @@ module.exports = async function(deployer, network, accounts) {
 
 	// get the deployed card instance from previous script - 2_deploy_character_card.js
 	const cardInstance = await Card.deployed();
+	await cardInstance.updateFeatures(0xFFFFFFFF);
 
 	await deployer.deploy(Bitmaps);
 	await deployer.link(Bitmaps, Presale);
