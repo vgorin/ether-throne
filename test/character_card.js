@@ -7,8 +7,15 @@ const ROLE_FULL_ADMIN = 0xFFFFFFFF;
 // role constants copied from CharacterCard.sol as is
 const ROLE_TOKEN_CREATOR = 0x00040000;
 
+// feature constants copied from CharacterCard.sol as is
+const FEATURE_TRANSFERS = 0x00000001;
+const FEATURE_TRANSFERS_ON_BEHALF = 0x00000002;
+const ERC20_TRANSFERS = 0x00000004;
+const ERC20_TRANSFERS_ON_BEHALF = 0x00000008;
+const ERC20_INSECURE_TRANSFERS = 0x00000010;
+
 // character card structure definitions
-const ATTRIBUTES_IDX = 1;
+const ATTRIBUTES_IDX = 3;
 const CARD_ID_IDX = 5;
 const CARD_IDX_IDX = 6;
 const CARD_OWN_MOD_IDX = 7;
@@ -245,7 +252,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("mint: impossible to mint a card with zero ID", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.mint(accounts[0], 0x0)});
+		await assertThrowsAsync(async function() {await card.mint(accounts[0], 0x0);});
 	});
 
 	it("mintWith: mint a card with attributes and check integrity of the structures involved", async function() {
@@ -275,7 +282,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("mintWith: impossible to mint a card with zero ID", async function() {
 		const card = await CharacterCard.new();
-		await assertThrowsAsync(async function() {await card.mintWith(accounts[0], 0x0, 3)});
+		await assertThrowsAsync(async function() {await card.mintWith(accounts[0], 0x0, 3);});
 	});
 
 	it("mintCards: batch mint few cards", async function() {
@@ -343,6 +350,8 @@ contract('CharacterCard', function(accounts) {
 	it("transferToken: transfer a card", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
+		await assertThrowsAsync(async function() {await card.transferToken(accounts[1], 0x401);});
+		await card.updateFeatures(FEATURE_TRANSFERS);
 		await card.transferToken(accounts[1], 0x401);
 		assert.equal(0, await card.balanceOf(accounts[0]), "sender's card balance after transferring a card must be 0");
 		assert.equal(1, await card.balanceOf(accounts[1]), "receiver's card balance after transferring a card must be 1");
@@ -350,6 +359,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferToken: data structures integrity check after card transfer", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await card.mint(accounts[0], 0x403);
@@ -382,21 +392,25 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferToken: impossible to transfer a card which you do not own", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS);
 		await card.mint(accounts[1], 0x401);
 		await assertThrowsAsync(async function() {await card.transferToken(accounts[2], 0x401);});
 	});
 	it("transferToken: impossible to transfer a card to a zero address", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await assertThrowsAsync(async function() {await card.transferToken(0, 0x401);});
 	});
 	it("transferToken: impossible to transfer a card to oneself", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await assertThrowsAsync(async function() {await card.transferToken(accounts[0], 0x401);});
 	});
 	it("transferToken: approval revokes after card transfer", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await card.approveToken(accounts[2], 0x401);
 		await card.transferToken(accounts[1], 0x401);
@@ -406,11 +420,16 @@ contract('CharacterCard', function(accounts) {
 	it("transferTokenFrom: transfer own card without any approvals", async function() {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
+		await assertThrowsAsync(async function() {await card.transferTokenFrom(accounts[0], accounts[1], 0x401);});
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
+		await assertThrowsAsync(async function() {await card.transferTokenFrom(accounts[0], accounts[1], 0x401);});
+		await card.updateFeatures(FEATURE_TRANSFERS | FEATURE_TRANSFERS_ON_BEHALF);
 		await card.transferTokenFrom(accounts[0], accounts[1], 0x401);
 		assert.equal(accounts[1], await card.ownerOf(0x401), "card 0x401 has wrong owner after transferring it");
 	});
 	it("transferTokenFrom: transfer a card on behalf (single card approval)", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[0], 0x401);
 		await card.approveToken(accounts[1], 0x401);
 		await card.transferTokenFrom.sendTransaction(accounts[0], accounts[1], 0x401, {from: accounts[1]});
@@ -420,6 +439,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferTokenFrom: transfer a card on behalf (operator approval)", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[0], 0x401);
 		await card.approve(accounts[1], 1);
 		await card.transferTokenFrom(accounts[0], accounts[1], 0x401, {from: accounts[1]});
@@ -427,6 +447,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferTokenFrom: transfer a card on behalf (both single card and operator approvals)", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[0], 0x401);
 		await card.approveToken(accounts[1], 0x401);
 		await card.approve(accounts[1], 1);
@@ -435,6 +456,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferTokenFrom: impossible to transfer card on behalf without approval", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[0], 0x401);
 		await assertThrowsAsync(async function() {
 			await card.transferTokenFrom.sendTransaction(accounts[0], accounts[1], 0x401, {from: accounts[1]});
@@ -442,12 +464,14 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferTokenFrom: impossible to transfer non-existent card", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
 		await assertThrowsAsync(async function() {
 			await card.transferTokenFrom.sendTransaction(accounts[0], accounts[1], 0x401);
 		});
 	});
 	it("transferTokenFrom: operator approval can be exhausted (spent)", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
 		await card.approve(accounts[0], 1, {from: accounts[1]});
 		assert.equal(1, await card.allowance(accounts[1], accounts[0]), "wrong approval left value after it was set to 1");
 		await card.mint(accounts[1], 0x401);
@@ -458,6 +482,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("transferTokenFrom: approval revokes after card transfer on behalf", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(FEATURE_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[0], 0x401);
 		await card.approveToken(accounts[2], 0x401);
 		await card.transferTokenFrom(accounts[0], accounts[1], 0x401, {from: accounts[2]});
@@ -469,12 +494,15 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await card.mint(accounts[0], 0x403);
+		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 3);});
+		await card.updateFeatures(ERC20_TRANSFERS);
 		await card.transfer(accounts[1], 3);
 		assert.equal(0, await card.balanceOf(accounts[0]), "wrong source balance after ERC20 transfer");
 		assert.equal(3, await card.balanceOf(accounts[1]), "wrong destination balance after ERC20 transfer");
 	});
 	it("ERC20 transfer: data structures integrity check after transfer", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await card.mint(accounts[0], 0x403);
@@ -506,26 +534,34 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("ERC20 transfer: impossible to transfer more cards then the balance", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await card.mint(accounts[0], 0x403);
-		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 4)});
+		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 4);});
 	});
-	it("ERC20 transfer: impossible to transfer less cards then the balance", async function() {
+	it("ERC20 transfer: impossible to transfer less cards then the balance without ERC20_INSECURE_TRANSFERS", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await card.mint(accounts[0], 0x403);
-		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 2)});
+		await assertThrowsAsync(async function() {await card.transfer(accounts[1], 2);});
+		await card.updateFeatures(ERC20_INSECURE_TRANSFERS | ERC20_TRANSFERS);
+		await card.transfer(accounts[1], 2);
+		assert.equal(1, await card.balanceOf(accounts[0]), accounts[0] + " wrong balance after ERC20 transfer");
+		assert.equal(2, await card.balanceOf(accounts[1]), accounts[1] + " wrong balance after ERC20 transfer");
 	});
 	it("ERC20 transfer: impossible to transfer to a zero address", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await assertThrowsAsync(async function() {await card.transfer(0, 2);});
 	});
 	it("ERC20 transfer: impossible to transfer to oneself", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS);
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await assertThrowsAsync(async function() {await card.transfer(accounts[0], 2);});
@@ -535,11 +571,16 @@ contract('CharacterCard', function(accounts) {
 		const card = await CharacterCard.new();
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
+		await assertThrowsAsync(async function() {await card.transferFrom(accounts[0], accounts[1], 2);});
+		await card.updateFeatures(ERC20_TRANSFERS_ON_BEHALF);
+		await assertThrowsAsync(async function() {await card.transferFrom(accounts[0], accounts[1], 2);});
+		await card.updateFeatures(ERC20_TRANSFERS | ERC20_TRANSFERS_ON_BEHALF);
 		await card.transferFrom(accounts[0], accounts[1], 2);
 		assert.equal(2, await card.balanceOf(accounts[1]));
 	});
 	it("ERC20 transferFrom: transfer on behalf", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[1], 0x401);
 		await card.mint(accounts[1], 0x402);
 		await card.approve.sendTransaction(accounts[2], 2, {from: accounts[1]});
@@ -548,6 +589,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("ERC20 transferFrom: impossible to transfer on behalf without approval", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[1], 0x401);
 		await card.mint(accounts[1], 0x402);
 		await assertThrowsAsync(async function() {
@@ -556,6 +598,7 @@ contract('CharacterCard', function(accounts) {
 	});
 	it("ERC20 transferFrom: impossible to transfer on behalf with not enough approval", async function() {
 		const card = await CharacterCard.new();
+		await card.updateFeatures(ERC20_TRANSFERS_ON_BEHALF);
 		await card.mint(accounts[1], 0x401);
 		await card.mint(accounts[1], 0x402);
 		await card.mint(accounts[1], 0x403);

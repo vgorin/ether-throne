@@ -2,6 +2,10 @@ pragma solidity 0.4.23;
 
 import "./CharacterCard.sol";
 
+/**
+ * @dev Battle provider is a card operator responsible for
+ *      enabling card battle protocol
+ */
 contract BattleProvider {
   /// @dev Default bitmask indicating that the card is `in game`
   /// @dev Consists of a single bit at position 3 – binary 100
@@ -48,20 +52,31 @@ contract BattleProvider {
     uint16 cardId;
   }
 
+  /// @dev All the battle statistics, handled by this instance
   mapping(uint16 => BattleStats) public battleStats;
 
+  /// @dev CharacterCard deployed ERC721 instance
+  /// @dev Used to mint cards
+  /// @dev Battle provider smart contract must have appropriate permissions
+  ///      on the deployed CharacterCard
   CharacterCard public cardInstance;
 
   /// @dev Fired in battlesComplete(), battleComplete()
   event BattleComplete(
-    uint16 indexed card1Id,// card1 ID
-    uint16 indexed card2Id,// card2 ID
+    address indexed owner1,// card1 owner
+    address indexed owner2,// card2 owner
+    uint16 card1Id,        // card1 ID
+    uint16 card2Id,        // card2 ID
     uint32 wins,           // card1 wins = card2 losses
     uint32 losses,         // card1 losses = card2 wins
     uint32 gamesPlayed,    // card1 games played = card2 games played
     uint8  lastGameOutcome // card1 last game outcome = 4 - card2 last game outcome
   );
 
+  /**
+   * @dev Creates a new battle provider instance, bound to a
+   *      CharacterCard instance deployed at specified address
+   */
   constructor(address cardInstanceAddress) public {
     cardInstance = CharacterCard(cardInstanceAddress);
   }
@@ -124,10 +139,6 @@ contract BattleProvider {
     BattleStats storage stats1 = battleStats[card1Id];
     BattleStats storage stats2 = battleStats[card2Id];
 
-    // check if two cards have different owners
-    // also checks if both card exist
-    require(cardInstance.ownerOf(card1Id) != cardInstance.ownerOf(card2Id));
-
     // arithmetic overflow checks before updating cards
     require(stats1.gamesPlayed + gamesPlayed > stats1.gamesPlayed);
     require(stats2.gamesPlayed + gamesPlayed > stats2.gamesPlayed);
@@ -140,6 +151,17 @@ contract BattleProvider {
     assert(stats2.wins + losses >= stats2.wins);
     assert(stats2.losses + wins >= stats2.losses);
 
+    // check if both card exist
+    assert(cardInstance.exists(card1Id));
+    assert(cardInstance.exists(card2Id));
+
+    // extract card owners
+    address owner1 = cardInstance.ownerOf(card1Id);
+    address owner2 = cardInstance.ownerOf(card2Id);
+
+    // check if two cards have different owners
+    require(owner1 != owner2);
+    
     // update games played counters
     stats1.gamesPlayed += gamesPlayed;
     stats2.gamesPlayed += gamesPlayed;
@@ -165,7 +187,7 @@ contract BattleProvider {
     stats2.lastGameOutcome = 4 - lastGameOutcome;
     
     // fire an event
-    emit BattleComplete(card1Id, card2Id, wins, losses, gamesPlayed, lastGameOutcome);
+    emit BattleComplete(owner1, owner2, card1Id, card2Id, wins, losses, gamesPlayed, lastGameOutcome);
   }
 
 }

@@ -46,6 +46,16 @@ contract CharacterCard is AccessControl {
   /// @dev Occupies 64 bytes of storage (512 bits)
   struct Card {
     /// High 256 bits
+    /// @dev Initially zero, changes when state gets modified
+    /// @dev Stored as Ethereum Block Number of the transaction
+    ///      when the card's state was changed
+    uint32 stateModified;
+
+    /// @dev Initially zero, may be used to store card state data,
+    ///      such as is card currently in game or not,
+    ///      status of the last game played, etc
+    uint128 state;
+
     /// @dev Initially zero, changes when attributes are modified
     /// @dev Stored as Ethereum Block Number of the transaction
     ///      when the card's attributes were changed
@@ -58,16 +68,6 @@ contract CharacterCard is AccessControl {
     /// @dev Is initialized with at least 3 active attributes
     ///      (three lowest bits set to 1)
     uint64 attributes;
-
-    /// @dev Initially zero, changes when state gets modified
-    /// @dev Stored as Ethereum Block Number of the transaction
-    ///      when the card's state was changed
-    uint32 stateModified;
-
-    /// @dev Initially zero, may be used to store card state data,
-    ///      such as is card currently in game or not,
-    ///      status of the last game played, etc
-    uint128 state;
 
     /// Low 256 bits
     /// @dev Card creation time, immutable, cannot be zero
@@ -165,25 +165,38 @@ contract CharacterCard is AccessControl {
   /// @dev Role ROLE_STATE_PROVIDER allows modifying card state
   uint32 public constant ROLE_STATE_PROVIDER = 0x00200000;
 
+  /// @notice Card state provider is part of the game protocol
+  /// @dev Role ROLE_STATE_LOCK_PROVIDER allows modifying card state
+  uint32 public constant ROLE_STATE_LOCK_PROVIDER = 0x00400000;
+
   /// @dev The number is used as unlimited approvals number
   uint256 public constant UNLIMITED_APPROVALS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
   /// @dev Event names are self-explanatory:
   /// @dev Fired in mint()
   /// @dev Address `_by` allows to track who created a token
-  event Minted(address indexed _by, address indexed _to, uint16 indexed _tokenId);
+  event Minted(address indexed _by, address indexed _to, uint16 _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a token, address `_from` is zero
-  event TokenTransfer(address indexed _from, address indexed _to, uint16 indexed _tokenId);
+  event TokenTransfer(address indexed _by, address indexed _from, address indexed _to, uint16 _tokenId);
   /// @dev Fired in transfer(), transferFor(), mint()
   /// @dev When minting a token, address `_from` is zero
   /// @dev ERC20 compliant event
-  event Transfer(address indexed _from, address indexed _to, uint256 _value);
+  event Transfer(address indexed _by, address indexed _from, address indexed _to, uint256 _value);
   /// @dev Fired in approveToken()
-  event TokenApproval(address indexed _owner, address indexed _approved, uint16 indexed _tokenId);
+  event TokenApproval(address indexed _owner, address indexed _approved, uint16 _tokenId);
   /// @dev Fired in approve()
   /// @dev ERC20 compliant event
   event Approval(address indexed _owner, address indexed _spender, uint256 _value);
+
+  /// @dev Fired in setState(), addStateAttributes(), removeStateAttributes()
+  event StateModified(address indexed _by, address indexed _owner, uint16 indexed _tokenId, uint128 _state);
+
+  /// @dev Fired in setAttributes(), addAttributes(), removeAttributes()
+  event AttributesModified(address indexed _by, address indexed _owner, uint16 indexed _tokenId, uint64 _attributes);
+
+  /// @dev Fired in setLockedBitmask()
+  event StateLockModified(address indexed _by, uint128 _bitmask);
 
   /**
    * @dev Gets a card by ID, representing it as two integers.
@@ -240,11 +253,14 @@ contract CharacterCard is AccessControl {
    * @param bitmask a value to set `lockedBitmask` to
    */
   function setLockedBitmask(uint32 bitmask) public {
-    // check that the call is made by a combat provider
-    require(__isSenderInRole(ROLE_STATE_PROVIDER));
+    // check that the call is made by a state lock provider
+    require(__isSenderInRole(ROLE_STATE_LOCK_PROVIDER));
 
     // update the locked bitmask
     lockedBitmask = bitmask;
+
+    // fire an event
+    emit StateLockModified(msg.sender, bitmask);
   }
 
   /**
@@ -267,11 +283,11 @@ contract CharacterCard is AccessControl {
    * @param state new state to set for the card
    */
   function setState(uint16 tokenId, uint128 state) public {
-    // check that card to set state for exists
-    require(exists(tokenId));
-
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_STATE_PROVIDER));
+
+    // check that card to set state for exists
+    require(exists(tokenId));
 
     // set state modified timestamp
     cards[tokenId].stateModified = uint32(block.number);
@@ -283,6 +299,9 @@ contract CharacterCard is AccessControl {
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[tokenId];`
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+
+    // fire an event
+    emit StateModified(msg.sender, ownerOf(tokenId), tokenId, state);
   }
 
   /**
@@ -292,11 +311,11 @@ contract CharacterCard is AccessControl {
    * @param state bitmask representing card state attributes to add
    */
   function addStateAttributes(uint16 tokenId, uint128 state) public {
-    // check that card to add state attributes for exists
-    require(exists(tokenId));
-
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_STATE_PROVIDER));
+
+    // check that card to add state attributes for exists
+    require(exists(tokenId));
 
     // set state modified timestamp
     cards[tokenId].stateModified = uint32(block.number);
@@ -308,6 +327,9 @@ contract CharacterCard is AccessControl {
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[tokenId];`
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+
+    // fire an event
+    emit StateModified(msg.sender, ownerOf(tokenId), tokenId, cards[tokenId].state);
   }
 
   /**
@@ -317,11 +339,11 @@ contract CharacterCard is AccessControl {
    * @param state bitmask representing card state attributes to remove
    */
   function removeStateAttributes(uint16 tokenId, uint128 state) public {
-    // check that card to remove state attributes from exists
-    require(exists(tokenId));
-
     // check that the call is made by a combat provider
     require(__isSenderInRole(ROLE_STATE_PROVIDER));
+
+    // check that card to remove state attributes from exists
+    require(exists(tokenId));
 
     // set state modified timestamp
     cards[tokenId].stateModified = uint32(block.number);
@@ -333,6 +355,9 @@ contract CharacterCard is AccessControl {
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[tokenId];`
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+
+    // fire an event
+    emit StateModified(msg.sender, ownerOf(tokenId), tokenId, cards[tokenId].state);
   }
 
   /**
@@ -355,25 +380,25 @@ contract CharacterCard is AccessControl {
    * @param attributes bitmask representing card attributes to set
    */
   function setAttributes(uint16 tokenId, uint64 attributes) public {
-    // check that card to set attributes for exists
-    require(exists(tokenId));
-
     // check that the call is made by a attributes provider
     require(__isSenderInRole(ROLE_ATTR_PROVIDER));
 
-    // get the card pointer
-    Card storage card = cards[tokenId];
+    // check that card to set attributes for exists
+    require(exists(tokenId));
 
     // set attributes modified timestamp
-    card.attributesModified = uint32(block.number);
+    cards[tokenId].attributesModified = uint32(block.number);
 
     // set the attributes required
-    card.attributes = attributes;
+    cards[tokenId].attributes = attributes;
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[tokenId];`
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+
+    // fire an event
+    emit AttributesModified(msg.sender, ownerOf(tokenId), tokenId, cards[tokenId].attributes);
   }
 
   /**
@@ -383,25 +408,25 @@ contract CharacterCard is AccessControl {
    * @param attributes bitmask representing card attributes to add
    */
   function addAttributes(uint16 tokenId, uint64 attributes) public {
-    // check that card to add attributes for exists
-    require(exists(tokenId));
-
     // check that the call is made by a attributes provider
     require(__isSenderInRole(ROLE_ATTR_PROVIDER));
 
-    // get the card pointer
-    Card storage card = cards[tokenId];
+    // check that card to add attributes for exists
+    require(exists(tokenId));
 
     // set attributes modified timestamp
-    card.attributesModified = uint32(block.number);
+    cards[tokenId].attributesModified = uint32(block.number);
 
     // add the attributes required
-    card.attributes |= attributes;
+    cards[tokenId].attributes |= attributes;
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[tokenId];`
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+
+    // fire an event
+    emit AttributesModified(msg.sender, ownerOf(tokenId), tokenId, cards[tokenId].attributes);
   }
 
   /**
@@ -411,25 +436,25 @@ contract CharacterCard is AccessControl {
    * @param attributes bitmask representing card attributes to remove
    */
   function removeAttributes(uint16 tokenId, uint64 attributes) public {
-    // check that card to remove attributes for exists
-    require(exists(tokenId));
-
     // check that the call is made by a attributes provider
     require(__isSenderInRole(ROLE_ATTR_PROVIDER));
 
-    // get the card pointer
-    Card storage card = cards[tokenId];
+    // check that card to remove attributes for exists
+    require(exists(tokenId));
 
     // set attributes modified timestamp
-    card.attributesModified = uint32(block.number);
+    cards[tokenId].attributesModified = uint32(block.number);
 
     // add the attributes required
-    card.attributes &= 0xFFFFFFFFFFFFFFFF ^ attributes;
+    cards[tokenId].attributes &= 0xFFFFFFFFFFFFFFFF ^ attributes;
 
     // persist card back into the storage
     // this may be required only if cards structure is loaded into memory, like
     // `Card memory card = cards[tokenId];`
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
+
+    // fire an event
+    emit AttributesModified(msg.sender, ownerOf(tokenId), tokenId, cards[tokenId].attributes);
   }
 
   /**
@@ -490,18 +515,18 @@ contract CharacterCard is AccessControl {
    *      attributes have `rarity` low bits set
    */
   function mintWith(address to, uint16 tokenId, uint8 rarity) public {
+    // check if caller has sufficient permissions to mint a card
+    require(__isSenderInRole(ROLE_TOKEN_CREATOR));
+
     // validate destination address
     require(to != address(0));
     require(to != address(this));
-
-    // check if caller has sufficient permissions to mint a card
-    require(__isSenderInRole(ROLE_TOKEN_CREATOR));
 
     // delegate call to `__mint`
     __mint(to, tokenId, rarity);
 
     // fire ERC20 transfer event
-    emit Transfer(address(0), to, 1);
+    emit Transfer(msg.sender, address(0), to, 1);
   }
 
   /**
@@ -524,6 +549,9 @@ contract CharacterCard is AccessControl {
    *          `rarity` value 5 corresponds to `attributes` value 31 (binary 11111)
    */
   function mintCards(address to, uint24[] data) public {
+    // check if caller has sufficient permissions to mint a card
+    require(__isSenderInRole(ROLE_TOKEN_CREATOR));
+
     // validate destination address
     require(to != address(0));
     require(to != address(this));
@@ -535,9 +563,6 @@ contract CharacterCard is AccessControl {
     // also check we didn't get uint16 overflow in `n`
     require(n != 0 && n == data.length);
 
-    // check if caller has sufficient permissions to mint a card
-    require(__isSenderInRole(ROLE_TOKEN_CREATOR));
-
     // iterate over `data` array and mint each card specified
     for(uint256 i = 0; i < n; i++) {
       // unpack card from data element
@@ -546,7 +571,7 @@ contract CharacterCard is AccessControl {
     }
 
     // fire ERC20 transfer event
-    emit Transfer(address(0), to, n);
+    emit Transfer(msg.sender, address(0), to, n);
   }
 
   /**
@@ -565,11 +590,11 @@ contract CharacterCard is AccessControl {
    * @param n number of tokens to transfer
    */
   function transfer(address to, uint16 n) public {
-    // call sender gracefully - `from`
-    address from = msg.sender;
+    // check if ERC20 transfers feature is enabled
+    require(__isFeatureEnabled(ERC20_TRANSFERS));
 
     // delegate call to unsafe `__transfer`
-    __transfer(from, to, n);
+    __transfer(msg.sender, to, n);
   }
 
   /**
@@ -591,6 +616,9 @@ contract CharacterCard is AccessControl {
    * @param n number of tokens to transfer
    */
   function transferFrom(address from, address to, uint16 n) public {
+    // check if ERC20 transfers on behalf feature is enabled
+    require(__isFeatureEnabled(ERC20_TRANSFERS_ON_BEHALF));
+
     // call sender gracefully - `operator`
     address operator = msg.sender;
 
@@ -606,6 +634,11 @@ contract CharacterCard is AccessControl {
     if(approvalsLeft < n) {
       // transaction sender doesn't have required amount of approvals left
       // we will treat him as an owner trying to send his own tokens
+      // try to perform regular ERC20 transfer
+
+      // check if ERC20 transfers feature is enabled
+      require(__isFeatureEnabled(ERC20_TRANSFERS));
+
       // check `from` to be `operator` (transaction sender):
       require(from == operator);
     }
@@ -627,11 +660,11 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the token to transfer ownership rights for
    */
   function transferToken(address to, uint16 tokenId) public {
-    // call sender gracefully - `from`
-    address from = msg.sender;
+    // check if token transfers feature is enabled
+    require(__isFeatureEnabled(FEATURE_TRANSFERS));
 
     // delegate call to unsafe `__transferToken`
-    __transferToken(from, to, tokenId);
+    __transferToken(msg.sender, to, tokenId);
   }
 
   /**
@@ -647,8 +680,12 @@ contract CharacterCard is AccessControl {
    * @param tokenId ID of the token to be transferred
    */
   function transferTokenFrom(address from, address to, uint16 tokenId) public {
+    // check if token transfers on behalf feature is enabled
+    require(__isFeatureEnabled(FEATURE_TRANSFERS_ON_BEHALF));
+
     // call sender gracefully - `operator`
     address operator = msg.sender;
+
     // find if an approved address exists for this token
     address approved = approvals[tokenId];
 
@@ -670,6 +707,10 @@ contract CharacterCard is AccessControl {
       // transaction sender doesn't have any special permissions
       // we will treat him as a token owner and sender and try to perform
       // a regular transfer:
+
+      // check if token transfers feature is enabled
+      require(__isFeatureEnabled(FEATURE_TRANSFERS));
+
       // check `from` to be `operator` (transaction sender):
       require(from == operator);
     }
@@ -753,10 +794,6 @@ contract CharacterCard is AccessControl {
     emit Approval(from, to, approved);
   }
 
-  function __attributes(uint8 rarity) public pure returns(uint64) {
-    return uint64(1 << uint256(rarity)) - 1;
-  }
-
   /// @dev Creates new card with `tokenId` ID specified and
   ///      assigns an ownership `to` for this card
   /// @dev Unsafe: doesn't check if caller has enough permissions to execute the call
@@ -772,7 +809,7 @@ contract CharacterCard is AccessControl {
     // create a new card in memory
     Card memory card = Card({
       attributesModified: 0,
-      attributes: __attributes(rarity),
+      attributes: uint64(1 << uint256(rarity)) - 1,
       stateModified: 0,
       state: 0,
 
@@ -797,7 +834,7 @@ contract CharacterCard is AccessControl {
     // fire Minted event
     emit Minted(msg.sender, to, tokenId);
     // fire ERC721 transfer event
-    emit TokenTransfer(address(0), to, tokenId);
+    emit TokenTransfer(msg.sender, address(0), to, tokenId);
   }
 
   /// @dev Performs a transfer of `n` tokens from address `from` to address `to`
@@ -812,6 +849,7 @@ contract CharacterCard is AccessControl {
     // validate source and destination address
     require(to != address(0));
     require(to != from);
+
     // impossible by design of transfer(), transferFrom() and approve()
     // if it happens - its a bug
     assert(from != address(0));
@@ -834,7 +872,7 @@ contract CharacterCard is AccessControl {
     __move(from, to, n);
 
     // fire a ERC20 transfer event
-    emit Transfer(from, to, n);
+    emit Transfer(msg.sender, from, to, n);
   }
 
   /// @dev Performs a transfer of a token `tokenId` from address `from` to address `to`
@@ -876,10 +914,10 @@ contract CharacterCard is AccessControl {
     //cards[tokenId] = card; // uncomment if card is in memory (will increase gas usage!)
 
     // fire ERC721 transfer event
-    emit TokenTransfer(from, to, tokenId);
+    emit TokenTransfer(msg.sender, from, to, tokenId);
 
     // fire a ERC20 transfer event
-    emit Transfer(from, to, 1);
+    emit Transfer(msg.sender, from, to, 1);
   }
 
   /// @dev Clears approved address for a particular token
@@ -955,7 +993,7 @@ contract CharacterCard is AccessControl {
       destination.push(source[i]);
 
       // emit ERC721 transfer event
-      emit TokenTransfer(from, to, source[i]);
+      emit TokenTransfer(msg.sender, from, to, source[i]);
     }
 
     // trim source (`from`) collection array by `n`
