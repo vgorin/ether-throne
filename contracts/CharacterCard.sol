@@ -589,12 +589,15 @@ contract CharacterCard is AccessControl {
    *        new owner of the tokens
    * @param _value number of tokens to transfer
    */
-  function transfer(address _to, uint256 _value) public {
+  function transfer(address _to, uint256 _value) public returns (bool success) {
     // check if ERC20 transfers feature is enabled
     require(__isFeatureEnabled(ERC20_TRANSFERS));
 
     // delegate call to unsafe `__transfer`
     __transfer(msg.sender, _to, _value);
+
+    // this function succeeds or throws otherwise
+    return true;
   }
 
   /**
@@ -615,7 +618,7 @@ contract CharacterCard is AccessControl {
    *        new owner of the tokens
    * @param _value number of tokens to transfer
    */
-  function transferFrom(address _from, address _to, uint256 _value) public {
+  function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
     // check if ERC20 transfers on behalf feature is enabled
     require(__isFeatureEnabled(ERC20_TRANSFERS_ON_BEHALF));
 
@@ -649,6 +652,9 @@ contract CharacterCard is AccessControl {
 
     // delegate call to unsafe `__transfer`
     __transfer(_from, _to, _value);
+
+    // this function succeeds or throws otherwise
+    return true;
   }
 
   /**
@@ -774,24 +780,27 @@ contract CharacterCard is AccessControl {
    * @dev Sets or unsets the approval of a given operator
    * @dev An operator is allowed to transfer *all* tokens of the sender on their behalf
    * @dev ERC20 compliant approve(address, uint256) function
-   * @param to operator address to set the approval
-   * @param approved representing the number of approvals left to be set
+   * @param _spender operator address to set the approval
+   * @param _value representing the number of approvals left to be set
    */
-  function approve(address to, uint256 approved) public {
+  function approve(address _spender, uint256 _value) public returns (bool success) {
     // call sender nicely - `from`
     address from = msg.sender;
 
     // validate destination address
-    require(to != address(0));
+    require(_spender != address(0));
 
     // approval for owner himself is pointless, do not allow
-    require(to != from);
+    require(_spender != from);
 
     // set an approval
-    allowance[from][to] = approved;
+    allowance[from][_spender] = _value;
 
     // emit an ERC20 compliant event
-    emit Approval(from, to, approved);
+    emit Approval(from, _spender, _value);
+
+    // this function succeeds or throws otherwise
+    return true;
   }
 
   /// @dev Creates new card with `tokenId` ID specified and
