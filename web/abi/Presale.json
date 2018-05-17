@@ -32,6 +32,62 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "lastPrice",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "FIRST_CARD_ID",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "USUAL_PRICE",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "initialized",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "HOLOGRAM_CARDS",
       "outputs": [
         {
@@ -46,11 +102,11 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "LENGTH",
+      "name": "RARE_PRICE",
       "outputs": [
         {
           "name": "",
-          "type": "uint16"
+          "type": "uint64"
         }
       ],
       "payable": false,
@@ -130,6 +186,20 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "ULTRA_RARE_PRICE",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "RARE_OR_HIGHER",
       "outputs": [
         {
@@ -191,11 +261,25 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "HOLOGRAM_PRICE",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "currentPrice",
       "outputs": [
         {
           "name": "",
-          "type": "uint256"
+          "type": "uint64"
         }
       ],
       "payable": false,
@@ -246,6 +330,25 @@
     },
     {
       "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "cardsForSale",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
       "inputs": [],
       "name": "HOLOGRAM_OR_HIGHER",
       "outputs": [
@@ -261,11 +364,30 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "OFFSET",
+      "name": "LEGENDARY_PRICE",
       "outputs": [
         {
           "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
           "type": "uint16"
+        }
+      ],
+      "name": "movedCards",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
         }
       ],
       "payable": false,
@@ -380,9 +502,23 @@
       "type": "event"
     },
     {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "delta",
+          "type": "uint16"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "constant": true,
       "inputs": [],
-      "name": "getBitmapSegment",
+      "name": "getAvailableCardsBitmap",
       "outputs": [
         {
           "name": "",
@@ -394,18 +530,66 @@
       "type": "function"
     },
     {
-      "constant": false,
+      "constant": true,
       "inputs": [
         {
-          "name": "index",
-          "type": "uint16"
-        },
-        {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
-      "name": "buyUsual",
+      "name": "specificPrice",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "tokenId",
+          "type": "uint16"
+        }
+      ],
+      "name": "available",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "getPacked",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint144"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "tokenId",
+          "type": "uint16"
+        }
+      ],
+      "name": "buySpecific",
       "outputs": [],
       "payable": true,
       "stateMutability": "payable",
@@ -419,15 +603,11 @@
           "type": "address"
         },
         {
-          "name": "index",
-          "type": "uint16"
-        },
-        {
-          "name": "cardId",
+          "name": "tokenId",
           "type": "uint16"
         }
       ],
-      "name": "buyUsualFor",
+      "name": "buySpecificFor",
       "outputs": [],
       "payable": true,
       "stateMutability": "payable",
@@ -463,5 +643,5 @@
   },
   "networks": {},
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-12T17:32:05.811Z"
+  "updatedAt": "2018-05-17T10:44:50.578Z"
 }

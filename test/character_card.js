@@ -212,9 +212,12 @@ contract('CharacterCard', function(accounts) {
 		await card.mint(accounts[0], 0x401);
 		await card.mint(accounts[0], 0x402);
 		await card.mint(accounts[0], 0x403);
-		assert.equal(0x401, await card.collections(accounts[0], 0), accounts[0] + " collection doesn't contain card 0x401");
-		assert.equal(0x402, await card.collections(accounts[0], 1), accounts[0] + " collection doesn't contain card 0x402");
-		assert.equal(0x403, await card.collections(accounts[0], 2), accounts[0] + " collection doesn't contain card 0x403");
+
+		const collection = await card.getCollection(accounts[0]);
+
+		assert.equal(0x401, collection[0], accounts[0] + " collection doesn't contain card 0x401");
+		assert.equal(0x402, collection[1], accounts[0] + " collection doesn't contain card 0x402");
+		assert.equal(0x403, collection[2], accounts[0] + " collection doesn't contain card 0x403");
 		await assertThrowsAsync(async function() {await card.collections(accounts[0], 3);});
 
 		const card1 = await card.cards(0x401);
@@ -297,9 +300,11 @@ contract('CharacterCard', function(accounts) {
 		const card2 = await card.cards(0x402);
 		const card3 = await card.cards(0x403);
 
-		assert.equal(0x401, await card.collections(accounts[0], 0), "card 0x401 is missing in the collection at idx 0");
-		assert.equal(0x402, await card.collections(accounts[0], 1), "card 0x402 is missing in the collection at idx 1");
-		assert.equal(0x403, await card.collections(accounts[0], 2), "card 0x403 is missing in the collection at idx 2");
+		const collection = await card.getCollection(accounts[0]);
+
+		assert.equal(0x401, collection[0], "card 0x401 is missing in the collection at idx 0");
+		assert.equal(0x402, collection[1], "card 0x402 is missing in the collection at idx 1");
+		assert.equal(0x403, collection[2], "card 0x403 is missing in the collection at idx 2");
 		assert.equal(0x401, card1[CARD_ID_IDX], "wrong card 0x401 ID after batch mint");
 		assert.equal(0x402, card2[CARD_ID_IDX], "wrong card 0x402 ID after batch mint");
 		assert.equal(0x403, card3[CARD_ID_IDX], "wrong card 0x403 ID after batch mint");
@@ -379,11 +384,13 @@ contract('CharacterCard', function(accounts) {
 		await card.transferToken(accounts[1], 0x405); // [4, 5], [2, 1, 3] -> [4], [2, 1, 3, 5]
 		await card.transferToken(accounts[1], 0x404); // [4], [2, 1, 3, 5] -> [], [2, 1, 3, 5, 4]
 		assert.equal(0, await card.balanceOf(accounts[0]), accounts[0] + "has wrong balance after all card transfers");
-		assert.equal(0x402, await card.collections(accounts[1], 0), "wrong card ID in the collection idx 0 after all transfers");
-		assert.equal(0x401, await card.collections(accounts[1], 1), "wrong card ID in the collection idx 1 after all transfers");
-		assert.equal(0x403, await card.collections(accounts[1], 2), "wrong card ID in the collection idx 2 after all transfers");
-		assert.equal(0x405, await card.collections(accounts[1], 3), "wrong card ID in the collection idx 3 after all transfers");
-		assert.equal(0x404, await card.collections(accounts[1], 4), "wrong card ID in the collection idx 4 after all transfers");
+
+		const collection1 = await card.getCollection(accounts[1]);
+		assert.equal(0x402, collection1[0], "wrong card ID in the collection idx 0 after all transfers");
+		assert.equal(0x401, collection1[1], "wrong card ID in the collection idx 1 after all transfers");
+		assert.equal(0x403, collection1[2], "wrong card ID in the collection idx 2 after all transfers");
+		assert.equal(0x405, collection1[3], "wrong card ID in the collection idx 3 after all transfers");
+		assert.equal(0x404, collection1[4], "wrong card ID in the collection idx 4 after all transfers");
 		assert.equal(1, (await card.cards(0x401))[CARD_IDX_IDX], "card 0x401 has wrong index after all transfers");
 		assert.equal(0, (await card.cards(0x402))[CARD_IDX_IDX], "card 0x402 has wrong index after all transfers");
 		assert.equal(2, (await card.cards(0x403))[CARD_IDX_IDX], "card 0x403 has wrong index after all transfers");
@@ -511,9 +518,10 @@ contract('CharacterCard', function(accounts) {
 		await card.transfer(accounts[1], 3);
 		assert.equal(0, await card.balanceOf(accounts[0]), "wrong source balance after transfer");
 		assert.equal(5, await card.balanceOf(accounts[1]), "wrong destination balance after transfer");
-		assert.equal(0x401, await card.collections(accounts[1], 2), "card 0x401 is missing in the collection at idx 2 after transfer");
-		assert.equal(0x402, await card.collections(accounts[1], 3), "card 0x402 is missing in the collection at idx 3 after transfer");
-		assert.equal(0x403, await card.collections(accounts[1], 4), "card 0x403 is missing in the collection at idx 4 after transfer");
+		const collection1 = await card.getCollection(accounts[1]);
+		assert.equal(0x401, collection1[2], "card 0x401 is missing in the collection at idx 2 after transfer");
+		assert.equal(0x402, collection1[3], "card 0x402 is missing in the collection at idx 3 after transfer");
+		assert.equal(0x403, collection1[4], "card 0x403 is missing in the collection at idx 4 after transfer");
 
 		const card1 = await card.cards(0x401);
 		const card2 = await card.cards(0x402);

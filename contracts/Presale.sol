@@ -15,11 +15,11 @@ contract Presale {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0x5;
+  uint32 public constant PRESALE_VERSION = 0x6;
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.CHAR_CARD_VERSION`
-  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0xB;
+  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0xC;
 
   /// @dev Six different card types defined in presale:
   /// @dev Hologram card, has 10 attributes

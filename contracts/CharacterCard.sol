@@ -26,7 +26,7 @@ contract CharacterCard is AccessControl {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant CHAR_CARD_VERSION = 0xB;
+  uint32 public constant CHAR_CARD_VERSION = 0xC;
 
   /// @dev Tokens within the reserved space cannot be issued/minted
   /// @dev This limitation is required to support ERC20 compatible transfers:
@@ -105,9 +105,9 @@ contract CharacterCard is AccessControl {
   ///      function allowance(address owner, address spender) public constant returns (uint256 remaining)
   mapping(address => mapping(address => uint256)) public allowance;
 
-  /// @notice Storage for a collections of tokens
-  /// @notice A collection of tokens is an ordered list of token IDs,
-  ///      owned by a particular address (owner)
+  /// @notice Storage for a collections of tokens by address (owner)
+  /// @notice An order in the collection is not guaranteed and may change
+  ///      when a token is transferred from the collection
   /// @dev A mapping from owner to a collection of his tokens (IDs)
   /// @dev ERC20 compliant structure for balances can be derived
   ///      as a length of each collection in the mapping
@@ -241,6 +241,18 @@ contract CharacterCard is AccessControl {
 
     // return the whole 512 bits of result
     return (high, low);
+  }
+
+  /**
+   * @notice Retrieves a collection of tokens owned by a particular address
+   * @notice An order of token IDs is not guaranteed and may change
+   *      when a token from the list is transferred
+   * @param owner an address to query a collection for
+   * @return an ordered list of token
+   */
+  function getCollection(address owner) public constant returns(uint16[]) {
+    // read a collection from mapping and return
+    return collections[owner];
   }
 
   /**

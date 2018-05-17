@@ -25,13 +25,13 @@ contract('Gas Usage', function(accounts) {
 		const gasUsed = txReceipt.gasUsed;
 		assertEqual(5194441, gasUsed, "character card deployment gas usage doesn't match: " + gasUsed);
 	});
-	it("deployment: deploying a presale requires 2724583 gas", async function() {
+	it("deployment: deploying a presale requires 3085142 gas", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		const txHash = presale.transactionHash;
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
-		assertEqual(2724583, gasUsed, "presale deployment gas usage doesn't match: " + gasUsed);
+		assertEqual(3085142, gasUsed, "presale deployment gas usage doesn't match: " + gasUsed);
 	});
 
 	it("ERC20 transfer: transfer 192 cards requires 6298643 gas", async function() {

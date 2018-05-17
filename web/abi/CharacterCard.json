@@ -16,9 +16,27 @@
       "type": "function"
     },
     {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "name": "role",
+          "type": "uint256"
+        }
+      ],
+      "name": "addOperator",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "constant": true,
       "inputs": [],
-      "name": "ROLE_COMBAT_PROVIDER",
+      "name": "ROLE_STATE_LOCK_PROVIDER",
       "outputs": [
         {
           "name": "",
@@ -45,34 +63,6 @@
     },
     {
       "constant": true,
-      "inputs": [],
-      "name": "DEFAULT_IN_BATTLE_BIT",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
-      "name": "ROLE_FEATURE_MANAGER",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint32"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
       "inputs": [
         {
           "name": "",
@@ -82,12 +72,12 @@
       "name": "cards",
       "outputs": [
         {
-          "name": "creationTime",
+          "name": "stateModified",
           "type": "uint32"
         },
         {
-          "name": "rarity",
-          "type": "uint32"
+          "name": "state",
+          "type": "uint128"
         },
         {
           "name": "attributesModified",
@@ -95,22 +85,10 @@
         },
         {
           "name": "attributes",
-          "type": "uint32"
+          "type": "uint64"
         },
         {
-          "name": "lastGamePlayed",
-          "type": "uint32"
-        },
-        {
-          "name": "gamesPlayed",
-          "type": "uint32"
-        },
-        {
-          "name": "wins",
-          "type": "uint32"
-        },
-        {
-          "name": "losses",
+          "name": "creationTime",
           "type": "uint32"
         },
         {
@@ -120,10 +98,6 @@
         {
           "name": "index",
           "type": "uint16"
-        },
-        {
-          "name": "state",
-          "type": "uint32"
         },
         {
           "name": "ownershipModified",
@@ -141,25 +115,11 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "FULL_PRIVILEGES_MASK",
+      "name": "features",
       "outputs": [
         {
           "name": "",
-          "type": "uint32"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
-      "name": "f",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint32"
+          "type": "uint256"
         }
       ],
       "payable": false,
@@ -202,20 +162,6 @@
         {
           "name": "",
           "type": "uint32"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
-      "name": "GAME_OUTCOME_DRAW",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint8"
         }
       ],
       "payable": false,
@@ -299,7 +245,7 @@
       "outputs": [
         {
           "name": "",
-          "type": "uint32"
+          "type": "uint256"
         }
       ],
       "payable": false,
@@ -307,13 +253,49 @@
       "type": "function"
     },
     {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "name": "role",
+          "type": "uint256"
+        }
+      ],
+      "name": "removeRole",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "name": "role",
+          "type": "uint256"
+        }
+      ],
+      "name": "addRole",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "constant": true,
       "inputs": [],
-      "name": "LAST_GAME_OUTCOME_BITS",
+      "name": "ROLE_STATE_PROVIDER",
       "outputs": [
         {
           "name": "",
-          "type": "uint8"
+          "type": "uint32"
         }
       ],
       "payable": false,
@@ -365,20 +347,6 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "GAME_OUTCOME_UNDEFINED",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
       "name": "symbol",
       "outputs": [
         {
@@ -393,21 +361,7 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "GAME_OUTCOME_DEFEAT",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
-      "name": "ROLE_ROLE_MANAGER",
+      "name": "ROLE_ATTR_PROVIDER",
       "outputs": [
         {
           "name": "",
@@ -419,17 +373,17 @@
       "type": "function"
     },
     {
-      "constant": true,
-      "inputs": [],
-      "name": "BATTLE_COMPLETE_CLEAR_BITS",
-      "outputs": [
+      "constant": false,
+      "inputs": [
         {
-          "name": "",
-          "type": "uint8"
+          "name": "operator",
+          "type": "address"
         }
       ],
+      "name": "removeOperator",
+      "outputs": [],
       "payable": false,
-      "stateMutability": "view",
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -444,6 +398,20 @@
       ],
       "payable": false,
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateFeatures",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -503,26 +471,6 @@
       "type": "function"
     },
     {
-      "constant": true,
-      "inputs": [],
-      "name": "GAME_OUTCOME_VICTORY",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
       "anonymous": false,
       "inputs": [
         {
@@ -536,7 +484,7 @@
           "type": "address"
         },
         {
-          "indexed": true,
+          "indexed": false,
           "name": "_tokenId",
           "type": "uint16"
         }
@@ -558,7 +506,7 @@
           "type": "address"
         },
         {
-          "indexed": true,
+          "indexed": false,
           "name": "_tokenId",
           "type": "uint16"
         }
@@ -602,7 +550,7 @@
           "type": "address"
         },
         {
-          "indexed": true,
+          "indexed": false,
           "name": "_tokenId",
           "type": "uint16"
         }
@@ -637,119 +585,115 @@
       "inputs": [
         {
           "indexed": true,
-          "name": "card1Id",
-          "type": "uint16"
+          "name": "_by",
+          "type": "address"
         },
         {
           "indexed": true,
-          "name": "card2Id",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "_tokenId",
           "type": "uint16"
         },
         {
           "indexed": false,
-          "name": "wins",
-          "type": "uint32"
-        },
-        {
-          "indexed": false,
-          "name": "losses",
-          "type": "uint32"
-        },
-        {
-          "indexed": false,
-          "name": "gamesPlayed",
-          "type": "uint32"
-        },
-        {
-          "indexed": false,
-          "name": "lastGameOutcome",
-          "type": "uint8"
+          "name": "_state",
+          "type": "uint128"
         }
       ],
-      "name": "BattleComplete",
+      "name": "StateModified",
       "type": "event"
     },
     {
-      "constant": false,
+      "anonymous": false,
       "inputs": [
         {
-          "name": "mask",
-          "type": "uint32"
-        }
-      ],
-      "name": "updateFeatures",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "operator",
+          "indexed": true,
+          "name": "_by",
           "type": "address"
         },
         {
-          "name": "role",
-          "type": "uint32"
-        }
-      ],
-      "name": "addOperator",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "operator",
-          "type": "address"
-        }
-      ],
-      "name": "removeOperator",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "operator",
+          "indexed": true,
+          "name": "_owner",
           "type": "address"
         },
         {
-          "name": "role",
-          "type": "uint32"
+          "indexed": true,
+          "name": "_tokenId",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "name": "_attributes",
+          "type": "uint64"
         }
       ],
-      "name": "addRole",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
+      "name": "AttributesModified",
+      "type": "event"
     },
     {
-      "constant": false,
+      "anonymous": false,
       "inputs": [
         {
-          "name": "operator",
+          "indexed": true,
+          "name": "_by",
           "type": "address"
         },
         {
-          "name": "role",
-          "type": "uint32"
+          "indexed": false,
+          "name": "_bitmask",
+          "type": "uint128"
         }
       ],
-      "name": "removeRole",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
+      "name": "StateLockModified",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "_by",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "_requested",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "_actual",
+          "type": "uint256"
+        }
+      ],
+      "name": "FeaturesUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "_by",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "_role",
+          "type": "uint256"
+        }
+      ],
+      "name": "RoleUpdated",
+      "type": "event"
     },
     {
       "constant": true,
@@ -759,7 +703,7 @@
           "type": "uint16"
         }
       ],
-      "name": "getCard",
+      "name": "getPacked",
       "outputs": [
         {
           "name": "",
@@ -800,7 +744,7 @@
       "outputs": [
         {
           "name": "",
-          "type": "uint32"
+          "type": "uint128"
         }
       ],
       "payable": false,
@@ -816,7 +760,7 @@
         },
         {
           "name": "state",
-          "type": "uint32"
+          "type": "uint128"
         }
       ],
       "name": "setState",
@@ -829,19 +773,15 @@
       "constant": false,
       "inputs": [
         {
-          "name": "card1Id",
+          "name": "tokenId",
           "type": "uint16"
         },
         {
-          "name": "card2Id",
-          "type": "uint16"
-        },
-        {
-          "name": "outcome",
-          "type": "uint8"
+          "name": "state",
+          "type": "uint128"
         }
       ],
-      "name": "battleComplete",
+      "name": "addStateAttributes",
       "outputs": [],
       "payable": false,
       "stateMutability": "nonpayable",
@@ -851,31 +791,15 @@
       "constant": false,
       "inputs": [
         {
-          "name": "card1Id",
+          "name": "tokenId",
           "type": "uint16"
         },
         {
-          "name": "card2Id",
-          "type": "uint16"
-        },
-        {
-          "name": "wins",
-          "type": "uint32"
-        },
-        {
-          "name": "losses",
-          "type": "uint32"
-        },
-        {
-          "name": "gamesPlayed",
-          "type": "uint32"
-        },
-        {
-          "name": "lastGameOutcome",
-          "type": "uint8"
+          "name": "state",
+          "type": "uint128"
         }
       ],
-      "name": "battlesComplete",
+      "name": "removeStateAttributes",
       "outputs": [],
       "payable": false,
       "stateMutability": "nonpayable",
@@ -893,7 +817,7 @@
       "outputs": [
         {
           "name": "",
-          "type": "uint32"
+          "type": "uint64"
         }
       ],
       "payable": false,
@@ -909,7 +833,7 @@
         },
         {
           "name": "attributes",
-          "type": "uint32"
+          "type": "uint64"
         }
       ],
       "name": "setAttributes",
@@ -927,7 +851,7 @@
         },
         {
           "name": "attributes",
-          "type": "uint32"
+          "type": "uint64"
         }
       ],
       "name": "addAttributes",
@@ -945,7 +869,7 @@
         },
         {
           "name": "attributes",
-          "type": "uint32"
+          "type": "uint64"
         }
       ],
       "name": "removeAttributes",
@@ -1042,7 +966,7 @@
         },
         {
           "name": "rarity",
-          "type": "uint32"
+          "type": "uint8"
         }
       ],
       "name": "mintWith",
@@ -1073,16 +997,21 @@
       "constant": false,
       "inputs": [
         {
-          "name": "to",
+          "name": "_to",
           "type": "address"
         },
         {
-          "name": "n",
-          "type": "uint16"
+          "name": "_value",
+          "type": "uint256"
         }
       ],
       "name": "transfer",
-      "outputs": [],
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool"
+        }
+      ],
       "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1091,20 +1020,25 @@
       "constant": false,
       "inputs": [
         {
-          "name": "from",
+          "name": "_from",
           "type": "address"
         },
         {
-          "name": "to",
+          "name": "_to",
           "type": "address"
         },
         {
-          "name": "n",
-          "type": "uint16"
+          "name": "_value",
+          "type": "uint256"
         }
       ],
       "name": "transferFrom",
-      "outputs": [],
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool"
+        }
+      ],
       "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1203,16 +1137,21 @@
       "constant": false,
       "inputs": [
         {
-          "name": "to",
+          "name": "_spender",
           "type": "address"
         },
         {
-          "name": "approved",
+          "name": "_value",
           "type": "uint256"
         }
       ],
       "name": "approve",
-      "outputs": [],
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool"
+        }
+      ],
       "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1232,10 +1171,10 @@
     "4": {
       "events": {},
       "links": {},
-      "address": "0x8780e8d168b12e8e66b7415921dd9f28b5dd7ed7",
-      "transactionHash": "0x6432e64d231fdd89f6e024db84d19f12afdddb8337ff3f57c4eb5372ecf94b21"
+      "address": "0x428bb118df746ddb871d3a0020cbc0d71cd61ba8",
+      "transactionHash": "0xa07e6f86000f4558661c019b4cbf6d9de0e09a281959ad9f4f4952359f2c19b0"
     }
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-12T17:32:05.764Z"
+  "updatedAt": "2018-05-17T10:44:50.534Z"
 }
