@@ -199,10 +199,10 @@ contract Presale {
     return result;
   }
 
-  /// @dev Returns the presale status data as a packed uint256 tuple structure
-  function getPacked() public constant returns (uint256) {
+  /// @dev Returns the presale status data as a packed uint144 tuple structure
+  function getPacked() public constant returns (uint144) {
     // pack and return
-    return uint176(sold) << 160 | uint160(currentPrice) << 80 | lastPrice;
+    return uint144(sold) << 128 | uint128(currentPrice) << 64 | lastPrice;
   }
 
   /// @dev Accepts a payment and sends a specific card back to the sender
