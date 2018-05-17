@@ -8,7 +8,7 @@
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	const CHAR_CARD_VERSION = 0xC;
-	const PRESALE_VERSION = 0x6;
+	const PRESALE_VERSION = 0x7;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -48,7 +48,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			const by = receipt.args._by;
 			const to = receipt.args._to;
 			const cardId = receipt.args._tokenId.toString(10);
-			logSuccess("Minted(" + by + ", " + to + ", " + cardId + ")");
+			logInfo("Minted(" + by + ", " + to + ", " + cardId + ")");
 		});
 		logInfo("Successfully registered Minted(uint16, address, address) event listener");
 	}
@@ -103,7 +103,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 					&& receipt.args.card2Id
 					&& receipt.args.gamesPlayed
 					&& receipt.args.lastGameOutcome)) {
-				logError("BattleComplete event received in wrong format: wrong arguments");
+				logError("BattleComplete event received in wrong format: wrong arguments - " + receipt);
 				return;
 			}
 			const card1Id = receipt.args.card1Id.toString(16);
@@ -120,9 +120,21 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	function registerPurchaseCompleteEventListener(presaleInstance) {
 		const purchaseCompleteEvent = presaleInstance.PurchaseComplete();
 		purchaseCompleteEvent.watch(function(err, receipt) {
-			// TODO: implement
+			if(err) {
+				logError("Error receiving PurchaseComplete event: " + err);
+				return;
+			}
+			if(!(receipt && receipt.args && receipt.args.from && receipt.args.to && receipt.args.quantity && receipt.args.totalPrice)) {
+				logError("PurchaseComplete event received in wrong format: wrong arguments - " + receipt);
+				return;
+			}
+			const from = receipt.args.from;
+			const to = receipt.args.to;
+			const q = receipt.args.quantity;
+			const price = receipt.args.totalPrice;
+			logSuccess("PurchaseComplete(" + from + ", " + to + ", " + q + ", " + price + ")");
 		});
-		logInfo("Successfully registered PurchaseComplete(address, address, uint16) event listener");
+		logInfo("Successfully registered PurchaseComplete(address, address, uint16, uint64) event listener");
 	}
 
 	function loadCardsFor(cardInstance, myAccount) {
@@ -260,11 +272,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 										return;
 									}
 									if(result.length > 0) {
-										let msg = "List of the cards you own:";
-										for(let i = 0; i < result.length; i++) {
-											msg += "\n" + result[i].toString(10);
-										}
-										logInfo(msg);
+										logInfo("List of the cards you own: " + result);
 									}
 									else {
 										logInfo("You don't own any cards");
@@ -310,7 +318,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 									}
 									let msg = "Cards, available for sale: ";
 									for(let i = 0; i < result.length; i++) {
-										msg += "\n" + result[i].toString(2);
+										msg += result[i].toString(2).split("").reverse().join("");
 									}
 									logInfo(msg);
 								});

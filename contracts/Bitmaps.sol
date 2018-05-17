@@ -30,14 +30,26 @@ library Bitmaps {
     __ensureBitmapSize(bitmap, i);
 
     // disable the bit required
-    bitmap[i / 256] &= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF ^ uint256(i % 256);
+    bitmap[i / 256] &= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF ^ 1 << uint256(i % 256);
   }
 
-  function flip(uint256[] storage bitmap) internal {
+  function flipAll(uint256[] storage bitmap) internal {
     for(uint256 i = 0; i < bitmap.length; i++) {
       bitmap[i] ^= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
     }
   }
+
+/*
+  function trim(uint256[] storage bitmap, uint16 length) internal {
+    if(length % 256 == 0) {
+      bitmap.length = length / 256;
+    }
+    else {
+      bitmap.length = length / 256 + 1;
+      bitmap[bitmap.length - 1] &= 1 << length % 256 - 1;
+    }
+  }
+*/
 
   function bulkGet(uint256[] memory bitmap, uint16 offset, uint16 length) internal pure returns (uint256[]) {
     uint256[] memory result = new uint256[](length);

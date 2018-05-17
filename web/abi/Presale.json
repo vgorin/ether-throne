@@ -494,8 +494,13 @@
         },
         {
           "indexed": false,
-          "name": "amount",
+          "name": "quantity",
           "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "name": "totalPrice",
+          "type": "uint256"
         }
       ],
       "name": "PurchaseComplete",
@@ -643,5 +648,5 @@
   },
   "networks": {},
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-17T10:44:50.578Z"
+  "updatedAt": "2018-05-17T17:03:05.025Z"
 }

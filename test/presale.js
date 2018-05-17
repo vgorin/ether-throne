@@ -130,6 +130,15 @@ contract('Presale', function(accounts) {
 		const playerBalance = await card.balanceOf(player);
 		assert(expectedCardsNumber.eq(playerBalance),
 			"wrong number of cards owned by player, expected " + expectedCardsNumber + ", got " + playerBalance);
+
+		const availableCardsBitmap = await presale.getAvailableCardsBitmap();
+		let msg = "\tavailable cards bitmap after buying " + expectedCardsNumber + " cards: ";
+		for(let i = 0; i < availableCardsBitmap.length; i++) {
+			msg += availableCardsBitmap[i].toString(2).split("").reverse().join("");
+		}
+		console.log(msg);
+
+		console.log("\towned cards: " + await card.getCollection(player));
 	});
 	it("presale: impossible to buy a card for a zero address, smart contract(s) itself", async function() {
 		const card = await CharacterCard.new();

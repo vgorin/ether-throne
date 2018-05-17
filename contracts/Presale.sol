@@ -15,7 +15,7 @@ contract Presale {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0x6;
+  uint32 public constant PRESALE_VERSION = 0x7;
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.CHAR_CARD_VERSION`
@@ -110,7 +110,7 @@ contract Presale {
   address public beneficiary;
 
   /// @dev Emits when smart contract sells a card, buy(), buyFor()
-  event PurchaseComplete(address indexed from, address indexed to, uint16 amount);
+  event PurchaseComplete(address indexed from, address indexed to, uint16 quantity, uint256 totalPrice);
 
   /**
    * @dev Creates a card sale smart contract instance
@@ -136,7 +136,10 @@ contract Presale {
     beneficiary = _beneficiary;
 
     // set the bitmap to ones - available cards
-    bitmap.flip();
+    bitmap.flipAll();
+
+    // trim the bitmap to fit the length - TOTAL_CARDS
+    //bitmap.trim(TOTAL_CARDS);
   }
 
   /// @dev Initializes `cardsForSale` array
@@ -256,7 +259,7 @@ contract Presale {
     }
 
     // emit an `PurchaseComplete` event
-    emit PurchaseComplete(msg.sender, to, 1);
+    emit PurchaseComplete(msg.sender, to, 1, price);
   }
 
   /// @dev Accepts a payment and sends card(s) back to the sender
@@ -355,7 +358,7 @@ contract Presale {
     }
 
     // emit an `PurchaseComplete` event
-    emit PurchaseComplete(msg.sender, to, totalPrice == currentPrice ? 1: 3);
+    emit PurchaseComplete(msg.sender, to, totalPrice == currentPrice ? 1: 3, totalPrice);
   }
 
   /// @dev Updates the price of the next card to sell

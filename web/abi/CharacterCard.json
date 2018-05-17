@@ -719,6 +719,25 @@
       "type": "function"
     },
     {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "getCollection",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint16[]"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "constant": false,
       "inputs": [
         {
@@ -1171,10 +1190,10 @@
     "4": {
       "events": {},
       "links": {},
-      "address": "0x428bb118df746ddb871d3a0020cbc0d71cd61ba8",
-      "transactionHash": "0xa07e6f86000f4558661c019b4cbf6d9de0e09a281959ad9f4f4952359f2c19b0"
+      "address": "0xb7aeb6ecee8556503c7c9656fc2657690c6cae2f",
+      "transactionHash": "0x63a64771472758ea265745c47adf0824dc89e33fdbdb3c61e136a61fbf5fcaaa"
     }
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-17T10:44:50.534Z"
+  "updatedAt": "2018-05-17T17:03:05.078Z"
 }
