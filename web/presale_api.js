@@ -7,8 +7,8 @@
  * @constructor
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
-	const CHAR_CARD_VERSION = 0xB;
-	const PRESALE_VERSION = 0x5;
+	const CHAR_CARD_VERSION = 0xC;
+	const PRESALE_VERSION = 0x6;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -156,9 +156,12 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		});
 	}
 
-	function instanceLoaded() {
+	function instanceLoaded(callback) {
 		if(cardInstance && presaleInstance) {
 			logSuccess("Application loaded successfully.\nNetwork " + networkName(myNetwork));
+			if(callback && {}.toString.call(callback) === '[object Function]') {
+				callback(cardInstance, presaleInstance);
+			}
 		}
 	}
 
@@ -195,7 +198,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	 * 	* 0x1 MetaMask is not installed
 	 * 	* 0x2 and 0x4 MetaMask is locked
 	 */
-	this.init = function() {
+	this.init = function(callback) {
 		if(typeof window.web3 == 'undefined') {
 			logError("Web3 is not enabled. Do you need to install MetaMask?");
 			return 0x1;
@@ -250,7 +253,23 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 								// registerBattleCompleteEventListener(instance);
 								// loadCards(instance, myAccount);
 								cardInstance = instance;
-								instanceLoaded();
+								instanceLoaded(callback);
+								cardInstance.getCollection(myAccount, function(err, result) {
+									if(err) {
+										logError("Unable to get cards list for account " + myAccount + ": " + err);
+										return;
+									}
+									if(result.length > 0) {
+										let msg = "List of the cards you own:";
+										for(let i = 0; i < result.length; i++) {
+											msg += "\n" + result[i].toString(10);
+										}
+										logInfo(msg);
+									}
+									else {
+										logInfo("You don't own any cards");
+									}
+								});
 							});
 						}
 						catch(err) {
@@ -283,7 +302,18 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 								logInfo("Successfully connected to Presale Instance at " + presaleAddr);
 								registerPurchaseCompleteEventListener(instance);
 								presaleInstance = instance;
-								instanceLoaded();
+								instanceLoaded(callback);
+								presaleInstance.getAvailableCardsBitmap(function(err, result) {
+									if(err) {
+										logError("Unable to get available cards list: " + err);
+										return;
+									}
+									let msg = "Cards, available for sale: ";
+									for(let i = 0; i < result.length; i++) {
+										msg += "\n" + result[i].toString(2);
+									}
+									logInfo(msg);
+								});
 							});
 						}
 						catch(err) {
@@ -337,12 +367,18 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			logError("Presale API is not properly initialized. Reload the page.");
 			return 0x3;
 		}
-		presaleInstance.buyRandom.sendTransaction({value: myWeb3.toWei(50, 'finney')}, function(err, txHash) {
+		presaleInstance.currentPrice(function(err, result) {
 			if(err) {
-				logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+				logError("Unable to get random card price: " + err);
 				return;
 			}
-			logSuccess("Buy transaction sent: " + txHash);
+			presaleInstance.buyRandom.sendTransaction({value: result}, function(err, txHash) {
+				if(err) {
+					logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+					return;
+				}
+				logSuccess("Buy transaction sent: " + txHash);
+			});
 		});
 	};
 
@@ -357,16 +393,20 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			logError("Presale API is not properly initialized. Reload the page.");
 			return 0x3;
 		}
-		presaleInstance.buyRandom.sendTransaction(
-			{value: myWeb3.toBigNumber(myWeb3.toWei(50, 'finney')).times(2)},
-			function(err, txHash) {
-				if(err) {
-					logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
-					return;
-				}
-				logSuccess("Buy transaction sent: " + txHash);
+		presaleInstance.currentPrice(function(err, result) {
+			if(err) {
+				logError("Unable to get random card price: " + err);
+				return;
 			}
-		);
+			presaleInstance.buyRandom.sendTransaction({value: result.times(2)}, function(err, txHash) {
+					if(err) {
+						logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+						return;
+					}
+					logSuccess("Buy transaction sent: " + txHash);
+				}
+			);
+		});
 	};
 
 	/**
@@ -377,30 +417,36 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	 * 	* Current Price
 	 * 	* Current Price Increase Value (Next Being Price minus Current Price)
 	 */
-	this.presaleStatus = function(
-		soldCounterCallback,
-		lastPriceCallback,
-		nextPriceCallback,
-		currentPriceCallback,
-		priceIncreaseCallback
-	) {
-		if(soldCounterCallback && {}.toString.call(soldCounterCallback) === '[object Function]') {
+	this.presaleStatus = function(callback) {
+		if(callback && {}.toString.call(callback) === '[object Function]') {
 			if(!(myWeb3 && myAccount && presaleInstance)) {
 				logError("Presale API is not properly initialized. Reload the page.");
-				soldCounterCallback("Presale API is not properly initialized", null);
+				callback("Presale API is not properly initialized", null);
 				return 0x3;
 			}
+			presaleInstance.getPacked(function(err, result) {
+				if(err) {
+					logError("Error getting presale status: " + err);
+					callback(err, null);
+					return;
+				}
+				try {
+					const uint64 = myWeb3.toBigNumber("0x10000000000000000");
+					const soldCards = result.dividedToIntegerBy(uint64).dividedToIntegerBy(uint64);
+					const currentPrice = result.dividedToIntegerBy(uint64).modulo(uint64);
+					const lastPrice = result.modulo(uint64);
+					logInfo("sold cards: " + soldCards + ", current price: " + currentPrice + ", last price: " + lastPrice);
+					callback(null, {
+						sold: soldCards.toNumber(),
+						currentPrice: myWeb3.fromWei(currentPrice, "ether").toNumber(),
+						lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber()
+					});
+				}
+				catch(e) {
+					logError("Error displaying presale status: " + e);
+				}
+			});
 		}
 	};
 }
 
-
-// TODO: do we need this function?
-function cards_available() {
-
-}
-
-// TODO: do we need this function?
-function cards_sold() {
-
-}

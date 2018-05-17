@@ -1,9 +1,9 @@
 // create an API client
 const presale = new PresaleApi(
 	// deployed card instance address
-	"0x49974c70ee946347d80b98d4bd3290cb00b4d80c",
+	"0x428bb118df746ddb871d3a0020cbc0d71cd61ba8",
 	// deployed presale instance address
-	"0xb661193e03ad49d08a2cc40f395db46000a768e9",
+	"0x9269e5f237f18b2b24eda94e64a72ee390233f6d",
 	// callback handlers, use bootstrap notify
 	{
 		errorHandler: function(msg) {
@@ -30,7 +30,18 @@ $.notifyDefaults({
 });
 
 // init Web3
-presale.init();
+presale.init(function() {
+	presale.presaleStatus(
+		function(err, result) {
+			if(!err) {
+				$('span:contains(Character Cards Sold)').parent().prev().find("span").html(result.sold);
+				$('span:contains(Last Being Price)').parent().next().find("span").html(result.lastPrice + " ETH");
+				$('span:contains(Next Being Price)').parent().next().find("span").html(result.currentPrice + " ETH");
+				$('span:contains(Curent Price)').parent().next().find("span").html(result.currentPrice + " ETH");
+			}
+		}
+	);
+});
 
 // register button listeners, display presale status
 $(document).ready(function() {
@@ -52,20 +63,16 @@ $(document).ready(function() {
 	$('img[src="img/small_droodoo_card.png"]').bind("click", function() {
 		presale.buySpecific(1088);
 	});
-	$('img[src="img/small_shinderra_card.png"]').bind("click", function() {
+	$('img[src="img/small_lizzaro_card.png"]').bind("click", function() {
 		presale.buySpecific(1089);
 	});
-	$('img[src="img/small_spike_card.png"]').bind("click", function() {
+	$('img[src="img/small_shinderra_card.png"]').bind("click", function() {
 		presale.buySpecific(1090);
 	});
-	$('img[src="img/small_vipassana_card.png"]').bind("click", function() {
+	$('img[src="img/small_spike_card.png"]').bind("click", function() {
 		presale.buySpecific(1091);
 	});
-	presale.presaleStatus(
-		function(err, result) {
-			if(!err) {
-				$('span:contains(Character Cards Sold)').parent().prev().select("span").html(result);
-			}
-		}
-	);
+	$('img[src="img/small_vipassana_card.png"]').bind("click", function() {
+		presale.buySpecific(1092);
+	});
 });
