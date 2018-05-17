@@ -18,43 +18,62 @@ contract('Presale', function(accounts) {
 		await assertThrowsAsync(async function() {await Presale.new(card.address, card.address);});
 		await assertThrowsAsync(async function() {await Presale.new(accounts[0], accounts[1]);});
 		await assertThrowsAsync(async function() {await Presale.new(deprecatedCard.address, accounts[1]);});
+		const presale = await Presale.new(card.address, accounts[0]);
+		assert(!await presale.initialized(), "presale is initialized but it should not");
 	});
-	it("presale: it is possible to buy a card", async function() {
+/*
+	it("presale: create presale and check it", async function() {
 		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
-		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE});
-
-		assert.equal(1, await card.balanceOf(accounts[1]), "wrong card balance after buying a single card");
+		const presale = await Presale.new(card.address, accounts[0]);
+		const availableCards = await presale.getAvailableCardsBitmap();
+		assert.equal(16, availableCards.length, "available card bitmap is corrupted");
+		for(let i = 0; i < availableCards.length; i++) {
+			assert(availableCards[i].eq("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), "incorrect bitmap " + i);
+		}
 	});
-	it("presale: it is possible to buy three cards", async function() {
+*/
+	it("presale: buying some card(s)", async function() {
 		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
+		const presale = await createPresale(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
-		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE.times(2)});
 
-		assert.equal(3, await card.balanceOf(accounts[1]), "wrong card balance after buying three cards");
-	});
-	it("presale: it is possible to buy usual card", async function() {
-		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
-		await presale.buyUsual.sendTransaction(0, 0x43D, {from: accounts[1], value: INITIAL_TOKEN_PRICE.times(5)});
-
+		// buying usual card,
+		// sending not enough ether
+		await assertThrowsAsync(async function () {
+			await presale.buySpecific.sendTransaction(0x440, {from: accounts[1], value: INITIAL_TOKEN_PRICE.times(10).minus(1)});
+		});
+		// sending enough ether
+		await presale.buySpecific.sendTransaction(0x440, {from: accounts[1], value: INITIAL_TOKEN_PRICE.times(10)});
 		assert.equal(1, await card.balanceOf(accounts[1]), "wrong card balance after buying usual card");
-	});
-	it("presale: it is not possible to buy a card if sending too little ether", async function() {
-		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
+		// buying usual card for
+		await presale.buySpecificFor.sendTransaction(accounts[1], 0x441, {value: INITIAL_TOKEN_PRICE.times(10)});
+		assert.equal(2, await card.balanceOf(accounts[1]), "wrong card balance after buying usual card for");
+
+		// buying one random card,
+		// sending not enough ether
 		await assertThrowsAsync(async function () {
 			await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE.minus(1)});
 		});
+		// sending enough ether
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE});
+		assert.equal(3, await card.balanceOf(accounts[1]), "wrong card balance after buying a single card");
+
+		// buying 3 random cards at once
+		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_TOKEN_PRICE.times(2)});
+		assert.equal(6, await card.balanceOf(accounts[1]), "wrong card balance after buying three cards");
+
+		// buying random card for
+		await presale.buyRandomFor.sendTransaction(accounts[1], {value: INITIAL_TOKEN_PRICE});
+		assert.equal(7, await card.balanceOf(accounts[1]), "wrong balance after buying a card for " + accounts[1]);
+
+		// buying 3 random cards for at once
+		await presale.buyRandomFor.sendTransaction(accounts[1], {value: INITIAL_TOKEN_PRICE.times(2)});
+		assert.equal(10, await card.balanceOf(accounts[1]), "wrong balance after buying a card for " + accounts[1]);
 	});
-	it("presale: the funds are transferred to the beneficiary correctly", async function() {
+	it("presale: funds and change are transferred correctly", async function() {
 		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
+		const presale = await createPresale(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
 		const beneficiary = await presale.beneficiary();
@@ -64,11 +83,6 @@ contract('Presale', function(accounts) {
 
 		assert(INITIAL_TOKEN_PRICE.eq(beneficiaryBalanceDelta),
 			"beneficiary balance is incorrect after selling one card");
-	});
-	it("presale: the change is transferred back to player correctly", async function() {
-		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
 		const player = accounts[1];
 		const initialPlayerBalance = await web3.eth.getBalance(player);
@@ -82,19 +96,13 @@ contract('Presale', function(accounts) {
 		const expectedDelta = INITIAL_TOKEN_PRICE.plus(txReceipt.gasUsed);
 
 		assert(expectedDelta.eq(playerBalanceDelta), "player balance is incorrect after buying one card");
-	});
-	it("presale: the funds and change are transferred correctly", async function() {
-		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
-
-		const player = accounts[1];
 
 		// send some random amount of money to the presale 10 times in a raw and check the results
-		let expectedCardsNumber = 0;
+		let expectedCardsNumber = await card.balanceOf(player);
 		for(let i = 0; i < 10; i++) {
-			const valueToSend = INITIAL_TOKEN_PRICE.times(random(0, 3, 2));
-			if(valueToSend.lt(INITIAL_TOKEN_PRICE)) {
+			const currentPrice = await presale.currentPrice();
+			const valueToSend = currentPrice.times(random(0, 3, 2));
+			if(valueToSend.lt(currentPrice)) {
 				await assertThrowsAsync(async function() {
 					await presale.buyRandom.sendTransaction({from: player, value: valueToSend});
 				});
@@ -109,42 +117,36 @@ contract('Presale', function(accounts) {
 				const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 				const playerBalanceDelta = initialPlayerBalance.minus(await web3.eth.getBalance(player));
 				let expectedDelta;
-				if(valueToSend.gte(INITIAL_TOKEN_PRICE.times(2))) {
-					expectedDelta = INITIAL_TOKEN_PRICE.times(2).plus(txReceipt.gasUsed);
-					expectedCardsNumber += 3;
+				if(valueToSend.gte(currentPrice.times(2))) {
+					expectedDelta = currentPrice.times(2).plus(txReceipt.gasUsed);
+					expectedCardsNumber = expectedCardsNumber.plus(3);
 				}
 				else {
-					expectedDelta = INITIAL_TOKEN_PRICE.plus(txReceipt.gasUsed);
-					expectedCardsNumber++;
+					expectedDelta = currentPrice.plus(txReceipt.gasUsed);
+					expectedCardsNumber = expectedCardsNumber.plus(1);
 				}
 				assert(expectedDelta.eq(playerBalanceDelta),
 					"player balance is incorrect after sending " + web3.toWei(valueToSend, 'finney'));
 			}
 		}
-		assert.equal(expectedCardsNumber, await card.balanceOf(player), "wrong number of cards owned by player");
+		const playerBalance = await card.balanceOf(player);
+		assert(expectedCardsNumber.eq(playerBalance),
+			"wrong number of cards owned by player, expected " + expectedCardsNumber + ", got " + playerBalance);
 	});
-	it("presale: its possible to buy a card for someone else", async function() {
+	it("presale: impossible to buy a card for a zero address, smart contract(s) itself", async function() {
 		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
-
-		await presale.buyRandomFor.sendTransaction(accounts[1], {value: INITIAL_TOKEN_PRICE});
-		assert.equal(1, await card.balanceOf(accounts[1]), "wrong balance after buying a card for " + accounts[1])
-	});
-	it("presale: its impossible to buy a card for a zero address", async function() {
-		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
+		const presale = await createPresale(card.address, accounts[2]);
 
 		await assertThrowsAsync(async function() {
 			await presale.buyRandomFor.sendTransaction(0, {value: INITIAL_TOKEN_PRICE})
 		});
-	});
-	it("presale: its impossible to buy a card for a presale smart contract itself", async function() {
-		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
 
 		await assertThrowsAsync(async function() {
 			await presale.buyRandomFor.sendTransaction(presale.address, {value: INITIAL_TOKEN_PRICE})
+		});
+
+		await assertThrowsAsync(async function() {
+			await presale.buyRandomFor.sendTransaction(card.address, {value: INITIAL_TOKEN_PRICE})
 		});
 	});
 });
@@ -171,4 +173,15 @@ async function assertThrowsAsync(fn) {
 function random(min, max, decimals) {
 	const k = Math.pow(10, decimals);
 	return min + Math.floor(k * (max - min) * Math.random()) / k;
+}
+
+// creates and initializes the presale, consumes 50kk gas
+async function createPresale(cardInstanceAddress, beneficiaryAddress) {
+	const presale = await Presale.new(cardInstanceAddress, beneficiaryAddress);
+	for(let i = 0; i < 8; i++) {
+		assert(!await presale.initialized(), "presale is already initialized");
+		await presale.init(512);
+	}
+	assert(await presale.initialized(), "presale is not initialized after 8 rounds");
+	return presale;
 }

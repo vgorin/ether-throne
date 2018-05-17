@@ -25,13 +25,13 @@ contract('Gas Usage', function(accounts) {
 		const gasUsed = txReceipt.gasUsed;
 		assertEqual(5194441, gasUsed, "character card deployment gas usage doesn't match: " + gasUsed);
 	});
-	it("deployment: deploying a presale requires 4186439 gas", async function() {
+	it("deployment: deploying a presale requires 2724583 gas", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[2]);
 		const txHash = presale.transactionHash;
 		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
 		const gasUsed = txReceipt.gasUsed;
-		assertEqual(4186439, gasUsed, "presale deployment gas usage doesn't match: " + gasUsed);
+		assertEqual(2724583, gasUsed, "presale deployment gas usage doesn't match: " + gasUsed);
 	});
 
 	it("ERC20 transfer: transfer 192 cards requires 6298643 gas", async function() {
@@ -98,23 +98,20 @@ contract('Gas Usage', function(accounts) {
 		assertEqual(38284, gasUsed, "remove attributes gas usage doesn't match: " + gasUsed);
 	});
 
-	it("presale: buying a single card requires 198329 gas", async function() {
+	it("presale: buying single card requires 216483 gas, three cards - 444577 gas", async function() {
 		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
+		const presale = await createPresale(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
-		const txHash = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE});
-		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
-		const gasUsed = txReceipt.gasUsed;
-		assertEqual(198329, gasUsed, "buying a card gas usage doesn't match: " + gasUsed);
-	});
-	it("presale: buying three cards requires 444577 gas", async function() {
-		const card = await CharacterCard.new();
-		const presale = await Presale.new(card.address, accounts[2]);
-		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
-		const txHash = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE.times(2)});
-		const txReceipt = await web3.eth.getTransactionReceipt(txHash);
-		const gasUsed = txReceipt.gasUsed;
-		assertEqual(444577, gasUsed, "buying three cards gas usage doesn't match: " + gasUsed);
+
+		const txHash1 = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE});
+		const txReceipt1 = await web3.eth.getTransactionReceipt(txHash1);
+		const gasUsed1 = txReceipt1.gasUsed;
+		assertEqual(216483, gasUsed1, "buying a card gas usage doesn't match: " + gasUsed1);
+
+		const txHash3 = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE.times(2)});
+		const txReceipt3 = await web3.eth.getTransactionReceipt(txHash3);
+		const gasUsed3 = txReceipt3.gasUsed;
+		assertEqual(498066, gasUsed3, "buying three cards gas usage doesn't match: " + gasUsed3);
 	});
 
 	it("battle: playing a game requires 165518 gas", async function() {
@@ -130,9 +127,20 @@ contract('Gas Usage', function(accounts) {
 });
 
 function assertEqual(expected, actual, msg) {
-	assertEqualWith(expected, 0.05, actual, msg);
+	assertEqualWith(expected, 0.1, actual, msg);
 }
 
 function assertEqualWith(expected, leeway, actual, msg) {
 	assert(expected * (1 - leeway) < actual && expected * (1 + leeway) > actual, msg);
+}
+
+// creates and initializes the presale, consumes 50kk gas
+async function createPresale(cardInstanceAddress, beneficiaryAddress) {
+	const presale = await Presale.new(cardInstanceAddress, beneficiaryAddress);
+	for(let i = 0; i < 8; i++) {
+		assert(!await presale.initialized(), "presale is already initialized");
+		await presale.init(512);
+	}
+	assert(await presale.initialized(), "presale is not initialized after 8 rounds");
+	return presale;
 }

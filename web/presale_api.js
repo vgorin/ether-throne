@@ -7,8 +7,8 @@
  * @constructor
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
-	const CHAR_CARD_VERSION = 0xA;
-	const PRESALE_VERSION = 0x4;
+	const CHAR_CARD_VERSION = 0xB;
+	const PRESALE_VERSION = 0x5;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -281,6 +281,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 									return;
 								}
 								logInfo("Successfully connected to Presale Instance at " + presaleAddr);
+								registerPurchaseCompleteEventListener(instance);
 								presaleInstance = instance;
 								instanceLoaded();
 							});
@@ -300,22 +301,28 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	};
 
 	/**
-	 * Prepares a Web3 transaction to buy a usual card,
-	 * bound to a "BUY BEING (1)" button.
+	 * Prepares a Web3 transaction to buy a specific card,
+	 * bound to a particular card icon.
 	 * Requires an API to be properly initialized:
 	 * cardInstance and presaleInstance initialized
 	 */
-	this.buyUsual = function(idx, cardId) {
+	this.buySpecific = function(cardId) {
 		if(!(myWeb3 && myAccount && presaleInstance)) {
 			logError("Presale API is not properly initialized. Reload the page.");
-			return 0x1;
+			return 0x3;
 		}
-		presaleInstance.buyUsual.sendTransaction(idx, cardId, {value: myWeb3.toWei(250, 'finney')}, function(err, txHash) {
+		presaleInstance.specificPrice(cardId, function(err, result) {
 			if(err) {
-				logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+				logError("Unable to get card price for " + cardId + ": " + err);
 				return;
 			}
-			logSuccess("Buy transaction sent: " + txHash);
+			presaleInstance.buySpecific.sendTransaction(cardId, {value: result}, function(err, txHash) {
+				if(err) {
+					logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+					return;
+				}
+				logSuccess("Buy transaction sent: " + txHash);
+			});
 		});
 	};
 
@@ -328,7 +335,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	this.buyRandom = function() {
 		if(!(myWeb3 && myAccount && presaleInstance)) {
 			logError("Presale API is not properly initialized. Reload the page.");
-			return 0x1;
+			return 0x3;
 		}
 		presaleInstance.buyRandom.sendTransaction({value: myWeb3.toWei(50, 'finney')}, function(err, txHash) {
 			if(err) {
@@ -348,7 +355,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	this.buyRandom3 = function() {
 		if(!(myWeb3 && myAccount && presaleInstance)) {
 			logError("Presale API is not properly initialized. Reload the page.");
-			return 0x1;
+			return 0x3;
 		}
 		presaleInstance.buyRandom.sendTransaction(
 			{value: myWeb3.toBigNumber(myWeb3.toWei(50, 'finney')).times(2)},
@@ -370,8 +377,20 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	 * 	* Current Price
 	 * 	* Current Price Increase Value (Next Being Price minus Current Price)
 	 */
-	this.presaleStatus = function() {
-
+	this.presaleStatus = function(
+		soldCounterCallback,
+		lastPriceCallback,
+		nextPriceCallback,
+		currentPriceCallback,
+		priceIncreaseCallback
+	) {
+		if(soldCounterCallback && {}.toString.call(soldCounterCallback) === '[object Function]') {
+			if(!(myWeb3 && myAccount && presaleInstance)) {
+				logError("Presale API is not properly initialized. Reload the page.");
+				soldCounterCallback("Presale API is not properly initialized", null);
+				return 0x3;
+			}
+		}
 	};
 }
 

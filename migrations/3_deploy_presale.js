@@ -1,7 +1,6 @@
 const Card = artifacts.require("./CharacterCard");
 const Presale = artifacts.require("./Presale");
 const Bitmaps = artifacts.require("./Bitmaps");
-const RandomSeq = artifacts.require("./RandomSeq");
 
 const ROLE_TOKEN_CREATOR = 0x00040000;
 
@@ -22,9 +21,6 @@ module.exports = async function(deployer, network, accounts) {
 	await deployer.deploy(Bitmaps);
 	await deployer.link(Bitmaps, Presale);
 
-	await deployer.deploy(RandomSeq);
-	await deployer.link(RandomSeq, Presale);
-
 	await deployer.deploy(
 		Presale,
 		cardInstance.address,
@@ -33,6 +29,11 @@ module.exports = async function(deployer, network, accounts) {
 	const presaleInstance = await Presale.deployed();
 
 	await cardInstance.addOperator(presaleInstance.address, ROLE_TOKEN_CREATOR);
+
+	// init 4000 cards
+	for(let i = 0; i < 8; i++) {
+		await presaleInstance.init(512);
+	}
 
 	console.log("___________________________________________________");
 	console.log("card:    " + cardInstance.address);
