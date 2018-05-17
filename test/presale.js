@@ -21,7 +21,6 @@ contract('Presale', function(accounts) {
 		const presale = await Presale.new(card.address, accounts[0]);
 		assert(!await presale.initialized(), "presale is initialized but it should not");
 	});
-/*
 	it("presale: create presale and check it", async function() {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[0]);
@@ -31,7 +30,6 @@ contract('Presale', function(accounts) {
 			assert(availableCards[i].eq("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), "incorrect bitmap " + i);
 		}
 	});
-*/
 	it("presale: buying some card(s)", async function() {
 		const card = await CharacterCard.new();
 		const presale = await createPresale(card.address, accounts[2]);

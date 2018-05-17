@@ -38,16 +38,16 @@ contract Presale {
   ///      we use following price multipliers for
   ///      different type of cards:
   /// @dev Hologram card is 1000 times more expensive
-  uint256 public constant HOLOGRAM_PRICE = 1000;
+  uint64 public constant HOLOGRAM_PRICE = 1000;
   /// @dev Legendary card is 500 times more expensive
-  uint256 public constant LEGENDARY_PRICE = 500;
+  uint64 public constant LEGENDARY_PRICE = 500;
   /// @dev Ultra rare card is 250 times more expensive
-  uint256 public constant ULTRA_RARE_PRICE = 250;
+  uint64 public constant ULTRA_RARE_PRICE = 250;
   /// @dev Rare card is 150 times more expensive
-  uint256 public constant RARE_PRICE = 150;
+  uint64 public constant RARE_PRICE = 150;
   /// @dev Usual card is 10 times more expensive,
   ///      if buying a specific card, not random
-  uint256 public constant USUAL_PRICE = 10;
+  uint64 public constant USUAL_PRICE = 10;
 
   /// @dev ID of the first card to sell is 1025
   uint16 public constant FIRST_CARD_ID = 0x401;
@@ -93,9 +93,6 @@ contract Presale {
   ///      on the deployed CharacterCard
   CharacterCard public cardInstance;
 
-  /// @dev Beneficiary address, used to send collected funds to
-  address public beneficiary;
-
   /// @dev Number of cards sold, next card to sell number is `sold + OFFSET`
   uint16 public sold;
 
@@ -104,10 +101,13 @@ contract Presale {
   ///      number of cards sold in a single transaction and so on.
   ///      This behaviour is defined in the `nextPrice()` function
   /// @dev This value is updated after each successful card purchase
-  uint256 public currentPrice = 50 finney;
+  uint64 public currentPrice = 50 finney;
 
   /// @dev Contains previous value of `currentPrice`
-  uint256 public lastPrice;
+  uint64 public lastPrice;
+
+  /// @dev Beneficiary address, used to send collected funds to
+  address public beneficiary;
 
   /// @dev Emits when smart contract sells a card, buy(), buyFor()
   event PurchaseComplete(address indexed from, address indexed to, uint16 amount);
@@ -176,7 +176,7 @@ contract Presale {
   }
 
   /// @dev Calculates card price by ID at the current moment of presale
-  function specificPrice(uint16 tokenId) public constant returns (uint256) {
+  function specificPrice(uint16 tokenId) public constant returns (uint64) {
     // verify that this card is available for sale
     require(available(tokenId));
 
@@ -199,12 +199,11 @@ contract Presale {
     return result;
   }
 
-/*
-  /// @dev Returns the presale status data as a packed uint256 structure
+  /// @dev Returns the presale status data as a packed uint256 tuple structure
   function getPacked() public constant returns (uint256) {
-    return sold | currentPrice | lastPrice;
+    // pack and return
+    return uint176(sold) << 160 | uint160(currentPrice) << 80 | lastPrice;
   }
-*/
 
   /// @dev Accepts a payment and sends a specific card back to the sender
   function buySpecific(uint16 tokenId) public payable {
@@ -458,7 +457,7 @@ contract Presale {
   }
 
   /// @dev Determine price multiplier of a card based on its ID
-  function __priceMultiplier(uint16 tokenId) private pure returns (uint256) {
+  function __priceMultiplier(uint16 tokenId) private pure returns (uint64) {
     // cards up to 1028
     if(tokenId < FIRST_CARD_ID + HOLOGRAM_OR_HIGHER) {
       return HOLOGRAM_PRICE;
