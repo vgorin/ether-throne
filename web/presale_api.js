@@ -8,7 +8,7 @@
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	const CHAR_CARD_VERSION = 0xC;
-	const PRESALE_VERSION = 0x7;
+	const PRESALE_VERSION = 0x8;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -21,6 +21,10 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		if(logger && logger.errorHandler) {
 			logger.errorHandler(msg);
 		}
+	}
+
+	function logWarning(msg) {
+		console.warn(msg);
 	}
 
 	function logInfo(msg) {
@@ -117,7 +121,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		logInfo("Successfully registered BattleComplete(uint16, uint16, uint32, uint32, uint32, uint8) event listener");
 	}
 
-	function registerPurchaseCompleteEventListener(presaleInstance) {
+	function registerPurchaseCompleteEventListener(presaleInstance, callback) {
 		const purchaseCompleteEvent = presaleInstance.PurchaseComplete();
 		purchaseCompleteEvent.watch(function(err, receipt) {
 			if(err) {
@@ -132,7 +136,16 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			const to = receipt.args.to;
 			const q = receipt.args.quantity;
 			const price = receipt.args.totalPrice;
-			logSuccess("PurchaseComplete(" + from + ", " + to + ", " + q + ", " + price + ")");
+			logInfo("PurchaseComplete(" + from + ", " + to + ", " + q + ", " + price + ")");
+			logSuccess("successfully bought " + q + " card" + (q > 1? "s": ""));
+			if(callback) {
+				try {
+					callback();
+				}
+				catch(e) {
+					logWarning("couldn't execute callback: " + e);
+				}
+			}
 		});
 		logInfo("Successfully registered PurchaseComplete(address, address, uint16, uint64) event listener");
 	}
@@ -171,23 +184,28 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	function instanceLoaded(callback) {
 		if(cardInstance && presaleInstance) {
 			logSuccess("Application loaded successfully.\nNetwork " + networkName(myNetwork));
-			if(callback && {}.toString.call(callback) === '[object Function]') {
-				callback(cardInstance, presaleInstance);
+			if(callback) {
+				try {
+					callback();
+				}
+				catch(e) {
+					logWarning("couldn't execute callback: " + e);
+				}
 			}
 		}
 	}
 
 	function networkName(network) {
 		switch(network) {
-			case "0": return "0: Olympic; Ethereum public pre-release testnet";
-			case "1": return "1: Frontier; Homestead, Metropolis, the Ethereum public main network";
-			case "2": return "2: Morden; The public Ethereum testnet, now Ethereum Classic testnet";
-			case "3": return "3: Ropsten; The public cross-client Ethereum testnet";
-			case "4": return "4: Rinkeby: The public Geth Ethereum testnet";
-			case "42": return "42: Kovan; The public Parity Ethereum testnet";
-			case "77": return "77: Sokol; The public POA testnet";
-			case "99": return "99: POA; The public Proof of Authority Ethereum network";
-			case "7762959": return "7762959: Musicoin; The music blockchain";
+			case "0": return "0: Olympic";
+			case "1": return "1: Frontier";
+			case "2": return "2: Morden";
+			case "3": return "3: Ropsten";
+			case "4": return "4: Rinkeby";
+			case "42": return "42: Kovan";
+			case "77": return "77: Sokol";
+			case "99": return "99: POA";
+			case "7762959": return "7762959: Musicoin";
 			default: return network + ": Unknown network";
 		}
 	}
@@ -308,7 +326,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 									return;
 								}
 								logInfo("Successfully connected to Presale Instance at " + presaleAddr);
-								registerPurchaseCompleteEventListener(instance);
+								registerPurchaseCompleteEventListener(instance, callback);
 								presaleInstance = instance;
 								instanceLoaded(callback);
 								presaleInstance.getAvailableCardsBitmap(function(err, result) {
@@ -356,10 +374,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			}
 			presaleInstance.buySpecific.sendTransaction(cardId, {value: result}, function(err, txHash) {
 				if(err) {
-					logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+					logError("buySpecific transaction wasn't sent: " + err.toString().split("\n")[0]);
 					return;
 				}
-				logSuccess("Buy transaction sent: " + txHash);
+				logInfo("buySpecific transaction sent: " + txHash);
+				logSuccess("Transaction sent");
 			});
 		});
 	};
@@ -382,10 +401,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			}
 			presaleInstance.buyRandom.sendTransaction({value: result}, function(err, txHash) {
 				if(err) {
-					logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+					logError("buyRandom transaction wasn't sent: " + err.toString().split("\n")[0]);
 					return;
 				}
-				logSuccess("Buy transaction sent: " + txHash);
+				logInfo("buyRandom transaction sent: " + txHash);
+				logSuccess("Transaction sent")
 			});
 		});
 	};
@@ -408,10 +428,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			}
 			presaleInstance.buyRandom.sendTransaction({value: result.times(2)}, function(err, txHash) {
 					if(err) {
-						logError("Buy transaction wasn't sent: " + err.toString().split("\n")[0]);
+						logError("buyRandom(3) transaction wasn't sent: " + err.toString().split("\n")[0]);
 						return;
 					}
-					logSuccess("Buy transaction sent: " + txHash);
+					logInfo("buyRandom(3) transaction sent: " + txHash);
+					logSuccess("Transaction sent");
 				}
 			);
 		});
@@ -429,13 +450,23 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		if(callback && {}.toString.call(callback) === '[object Function]') {
 			if(!(myWeb3 && myAccount && presaleInstance)) {
 				logError("Presale API is not properly initialized. Reload the page.");
-				callback("Presale API is not properly initialized", null);
+				try {
+					callback("Presale API is not properly initialized", null);
+				}
+				catch(e) {
+					logWarning("couldn't execute callback: " + e);
+				}
 				return 0x3;
 			}
 			presaleInstance.getPacked(function(err, result) {
 				if(err) {
 					logError("Error getting presale status: " + err);
-					callback(err, null);
+					try {
+						callback(err, null);
+					}
+					catch(e) {
+						logWarning("couldn't execute callback: " + e);
+					}
 					return;
 				}
 				try {
@@ -444,11 +475,16 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 					const currentPrice = result.dividedToIntegerBy(uint64).modulo(uint64);
 					const lastPrice = result.modulo(uint64);
 					logInfo("sold cards: " + soldCards + ", current price: " + currentPrice + ", last price: " + lastPrice);
-					callback(null, {
-						sold: soldCards.toNumber(),
-						currentPrice: myWeb3.fromWei(currentPrice, "ether").toNumber(),
-						lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber()
-					});
+					try {
+						callback(null, {
+							sold: soldCards.toNumber(),
+							currentPrice: myWeb3.fromWei(currentPrice, "ether").toNumber(),
+							lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber()
+						});
+					}
+					catch(e) {
+						logWarning("couldn't execute callback: " + e);
+					}
 				}
 				catch(e) {
 					logError("Error displaying presale status: " + e);

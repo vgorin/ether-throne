@@ -18,8 +18,18 @@ module.exports = {
 			network_id: "*",
 			port: 8555,
 			gas: 0xfffffffffff,
-			gasPrice: 0x01
+			gasPrice: 1
 		},
+		test: {
+			host: "localhost",
+			network_id: "*",
+			port: 8666,
+			gas: 7000000,
+			gasPrice: 1
+		}
+	},
+	mocha: {
+		enableTimeouts: false
 	},
 /*
 	solc: {

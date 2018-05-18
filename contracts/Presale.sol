@@ -15,7 +15,7 @@ contract Presale {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0x7;
+  uint32 public constant PRESALE_VERSION = 0x8;
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.CHAR_CARD_VERSION`
@@ -85,7 +85,7 @@ contract Presale {
   /// @dev If token with ID `id` [1024, 65536) exists, then
   ///      `bitmap[id / 256] << (255 - (id % 256)) >> (255 - (id % 256)) >> (id % 256)` is equal to one
   /// @dev Initial size 16x256 = 4096 - enough to store 4000 cards to sell
-  uint256[] public bitmap = new uint256[](16);
+  uint256[] private _bitmap = new uint256[](16);
 
   /// @dev CharacterCard deployed ERC721 instance
   /// @dev Used to mint cards
@@ -136,10 +136,10 @@ contract Presale {
     beneficiary = _beneficiary;
 
     // set the bitmap to ones - available cards
-    bitmap.flipAll();
+    _bitmap.flipAll();
 
     // trim the bitmap to fit the length - TOTAL_CARDS
-    //bitmap.trim(TOTAL_CARDS);
+    _bitmap.trim(TOTAL_CARDS);
   }
 
   /// @dev Initializes `cardsForSale` array
@@ -172,10 +172,18 @@ contract Presale {
     initialized = cardsForSale.length == TOTAL_CARDS;
   }
 
+  /// @dev Calculates how many cards left for sale, `TOTAL_CARDS` minus `sold`
+  function left() public constant returns (uint16) {
+    // calculate the diff and return
+    return TOTAL_CARDS - sold;
+  }
+
   /// @dev A convenient function to retrieve available cards bitmap data
-  function getAvailableCardsBitmap() public constant returns(uint256[]) {
-    // delegate call to `bitmap.bulkGet`
-    return bitmap.bulkGet(0, 16);
+  /// @dev Making _bitmap public is not convenient since Solidity creates
+  ///      a parametrized getter in that case
+  function bitmap() public constant returns(uint256[]) {
+    // just return whole array
+    return _bitmap;
   }
 
   /// @dev Calculates card price by ID at the current moment of presale
@@ -213,7 +221,7 @@ contract Presale {
     // presale must be initialized
     require(initialized);
 
-    // just delegate call to `buyRandomFor`
+    // just delegate call to `buySpecificFor`
     buySpecificFor(msg.sender, tokenId);
   }
 
@@ -242,7 +250,7 @@ contract Presale {
     cardInstance.mintWith(to, tokenId, RARITY_USUAL);
 
     // update the bitmask of sold cards
-    bitmap.disable(tokenId - FIRST_CARD_ID);
+    _bitmap.disable(tokenId - FIRST_CARD_ID);
 
     // update presale state: `sold` cards count and `currentPrice`
     __update(1);
@@ -253,9 +261,9 @@ contract Presale {
     // transfer the funds to the beneficiary
     beneficiary.transfer(price);
 
-    // transfer the change (if any) back to the player
+    // transfer the change (if any) back to the buyer
     if(change > 0) {
-      to.transfer(change);
+      msg.sender.transfer(change);
     }
 
     // emit an `PurchaseComplete` event
@@ -310,7 +318,7 @@ contract Presale {
       cardInstance.mintWith(to, cardId, __rarity(cardId));
 
       // update the bitmask of sold cards
-      bitmap.disable(cardId - FIRST_CARD_ID);
+      _bitmap.disable(cardId - FIRST_CARD_ID);
 
       // update presale state: `sold` cards count and `currentPrice`
       __update(1);
@@ -338,9 +346,9 @@ contract Presale {
       cardInstance.mintCards(to, __pack3Cards(card1Id, card2Id, card3Id));
 
       // update the bitmask of sold cards
-      bitmap.disable(card1Id - FIRST_CARD_ID);
-      bitmap.disable(card2Id - FIRST_CARD_ID);
-      bitmap.disable(card3Id - FIRST_CARD_ID);
+      _bitmap.disable(card1Id - FIRST_CARD_ID);
+      _bitmap.disable(card2Id - FIRST_CARD_ID);
+      _bitmap.disable(card3Id - FIRST_CARD_ID);
 
       // update presale state: `sold` cards count and `currentPrice`
       __update(3);
@@ -352,9 +360,9 @@ contract Presale {
     // transfer the funds to the beneficiary
     beneficiary.transfer(totalPrice);
 
-    // transfer the change (if any) back to the player
+    // transfer the change (if any) back to the buyer
     if(change > 0) {
-      to.transfer(change);
+      msg.sender.transfer(change);
     }
 
     // emit an `PurchaseComplete` event
