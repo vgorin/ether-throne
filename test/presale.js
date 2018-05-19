@@ -14,7 +14,7 @@ String.prototype.pad = function(size) {
 	}
 	return s;
 };
-
+1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111011111111111111111111111111111111111111111111111
 contract('Presale', function(accounts) {
 	it("presale: it is impossible to create a presale with dummy values in the constructor", async() => {
 		const card = await CharacterCard.new();
@@ -61,6 +61,13 @@ contract('Presale', function(accounts) {
 		await presale.buySpecificFor.sendTransaction(player, 0x441, {value: INITIAL_TOKEN_PRICE.times(10)});
 		assert.equal(2, await card.balanceOf(player), "wrong card balance after buying usual card for");
 
+		// check Presale.bitmap vs CharacterCard.exists consistency
+		// card ID 0x1130 bitmap pos 0x1130 - 0x401 = 0xD2F, bucket 0xD (13), pos 0x2F or 0xD0 from the left
+		await presale.buySpecific.sendTransaction(0x1130, {from: player, value: INITIAL_TOKEN_PRICE.times(10)});
+		assert(await card.exists(0x1130), "card 0x1130 doesn't exist after it was bought");
+		const bitmap0xD = (await presale.bitmap())[0xD].toString(2);
+		assert.equal("0", bitmap0xD.charAt(0xD0), "cards 0x1130 is not absent in presale bitmap after it was bought");
+
 		// buying one random card,
 		// sending not enough ether
 		await assertThrowsAsync(async() => {
@@ -68,19 +75,19 @@ contract('Presale', function(accounts) {
 		});
 		// sending enough ether
 		await presale.buyRandom.sendTransaction({from: player, value: INITIAL_TOKEN_PRICE});
-		assert.equal(3, await card.balanceOf(player), "wrong card balance after buying a single card");
+		assert.equal(4, await card.balanceOf(player), "wrong card balance after buying a single card");
 
 		// buying 3 random cards at once
 		await presale.buyRandom.sendTransaction({from: player, value: INITIAL_TOKEN_PRICE.times(2)});
-		assert.equal(6, await card.balanceOf(player), "wrong card balance after buying three cards");
+		assert.equal(7, await card.balanceOf(player), "wrong card balance after buying three cards");
 
 		// buying random card for
 		await presale.buyRandomFor.sendTransaction(player, {value: INITIAL_TOKEN_PRICE});
-		assert.equal(7, await card.balanceOf(player), "wrong balance after buying a card for " + player);
+		assert.equal(8, await card.balanceOf(player), "wrong balance after buying a card for " + player);
 
 		// buying 3 random cards for at once
 		await presale.buyRandomFor.sendTransaction(player, {value: INITIAL_TOKEN_PRICE.times(2)});
-		assert.equal(10, await card.balanceOf(player), "wrong balance after buying a card for " + player);
+		assert.equal(11, await card.balanceOf(player), "wrong balance after buying a card for " + player);
 
 		// check it throws when buying to invalid address
 		await assertThrowsAsync(async() => {
