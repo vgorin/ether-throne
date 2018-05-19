@@ -202,18 +202,14 @@ contract CharacterCard is AccessControl {
    * @dev Gets a card by ID, representing it as two integers.
    *      The two integers are tightly packed with a card data:
    *      First integer (high bits) contains (from higher to lower bits order):
-   *          creationTime,
-   *          rarity,
    *          attributesModified,
    *          attributes,
-   *          lastGamePlayed,
-   *          gamesPlayed,
-   *          wins,
-   *          losses,
+   *          stateModified,
+   *          state
    *      Second integer (low bits) contains (from higher to lower bits order):
+   *          creationTime,
    *          id,
    *          index,
-   *          state
    *          ownershipModified,
    *          owner
    * @dev Throws if card doesn't exist
