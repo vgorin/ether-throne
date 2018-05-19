@@ -6,7 +6,7 @@ const Presale = artifacts.require("./Presale.sol");
 
 String.prototype.pad = function(size) {
 	let s = this;
-	while (this.length < (size || 2)) {
+	while(s.length < (size || 2)) {
 		s = "0" + s;
 	}
 	return s;
