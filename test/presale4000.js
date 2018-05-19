@@ -55,7 +55,7 @@ contract('Presale 4000', function(accounts) {
 		assert.equal(4000, await presale.sold(), "incorrect value of cards sold");
 		assert.equal(0, await presale.left(), "incorrect value of cards left");
 
-		const bitmap = await presale.bitmap();
+		const bitmap = await presale.getBitmap();
 		let msg = "\tavailable cards bitmap after buying all the cards: ";
 		for(let i = 0; i < bitmap.length; i++) {
 			msg += bitmap[i].toString(2).pad(256).split("").reverse().join("");

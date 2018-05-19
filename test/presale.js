@@ -32,7 +32,7 @@ contract('Presale', function(accounts) {
 	it("presale: create presale and check it", async() => {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[0]);
-		const bitmap = await presale.bitmap();
+		const bitmap = await presale.getBitmap();
 		assert.equal(16, bitmap.length, "available card bitmap is corrupted");
 		for(let i = 0; i < bitmap.length - 1; i++) {
 			assert(bitmap[i].eq("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
@@ -65,7 +65,7 @@ contract('Presale', function(accounts) {
 		// card ID 0x1130 bitmap pos 0x1130 - 0x401 = 0xD2F, bucket 0xD (13), pos 0x2F or 0xD0 from the left
 		await presale.buySpecific.sendTransaction(0x1130, {from: player, value: INITIAL_TOKEN_PRICE.times(10)});
 		assert(await card.exists(0x1130), "card 0x1130 doesn't exist after it was bought");
-		const bitmap0xD = (await presale.bitmap())[0xD].toString(2);
+		const bitmap0xD = (await presale.getBitmap())[0xD].toString(2);
 		assert.equal("0", bitmap0xD.charAt(0xD0), "cards 0x1130 is not absent in presale bitmap after it was bought");
 
 		// buying one random card,
@@ -159,7 +159,7 @@ contract('Presale', function(accounts) {
 			"wrong number of cards owned by player, expected " + expectedCardsNumber + ", got " + playerBalance);
 
 /*
-		const bitmap = await presale.bitmap();
+		const bitmap = await presale.getBitmap();
 		let msg = "\tavailable cards bitmap after buying " + expectedCardsNumber + " cards: ";
 		for(let i = 0; i < bitmap.length; i++) {
 			msg += bitmap[i].toString(2).pad(256).split("").reverse().join("");

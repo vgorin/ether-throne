@@ -26,12 +26,12 @@
 <table>
 	<tr>
 		<td><label for="CharacterCardAddress" title="Deployed Instance Address">Character Card (ERC721) Instance Address:</label></td>
-		<td><input id="CharacterCardAddress" type="text" value="0x49974c70ee946347d80b98d4bd3290cb00b4d80c" size="42"/></td>
+		<td><input id="CharacterCardAddress" type="text" value="0xb5a96dfd572027cd3a7cccceb320bdf019dae509" size="42"/></td>
 		<td><input type="button" value="Connect" onclick="connect()"/></td>
 	</tr>
 	<tr>
 		<td><label for="PresaleAddress" title="Deployed Instance Address">Presale Instance Address:</label></td>
-		<td><input id="PresaleAddress" type="text" value="0xb661193e03ad49d08a2cc40f395db46000a768e9" size="42"/></td>
+		<td><input id="PresaleAddress" type="text" value="0x72b090cf75d79e45c1c2bc16077682bcaaf551da" size="42"/></td>
 		<td><input type="button" value="Buy" onclick="buy()"/></td>
 	</tr>
 </table>
@@ -89,6 +89,7 @@
 		<tr><td></td><td><input type="button" value="Create" onclick="mint()"/></td></tr>
 	</table>
 </fieldset>
+<!--
 <fieldset class="hidden"><legend>Confirm Card Battle</legend>
 <table>
 	<tr>
@@ -112,6 +113,7 @@
 	<tr><td></td><td><input type="button" value="Confirm" onclick="confirm_battle()"/></td></tr>
 </table>
 </fieldset>
+-->
 <fieldset><legend>Console <input type="button" value="Clear Console" onclick="document.getElementById('console').innerHTML = '';"/></legend>
 	<pre id="console"></pre>
 </fieldset>
@@ -119,8 +121,8 @@
 <script type="text/javascript">
 const jQuery3 = jQuery.noConflict(true);
 
-const CHAR_CARD_VERSION = 0xB;
-const PRESALE_VERSION = 0x4;
+const CHAR_CARD_VERSION = 0xC;
+const PRESALE_VERSION = 0x8;
 
 let myWeb3;
 let myAccount;
@@ -346,7 +348,7 @@ function buy() {
 				return;
 			}
 			printLog("Successfully connected to Presale Instance at " + presaleAddr);
-			presaleInstance.buyRandom.sendTransaction({value: myWeb3.toWei(50, 'finney')}, function(err, txHash) {
+			presaleInstance.buyRandom.sendTransaction({value: myWeb3.toWei(450, 'finney')}, function(err, txHash) {
 				if(err) {
 					printError("Buy transaction failed: " + err.toString().split("\n")[0]);
 					return;
@@ -475,6 +477,7 @@ function mint() {
 	});
 }
 
+/*
 function confirm_battle() {
 	if(!(myWeb3 && cardABI && myAccount && cardInstance)) {
 		printError("Not connected to a Character Card (ERC721) Instance");
@@ -519,6 +522,7 @@ function confirm_battle() {
 		});
 	});
 }
+*/
 
 const con = document.getElementById("console");
 

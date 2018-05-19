@@ -1,4 +1,17 @@
 /**
+ * Extend String prototype by adding pad function
+ * @param size new String length, will be padded with zeros
+ * @return {String} zero padded string
+ */
+String.prototype.pad = function(size) {
+	let s = this;
+	while(s.length < (size || 2)) {
+		s = "0" + s;
+	}
+	return s;
+};
+
+/**
  *
  * @param cardAddr
  * @param presaleAddr
@@ -8,7 +21,7 @@
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	const CHAR_CARD_VERSION = 0xC;
-	const PRESALE_VERSION = 0x8;
+	const PRESALE_VERSION = 0x9;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -19,22 +32,48 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	function logError(msg) {
 		console.error(msg);
 		if(logger && logger.errorHandler) {
-			logger.errorHandler(msg);
+			try {
+				logger.errorHandler(msg);
+			}
+			catch(e) {
+				console.error("external logger call [error] failed: " + e);
+			}
 		}
 	}
 
 	function logWarning(msg) {
 		console.warn(msg);
+		if(logger && logger.warningHandler) {
+			try {
+				logger.warningHandler(msg);
+			}
+			catch(e) {
+				console.error("external logger call [warning] failed: " + e);
+			}
+		}
 	}
 
 	function logInfo(msg) {
 		console.log(msg);
+		if(logger && logger.infoHandler) {
+			try {
+				logger.infoHandler(msg);
+			}
+			catch(e) {
+				console.error("external logger call [info] failed: " + e);
+			}
+		}
 	}
 
 	function logSuccess(msg) {
-		logInfo(msg);
+		console.log(msg);
 		if(logger && logger.successHandler) {
-			logger.successHandler(msg);
+			try {
+				logger.successHandler(msg);
+			}
+			catch(e) {
+				console.error("external logger call [success] failed: " + e);
+			}
 		}
 	}
 
@@ -329,14 +368,14 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 								registerPurchaseCompleteEventListener(instance, callback);
 								presaleInstance = instance;
 								instanceLoaded(callback);
-								presaleInstance.getAvailableCardsBitmap(function(err, result) {
+								presaleInstance.getBitmap(function(err, result) {
 									if(err) {
 										logError("Unable to get available cards list: " + err);
 										return;
 									}
 									let msg = "Cards, available for sale: ";
 									for(let i = 0; i < result.length; i++) {
-										msg += result[i].toString(2).split("").reverse().join("");
+										msg += result[i].toString(2).pad(256).split("").reverse().join("");
 									}
 									logInfo(msg);
 								});
@@ -487,10 +526,57 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 					}
 				}
 				catch(e) {
-					logError("Error displaying presale status: " + e);
+					logError("Error parsing presale status: " + e);
 				}
 			});
 		}
 	};
+
+	this.availableCardsMap = function(callback) {
+		if(callback && {}.toString.call(callback) === '[object Function]') {
+			if(!(myWeb3 && myAccount && presaleInstance)) {
+				logError("Presale API is not properly initialized. Reload the page.");
+				try {
+					callback("Presale API is not properly initialized", null);
+				}
+				catch(e) {
+					logWarning("couldn't execute callback: " + e);
+				}
+				return 0x3;
+			}
+		}
+		presaleInstance.getBitmap(function(err, result) {
+			if(err) {
+				logError("Error getting presale bitmap: " + err);
+				try {
+					callback(err, null);
+				}
+				catch(e) {
+					logWarning("couldn't execute callback: " + e);
+				}
+				return;
+			}
+			try {
+				let bitmap = "";
+				for(let i = 0; i < result.length; i++) {
+					bitmap += result[i].toString(2).pad(256).split("").reverse().join("");
+				}
+				callback(null, bitmap);
+			}
+			catch(e) {
+				logError("Error parsing presale bitmap: " + e);
+			}
+		});
+	};
+
+	function tryCallback(callback, err, result) {
+		try {
+			callback(err, result);
+		}
+		catch(e) {
+			logWarning("couldn't execute callback: " + e);
+		}
+	}
 }
+
 

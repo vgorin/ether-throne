@@ -1,9 +1,9 @@
 // create an API client
 const presale = new PresaleApi(
 	// deployed card instance address
-	"0xf466d2369bdb8c2bedee2afaa79279e6b8ef3a86",
+	"0xb5a96dfd572027cd3a7cccceb320bdf019dae509",
 	// deployed presale instance address
-	"0x1fb97c08de74a59865ff9f328d3f96da2c4f49ff",
+	"0x72b090cf75d79e45c1c2bc16077682bcaaf551da",
 	// callback handlers, use bootstrap notify
 	{
 		errorHandler: function(msg) {

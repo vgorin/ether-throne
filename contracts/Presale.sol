@@ -15,7 +15,7 @@ contract Presale {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0x8;
+  uint32 public constant PRESALE_VERSION = 0x9;
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.CHAR_CARD_VERSION`
@@ -85,7 +85,7 @@ contract Presale {
   /// @dev If token with ID `id` [1024, 65536) exists, then
   ///      `bitmap[id / 256] << (255 - (id % 256)) >> (255 - (id % 256)) >> (id % 256)` is equal to one
   /// @dev Initial size 16x256 = 4096 - enough to store 4000 cards to sell
-  uint256[] private _bitmap = new uint256[](16);
+  uint256[] public bitmap = new uint256[](16);
 
   /// @dev CharacterCard deployed ERC721 instance
   /// @dev Used to mint cards
@@ -136,10 +136,10 @@ contract Presale {
     beneficiary = _beneficiary;
 
     // set the bitmap to ones - available cards
-    _bitmap.flipAll();
+    bitmap.flipAll();
 
     // trim the bitmap to fit the length - TOTAL_CARDS
-    _bitmap.trim(TOTAL_CARDS);
+    bitmap.trim(TOTAL_CARDS);
   }
 
   /// @dev Initializes `cardsForSale` array
@@ -181,9 +181,9 @@ contract Presale {
   /// @dev A convenient function to retrieve available cards bitmap data
   /// @dev Making _bitmap public is not convenient since Solidity creates
   ///      a parametrized getter in that case
-  function bitmap() public constant returns(uint256[]) {
+  function getBitmap() public constant returns(uint256[]) {
     // just return whole array
-    return _bitmap;
+    return bitmap;
   }
 
   /// @dev Calculates card price by ID at the current moment of presale
@@ -250,7 +250,7 @@ contract Presale {
     cardInstance.mintWith(to, tokenId, RARITY_USUAL);
 
     // update the bitmask of sold cards
-    _bitmap.disable(tokenId - FIRST_CARD_ID);
+    bitmap.disable(tokenId - FIRST_CARD_ID);
 
     // update presale state: `sold` cards count and `currentPrice`
     __update(1);
@@ -318,7 +318,7 @@ contract Presale {
       cardInstance.mintWith(to, cardId, __rarity(cardId));
 
       // update the bitmask of sold cards
-      _bitmap.disable(cardId - FIRST_CARD_ID);
+      bitmap.disable(cardId - FIRST_CARD_ID);
 
       // update presale state: `sold` cards count and `currentPrice`
       __update(1);
@@ -346,9 +346,9 @@ contract Presale {
       cardInstance.mintCards(to, __pack3Cards(card1Id, card2Id, card3Id));
 
       // update the bitmask of sold cards
-      _bitmap.disable(card1Id - FIRST_CARD_ID);
-      _bitmap.disable(card2Id - FIRST_CARD_ID);
-      _bitmap.disable(card3Id - FIRST_CARD_ID);
+      bitmap.disable(card1Id - FIRST_CARD_ID);
+      bitmap.disable(card2Id - FIRST_CARD_ID);
+      bitmap.disable(card3Id - FIRST_CARD_ID);
 
       // update presale state: `sold` cards count and `currentPrice`
       __update(3);
