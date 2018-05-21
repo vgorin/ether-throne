@@ -72,9 +72,6 @@ contract Presale {
   /// @dev An array containing the IDs of all the cards available for sale
   uint16[] public cardsForSale;
 
-  /// @dev True if `cardsForSale` was successfully initialized
-  bool public initialized;
-
   /// @dev A mapping containing all the moved cards within a `cardsForSale` array
   mapping(uint16 => uint256) public movedCards;
 
@@ -92,6 +89,9 @@ contract Presale {
   /// @dev Card sale smart contract must have appropriate permissions
   ///      on the deployed CharacterCard
   CharacterCard public cardInstance;
+
+  /// @dev True if `cardsForSale` was successfully initialized
+  bool public initialized;
 
   /// @dev Number of cards sold, next card to sell number is `sold + OFFSET`
   uint16 public sold;
