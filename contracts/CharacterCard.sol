@@ -244,7 +244,7 @@ contract CharacterCard is AccessControl {
    * @notice An order of token IDs is not guaranteed and may change
    *      when a token from the list is transferred
    * @param owner an address to query a collection for
-   * @return an ordered list of token
+   * @return an ordered list of tokens
    */
   function getCollection(address owner) public constant returns(uint16[]) {
     // read a collection from mapping and return
