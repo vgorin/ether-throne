@@ -1,19 +1,19 @@
 // create an API client
 const presale = new PresaleApi(
 	// deployed card instance address
-	"0xb5a96dfd572027cd3a7cccceb320bdf019dae509",
+	"0x98e9c5a2901f85c3546b23e0340b8568bb2b0c8e",
 	// deployed presale instance address
-	"0x72b090cf75d79e45c1c2bc16077682bcaaf551da",
+	"0x7e21dfd4ab778983da46341ab7e99942aac99eba",
 	// callback handlers, use bootstrap notify
 	{
-		errorHandler: function(msg) {
-			$.notify(msg.replace(/\n/g,'<br/>'), {type: "danger"});
+		error: function(msg) {
+			$.notify(msg.replace(/\n/g, '<br/>'), {type: "danger"});
 		},
-		warningHandler: function(msg) {
-			$.notify(msg.replace(/\n/g,'<br/>'), {type: "warning"});
+		warning: function(msg) {
+			$.notify(msg.replace(/\n/g, '<br/>'), {type: "warning"});
 		},
-		successHandler: function(msg) {
-			$.notify(msg.replace(/\n/g,'<br/>'), {type: "success"});
+		success: function(msg) {
+			$.notify(msg.replace(/\n/g, '<br/>'), {type: "success"});
 		},
 	},
 	// jQuery instance to use to load ABI for smart contracts
