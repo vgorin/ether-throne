@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Ether Throne: Admin Panel</title>
+	<style>
+		* {
+			font-family: monospace;
+		}
+		input[type=button], input[type=submit] {
+			border-radius: 4px;
+			background: #F0F0F0;
+			box-shadow: 1px 1px 1px 1px silver;
+			outline: none;
+			margin: 0 2px 2px 0;
+		}
+		input[type=button]:active, input[type=submit]:active {
+			box-shadow: none;
+			border-width: 2px;
+			margin: 0;
+		}
+		legend span {
+			cursor: pointer;
+		}
+		div.bitmap {
+			line-height: 0.65em;
+			letter-spacing: -0.1em;
+			color: gray;
+			cursor: default;
+		}
+		div.bitmap .hologram {
+			color: red;
+		}
+	</style>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+</head>
+<body>
+<fieldset><legend>Connection Settings <span>[&dash;]</span></legend>
+	<form name="connection_settings">
+	<table>
+		<tr>
+			<td><label for="card_instance" title="Deployed Instance Address">Character Card (ERC721) Instance Address:</label></td>
+			<td><input name="card_instance" id="card_instance" type="text" value="0x6b1ba4617a22e468d684c8773540b4f786146a3e" size="42"/></td>
+		</tr>
+		<tr>
+			<td><label for="presale_instance" title="Deployed Instance Address">Presale Instance Address:</label></td>
+			<td><input name="presale_instance" id="presale_instance" type="text" value="0xb0b08df91eb6df58615359362fbed53e74a88527" size="42"/></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td><input type="submit" value="Connect"/></td>
+		</tr>
+	</table>
+	</form>
+</fieldset>
+<fieldset>
+	<legend>Display Cards <span>[&dash;]</span></legend>
+	<form name="cards_by_owner">
+	<table>
+		<tr>
+			<td><label for="owner_address">Owner Address:</label></td>
+			<td><input name="owner_address" id="owner_address" type="text" value="0xEd6003e7A6494Db4ABabEB7bDf994A3951ac6e69" size="42"/></td>
+			<td>
+				<input type="submit" value="Display"/>
+				<input id="presale_bitmap_btn" type="button" value="Display Available Cards">
+			</td>
+		</tr>
+	</table>
+	</form>
+</fieldset>
+<fieldset>
+	<legend>
+		Console <input type="button" value="Clear Console" onclick="document.getElementById('console').innerHTML = '';"/>
+		<!--<span>[&dash;]</span>-->
+	</legend>
+	<pre id="console"></pre>
+</fieldset>
+</body>
+<script type="text/javascript" src="presale_api.js"></script>
+<script type="text/javascript">
+const jQuery3 = jQuery.noConflict(true);
+
+// create an API client
+let api;
+
+function console_write(...msg) {
+	jQuery3("#console").append(msg.join(""));
+}
+
+function console_writeln(...msg) {
+	console_write(...msg, "\n");
+}
+
+function api_init(token_address, presale_address) {
+	if(!token_address) {
+		token_address = jQuery3("#card_instance").val();
+	}
+	if(!presale_address) {
+		presale_address = jQuery3("#presale_instance").val();
+	}
+	api = new PresaleApi(
+		// deployed card instance address
+		token_address,
+		// deployed presale instance address
+		presale_address,
+		// callback handlers, use bootstrap notify
+		{
+			error: function(...msg) {
+				console_writeln('<span style="color: red;">', ...msg, '</span>');
+			},
+			warning: function(...msg) {
+				console_writeln('<span style="color: orangered;">', ...msg, '</span>');
+			},
+			info: function(...msg) {
+				console_writeln('<span style="color: black;">', ...msg, '</span>');
+			},
+			success: function(...msg) {
+				console_writeln('<span style="color: green;">', ...msg, '</span>');
+			},
+		},
+		// jQuery instance to use to load ABI for smart contracts
+		jQuery3
+	);
+
+	api.init((err, response) => {
+		if(err) {
+			console.log(err);
+			api = null;
+			return;
+		}
+		if(response && response.event === "init_complete") {
+			console_writeln("successfully connected to ", token_address, " / ", presale_address);
+		}
+	});
+}
+api_init();
+
+function display_collection(owner_address) {
+	if(!owner_address) {
+		owner_address = jQuery3("#owner_address").val();
+	}
+	api.cardsByOwner(owner_address, function(err, cards) {
+		if(err) {
+			console.log(err);
+			return;
+		}
+		if(cards && cards.size > 0) {
+			console_writeln("address ", owner_address, " owns ", cards.size, " cards:");
+			const lines = new Array(cards.size);
+			for(let i = 0; i < cards.size; i++) {
+				const cardId = cards.ids[i];
+				lines[i] = cardId + ": " + cards[cardId];
+			}
+			console_writeln(
+				'<div style="font-size: 0.85em;">',
+				lines.join("\n"),
+				'</div>'
+			);
+		}
+		else {
+			console_writeln("address ", owner_address, " doesn't own any cards");
+		}
+	});
+}
+
+function display_presale_bitmap() {
+	api.availableCardsBitmap((err, bitmap) => {
+		if(err) {
+			console.log(err);
+			api = null;
+			return;
+		}
+		const lineSize = 100;
+		const plot = new Array(Math.ceil(bitmap.length / lineSize));
+		for(let offset = 0, i = 0; offset < bitmap.length; offset += lineSize) {
+			plot[i++] = bitmap.substr(offset, Math.min(lineSize, bitmap.length - offset));//"&spades;&hearts;&diams;&clubs;\n";
+		}
+		for(let i = 0; i < plot.length; i++) {
+			plot[i] = plot[i].replace(/1/g, '&block;');
+			plot[i] = plot[i].replace(/0/g, '&nbsp;');
+		}
+		console_writeln(
+			'Available cards bitmap (black – available, white - already sold):\n',
+			'<div class="bitmap">\n',
+			plot.join("\n"),
+			"\n</div>"
+		);
+	});
+}
+
+jQuery3(document).ready(function() {
+	jQuery3("legend span").on("click", function(e) {
+		const btn = jQuery3(this);
+		const content = btn.parent().parent().find("table");
+		content.toggle();
+		if(content.length > 0) {
+			btn.html(btn.html().indexOf("+") < 0 ? "[+]" : "[-]");
+		}
+	});
+
+	jQuery3("form[name=connection_settings]").submit(function(e) {
+		e.preventDefault();
+		api_init();
+	});
+
+	jQuery3("form[name=cards_by_owner]").submit(function(e) {
+		e.preventDefault();
+		display_collection();
+	});
+
+	jQuery3("#presale_bitmap_btn").on("click", function(e) {
+		display_presale_bitmap();
+	});
+});
+
+</script>
+</html>
