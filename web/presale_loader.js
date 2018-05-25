@@ -1,25 +1,3 @@
-// create an API client
-const presale = new PresaleApi(
-	// deployed card instance address
-	"0x3a01a7fa0e266ba29f3c6111063a7bf84aa5d597",
-	// deployed presale instance address
-	"0x7d40fcfba5d91239c029594fbc8ed892b4f1de2a",
-	// callback handlers, use bootstrap notify
-	{
-		error: function(msg) {
-			$.notify(msg.replace(/\n/g, '<br/>'), {type: "danger"});
-		},
-		warning: function(msg) {
-			$.notify(msg.replace(/\n/g, '<br/>'), {type: "warning"});
-		},
-		success: function(msg) {
-			$.notify(msg.replace(/\n/g, '<br/>'), {type: "success"});
-		},
-	},
-	// jQuery instance to use to load ABI for smart contracts
-	$,
-);
-
 // configure bootstrap notify instance
 $.notifyDefaults({
 	placement: {
@@ -29,50 +7,104 @@ $.notifyDefaults({
 	delay: 8192
 });
 
+// define a logger
+const logger = {
+	error: function(...msg) {
+		$.notify(msg.join("").replace(/\n/g, '<br/>'), {
+			type: "danger",
+			delay: 8500,
+		});
+	},
+	warning: function(...msg) {
+		$.notify(msg.join("").replace(/\n/g, '<br/>'), {
+			type: "warning",
+			delay: 5500,
+		});
+	},
+	success: function(...msg) {
+		$.notify(msg.join("").replace(/\n/g, '<br/>'), {
+			type: "success",
+			delay: 1500,
+		});
+	},
+};
+
+// create an API client
+const presale = new PresaleApi(
+	// deployed card instance address
+	"0x6b1ba4617a22e468d684c8773540b4f786146a3e",
+	// deployed presale instance address
+	"0xb0b08df91eb6df58615359362fbed53e74a88527",
+	// callback handlers, use bootstrap notify
+	logger,
+	// jQuery instance to use to load ABI for smart contracts
+	$,
+);
+
+const displayStateCallback = (err, state) => {
+	if(err) {
+		return;
+	}
+	$('span:contains(Character Cards Sold)').parent().prev().find("span").html(state.sold);
+	$('span:contains(Last Being Price)').parent().next().find("span").html(state.lastPrice + " ETH");
+	$('span:contains(Next Being Price)').parent().next().find("span").html(state.nextPrice + " ETH");
+	$('span:contains(Curent Price)').parent().next().find("span").html(state.currentPrice + " ETH");
+};
+
+const transactionSentCallback = (err, result) => {
+	if(err) {
+		return;
+	}
+	if(result.event === "transaction_sent") {
+		logger.success("Transaction sent")
+	}
+};
+
 // init Web3
-presale.init(function() {
-	presale.presaleStatus(
-		function(err, result) {
-			if(!err) {
-				$('span:contains(Character Cards Sold)').parent().prev().find("span").html(result.sold);
-				$('span:contains(Last Being Price)').parent().next().find("span").html(result.lastPrice + " ETH");
-				$('span:contains(Next Being Price)').parent().next().find("span").html(result.currentPrice + " ETH");
-				$('span:contains(Curent Price)').parent().next().find("span").html(result.currentPrice + " ETH");
-			}
+presale.init((err, result) => {
+	if(err) {
+		return;
+	}
+	presale.presaleState(displayStateCallback);
+	presale.registerPurchaseCompleteEventListener((err, result) => {
+		if(err) {
+			return;
 		}
-	);
+		logger.success("successfully bought " + result.quantity + " card" + (result.quantity > 1? "s": ""));
+	});
+	presale.registerPresaleStateChangedEventListener(displayStateCallback);
 });
 
 // register button listeners, display presale status
-$(document).ready(function() {
-	$('span:contains("BUY BEING (1)")').bind("click", function() {
-		presale.buyRandom();
+$(document).ready(() => {
+	$('span:contains("BUY BEING (1)")').bind("click", () => {
+		presale.buyRandom(transactionSentCallback);
 	});
-	$('span:contains("BUY BEING (3)")').bind("click", function() {
-		presale.buyRandom3();
+	$('span:contains("BUY BEING (3)")').bind("click", () => {
+		presale.buyRandom3(transactionSentCallback);
 	});
-	$('img[src="img/mcard-1.png"]').bind("click", function() {
-		presale.buySpecific(1085);
+	$('img[src="img/mcard-1.png"]').bind("click", () => {
+		presale.buySpecific(1085, transactionSentCallback);
 	});
-	$('img[src="img/small_aldamean_card.png"]').bind("click", function() {
-		presale.buySpecific(1086);
+	$('img[src="img/small_aldamean_card.png"]').bind("click", () => {
+		presale.buySpecific(1086, transactionSentCallback);
 	});
-	$('img[src="img/small_chupatelo_card.png"]').bind("click", function() {
-		presale.buySpecific(1087);
+	$('img[src="img/small_chupatelo_card.png"]').bind("click", () => {
+		presale.buySpecific(1087, transactionSentCallback);
 	});
-	$('img[src="img/small_droodoo_card.png"]').bind("click", function() {
-		presale.buySpecific(1088);
+	$('img[src="img/small_droodoo_card.png"]').bind("click", () => {
+		presale.buySpecific(1088, transactionSentCallback);
 	});
-	$('img[src="img/small_lizzaro_card.png"]').bind("click", function() {
-		presale.buySpecific(1089);
+	$('img[src="img/small_lizzaro_card.png"]').bind("click", () => {
+		presale.buySpecific(1089, transactionSentCallback);
 	});
-	$('img[src="img/small_shinderra_card.png"]').bind("click", function() {
-		presale.buySpecific(1090);
+	$('img[src="img/small_shinderra_card.png"]').bind("click", () => {
+		presale.buySpecific(1090, transactionSentCallback);
 	});
-	$('img[src="img/small_spike_card.png"]').bind("click", function() {
-		presale.buySpecific(1091);
+	$('img[src="img/small_spike_card.png"]').bind("click", () => {
+		presale.buySpecific(1091, transactionSentCallback);
 	});
-	$('img[src="img/small_vipassana_card.png"]').bind("click", function() {
-		presale.buySpecific(1092);
+	$('img[src="img/small_vipassana_card.png"]').bind("click", () => {
+		presale.buySpecific(1092, transactionSentCallback);
 	});
 });

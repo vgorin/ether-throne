@@ -26,7 +26,8 @@ contract('Presale 4000', function(accounts) {
 		// 1333 transactions will have 3 cards and the last one - 1 card
 		const length = 1334;
 		for(let i = 0; i < length; i++) {
-			await presale.buyRandom.sendTransaction({value: value, from: accounts[(i) % 10]});
+			const fn = i < length - 1 ? presale.buyThreeRandom : presale.buyOneRandom;
+			await fn.sendTransaction({value: value, from: accounts[(i) % 10]});
 
 			const cardsSold = Math.min((i + 1) * 3, 4000);
 
@@ -42,7 +43,7 @@ contract('Presale 4000', function(accounts) {
 				|| cardsSold > 3999
 			) {
 				const currentPrice = web3.fromWei(await presale.currentPrice(), "ether");
-				console.log("\t" + cardsSold + " cards sold (transaction"
+				console.log("\t" + cardsSold + " cards sold (transaction "
 					+ i + " of " + length + "), current price: " + currentPrice + " ETH");
 			}
 		}

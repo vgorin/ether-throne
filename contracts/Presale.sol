@@ -15,7 +15,7 @@ contract Presale {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0xA;
+  uint32 public constant PRESALE_VERSION = 0xB;
 
   /// @dev Version of the CharacterCard smart contract to work with
   /// @dev See `CharacterCard.CHAR_CARD_VERSION`
@@ -110,14 +110,17 @@ contract Presale {
   /// @dev This value is updated after each successful card purchase
   uint64 public currentPrice = INITIAL_PRICE;
 
-  /// @dev Contains previous value of `currentPrice`
+  /// @dev Stores previous value of `currentPrice`
   uint64 public lastPrice;
 
   /// @dev Beneficiary address, used to send collected funds to
   address public beneficiary;
 
-  /// @dev Emits when smart contract sells a card, buy(), buyFor()
+  /// @dev Emits when smart contract sells a card
   event PurchaseComplete(address indexed from, address indexed to, uint16 quantity, uint256 totalPrice);
+
+  /// @dev Emits when presale state changes (after buying a card)
+  event PresaleStateChanged(uint16 sold, uint16 left, uint64 lastPrice, uint64 currentPrice, uint64 nextPrice);
 
   /**
    * @dev Creates a card sale smart contract instance
@@ -220,10 +223,10 @@ contract Presale {
     return result;
   }
 
-  /// @dev Returns the presale status data as a packed uint144 tuple structure
-  function getPacked() public constant returns (uint144) {
+  /// @dev Returns the presale state data as a packed uint144 tuple structure
+  function getPacked() public constant returns (uint224) {
     // pack and return
-    return uint144(sold) << 128 | uint128(currentPrice) << 64 | lastPrice;
+    return uint224(sold) << 208 | uint208(left()) << 192 | uint192(lastPrice) << 128 | uint128(currentPrice) << 64 | nextPrice();
   }
 
   /// @dev Accepts a payment and sends a specific card back to the sender
@@ -237,54 +240,20 @@ contract Presale {
 
   /// @dev Accepts a payment and sends a specific card to the player
   function buySpecificFor(address to, uint16 tokenId) public payable {
-    // presale must be initialized
-    require(initialized);
-
-    // validate the card recipient address
-    require(to != address(0));
-    require(to != address(this));
-
     // calculate price of the specific card, its higher then random
-    uint256 price = specificPrice(tokenId);
+    uint64 price = specificPrice(tokenId);
 
-    // amount of funds we received from player in this transaction
-    uint256 valueReceived = msg.value;
+    // validate inputs for the transaction
+    __validateBuy(to, 1, price);
 
-    // there should be enough value received to buy specific card
-    require(valueReceived >= price);
+    // create a container for cards
+    uint16[] memory cards = new uint16[](1);
 
     // pop the card from the buffer
-    __popById(tokenId);
+    cards[0] = __popById(tokenId);
 
-    // mint the card
-    cardInstance.mintWith(to, tokenId, RARITY_USUAL);
-
-    // update the bitmask of sold cards
-    bitmap.disable(tokenId - FIRST_CARD_ID);
-
-    // update presale state: `sold` cards count and `currentPrice`
-    __update(1);
-
-    // calculate amount of change to return to the player
-    uint256 change = valueReceived - price;
-
-    // transfer the funds to the beneficiary
-    beneficiary.transfer(price);
-
-    // transfer the change (if any) back to the buyer
-    if(change > 0) {
-      msg.sender.transfer(change);
-    }
-
-    // emit an `PurchaseComplete` event
-    emit PurchaseComplete(msg.sender, to, 1, price);
-  }
-
-  /// @dev Accepts a payment and sends one or three cards back to the sender
-  /// @dev Throws if there is not enough funds to buy one card
-  function buyRandom() public payable {
-    // delegate call to `buyRandomFor`
-    buyRandomFor(msg.sender);
+    // delegate call to `__buy()` which also checks the inputs
+    __buy(msg.sender, to, cards, price);
   }
 
   /// @dev Accepts a payment and sends one card back to the sender
@@ -301,50 +270,12 @@ contract Presale {
     buyThreeRandomFor(msg.sender);
   }
 
-  /// @dev Accepts a payment and sends card(s) to the player
-  function buyRandomFor(address to) public payable {
-    // based on the amount sent and cards left,
-    // determine one or three cards to sell and
-    // delegate call to `buyOneRandomFor` or `buyThreeRandomFor`
-
-    // calculate price of the three cards in a single transaction
-    uint256 triplePrice = THREE_CARDS_PRICE * currentPrice; // 33% discount
-
-    // amount of funds we received from player in this transaction
-    uint256 valueReceived = msg.value;
-
-    // if the value received is not enough to buy three cards
-    // (33% discount) or we don't have three cards to sell left
-    // we sell only one card, otherwise we sell three cards
-    if(valueReceived < triplePrice || left() < 3) {
-      // issue one card
-      buyOneRandomFor(to);
-    }
-    else {
-      // issue three cards
-      buyThreeRandomFor(to);
-    }
-  }
-
   /// @dev Accepts a payment and sends one card to the player
   /// @dev Throws if there is not enough funds to buy one card
   /// @dev Throws if all the cards are already sold
   function buyOneRandomFor(address to) public payable {
-    // presale must be initialized
-    require(initialized);
-
-    // validate the card recipient address
-    require(to != address(0));
-    require(to != address(this));
-
-    // amount of funds we received from player in this transaction
-    uint256 valueReceived = msg.value;
-
-    // there should be enough value received to buy at least one card
-    require(valueReceived >= currentPrice);
-
-    // there should be at least one card to sell
-    require(sold + 1 <= TOTAL_CARDS);
+    // validate inputs for the transaction
+    __validateBuy(to, 1, currentPrice);
 
     // get some randomness to work pick up a card randomly
     // this randomness is not cryptographically secure of course
@@ -352,38 +283,52 @@ contract Presale {
     uint256 randomness = __rawRandom();
 
     // issue one card
+    uint16[] memory cards = new uint16[](1);
 
     // pick random card
-    uint16 cardId = __popRandom(uint32(randomness));
+    cards[0] = __popRandom(uint32(randomness));
 
-    // mint the card
-    cardInstance.mintWith(to, cardId, __rarity(cardId));
-
-    // update the bitmask of sold cards
-    bitmap.disable(cardId - FIRST_CARD_ID);
-
-    // update presale state: `sold` cards count and `currentPrice`
-    __update(1);
-
-    // calculate amount of change to return to the player
-    uint256 change = valueReceived - currentPrice;
-
-    // transfer the funds to the beneficiary
-    beneficiary.transfer(currentPrice);
-
-    // transfer the change (if any) back to the buyer
-    if(change > 0) {
-      msg.sender.transfer(change);
-    }
-
-    // emit an `PurchaseComplete` event
-    emit PurchaseComplete(msg.sender, to, 1, currentPrice);
+    // delegate call to `__buy()` which also checks the inputs
+    __buy(msg.sender, to, cards, currentPrice);
   }
 
   /// @dev Accepts a payment and sends three cards to the player
   /// @dev Throws if there is not enough funds to buy three cards
   /// @dev Throws if there are no three cards to sell
   function buyThreeRandomFor(address to) public payable {
+    // calculate price of the three cards in a single transaction
+    uint64 triplePrice = THREE_CARDS_PRICE * currentPrice;
+
+    // validate inputs for the transaction
+    __validateBuy(to, 3, triplePrice);
+
+    // container to store three cards
+    uint16[] memory cards = new uint16[](3);
+
+    // get some randomness to work pick up a card randomly
+    // this randomness is not cryptographically secure of course
+    // and may be heavily influenced by miners, but its cheap though
+    uint256 randomness = __rawRandom();
+
+    // pick 3 random cards
+    // using low 32 bits of `randomness`
+    // pick random card 1
+    cards[0] = __popRandom(uint32(randomness));
+
+    // next 32 bits of `randomness`
+    // pick random card 2
+    cards[1] = __popRandom(uint32(randomness >> 32));
+
+    // next 32 bits of `randomness`
+    // pick random card 3
+    cards[2] = __popRandom(uint32(randomness >> 64));
+
+    // delegate call to `__buy()` which also checks the inputs
+    __buy(msg.sender, to, cards, triplePrice);
+  }
+
+  /// @dev Validates inputs before, used before calling `__buy`
+  function __validateBuy(address to, uint16 cardsToSell, uint64 price) private view {
     // presale must be initialized
     require(initialized);
 
@@ -391,62 +336,88 @@ contract Presale {
     require(to != address(0));
     require(to != address(this));
 
-    // calculate price of the three cards in a single transaction
-    uint256 triplePrice = THREE_CARDS_PRICE * currentPrice;
-
-    // amount of funds we received from player in this transaction
-    uint256 valueReceived = msg.value;
-
     // there should be enough value received to buy three cards
-    require(valueReceived >= triplePrice);
+    require(msg.value >= price);
 
     // there should be at least three cards to sell
-    require(sold + 3 <= TOTAL_CARDS);
+    require(sold + cardsToSell <= TOTAL_CARDS);
+  }
 
-    // get some randomness to work pick up a card randomly
-    // this randomness is not cryptographically secure of course
-    // and may be heavily influenced by miners, but its cheap though
-    uint256 randomness = __rawRandom();
+  /// @dev Estimates next value of `currentPrice`
+  function nextPrice() public constant returns (uint64) {
+    // delegate call to `__nextPrice(3)`
+    return __nextPrice(3);
+  }
 
-    // issue three cards
+  /// @dev Estimates next value of `currentPrice` after delta cards will be sold
+  function __nextPrice(uint16 delta) private constant returns (uint64) {
+    /*
+      Initial pre-sale cost will start at 0.05 ETH, increasing 0.01 ETH every 20 character cards sold
+      until reaching 0.25 ETH. Once reached, it will remain until the first 1000 cards are sold
+      and after that the value of the cards will increase to 0.3 ETH for the next 1000,
+      0.35 ETH for the next 1000 and 0.4 ETH for the next 500 and 0.45 ETH for the final 500 cards.
+    */
 
-    // pick 3 random cards
-    // using low 32 bits of `randomness`
-    // pick random card 1
-    uint16 card1Id = __popRandom(uint32(randomness));
+    // Initial pre-sale cost will start at 0.05 ETH,
+    if(currentPrice < 250 finney && sold / 20 != (sold + delta) / 20) {
+      // increasing 0.01 ETH every 20 character cards sold until reaching 0.25 ETH
+      return currentPrice + 10 finney;
+    }
+    // Once reached, it will remain until the first 1000 cards are sold
+    else if(sold < 1000 && sold + delta >= 1000) {
+      // and after that the value of the cards will increase to 0.3 ETH for the next 1000,
+      return 300 finney;
+    }
+    // 0.35 ETH for the next 1000
+    else if(sold < 2000 && sold + delta >= 2000) {
+      return 350 finney;
+    }
+    // and 0.4 ETH for the next 500
+    else if(sold < 3000 && sold + delta >= 3000) {
+      return 400 finney;
+    }
+    // and 0.45 ETH for the final 500 cards
+    else if(sold < 3500 && sold + delta >= 3500) {
+      return 450 finney;
+    }
 
-    // next 32 bits of `randomness`
-    // pick random card 2
-    uint16 card2Id = __popRandom(uint32(randomness >> 32));
+    // no change otherwise
+    return currentPrice;
+  }
 
-    // next 32 bits of `randomness`
-    // pick random card 3
-    uint16 card3Id = __popRandom(uint32(randomness >> 64));
+  /// @dev Issues cards specified to address `to`
+  /// @dev Unsafe, doesn't validate inputs, use `__validateBuy` to validate
+  function __buy(address from, address to, uint16[] memory cards, uint64 price) private {
+    // number of cards to issue/sell
+    uint16 length = uint16(cards.length);
 
     // mint the cards
-    cardInstance.mintCards(to, __pack3Cards(card1Id, card2Id, card3Id));
+    cardInstance.mintCards(to, __packCards(cards));
 
     // update the bitmask of sold cards
-    bitmap.disable(card1Id - FIRST_CARD_ID);
-    bitmap.disable(card2Id - FIRST_CARD_ID);
-    bitmap.disable(card3Id - FIRST_CARD_ID);
+    for(uint16 i = 0; i < length; i++) {
+      bitmap.disable(cards[i] - FIRST_CARD_ID);
+    }
 
     // update presale state: `sold` cards count and `currentPrice`
-    __update(3);
+    __update(length);
 
     // calculate amount of change to return to the player
-    uint256 change = valueReceived - triplePrice;
+    uint256 change = msg.value - price;
 
     // transfer the funds to the beneficiary
-    beneficiary.transfer(triplePrice);
+    beneficiary.transfer(price);
 
     // transfer the change (if any) back to the buyer
     if(change > 0) {
-      msg.sender.transfer(change);
+      from.transfer(change);
     }
 
     // emit an `PurchaseComplete` event
-    emit PurchaseComplete(msg.sender, to, 3, triplePrice);
+    emit PurchaseComplete(from, to, length, price);
+
+    // emit a `PresaleStateChanged` event
+    emit PresaleStateChanged(sold, left(), lastPrice, currentPrice, nextPrice());
   }
 
   /// @dev Updates the price of the next card to sell
@@ -461,28 +432,8 @@ contract Presale {
       0.35 ETH for the next 1000 and 0.4 ETH for the next 500 and 0.45 ETH for the final 500 cards.
     */
 
-    // Initial pre-sale cost will start at 0.05 ETH,
-    if(currentPrice < 250 finney && sold / 20 != (sold + soldDelta) / 20) {
-      // increasing 0.01 ETH every 20 character cards sold until reaching 0.25 ETH
-      currentPrice += 10 finney;
-    }
-    // Once reached, it will remain until the first 1000 cards are sold
-    else if(sold < 1000 && sold + soldDelta >= 1000) {
-      // and after that the value of the cards will increase to 0.3 ETH for the next 1000,
-      currentPrice = 300 finney;
-    }
-    // 0.35 ETH for the next 1000
-    else if(sold < 2000 && sold + soldDelta >= 2000) {
-      currentPrice = 350 finney;
-    }
-    // and 0.4 ETH for the next 500
-    else if(sold < 3000 && sold + soldDelta >= 3000) {
-      currentPrice = 400 finney;
-    }
-    // and 0.45 ETH for the final 500 cards
-    else if(sold < 3500 && sold + soldDelta >= 3500) {
-      currentPrice = 450 finney;
-    }
+    // delegate call to `__nextPrice`
+    currentPrice = __nextPrice(soldDelta);
 
     // update sold counter
     sold += soldDelta;
@@ -528,7 +479,7 @@ contract Presale {
 
   /// @dev Removes a card from `cardsForSale` array,
   ///      throws if it doesn't contain a given card
-  function __popById(uint16 tokenId) private {
+  function __popById(uint16 tokenId) private returns (uint16) {
     // validate input
     require(tokenId >= FIRST_CARD_ID && tokenId < FIRST_CARD_ID + TOTAL_CARDS);
 
@@ -548,6 +499,9 @@ contract Presale {
       // we've found a valid index, pop it
       __popByIndex(index);
     }
+
+    // return the `tokenId` itself
+    return tokenId;
   }
 
   /// @dev Determine price multiplier of a card based on its ID
@@ -595,11 +549,12 @@ contract Presale {
   }
 
   /// @dev Packs 3 cards into an uint24[3] dynamic array
-  function __pack3Cards(uint16 id1, uint16 id2, uint16 id3) private pure returns (uint24[]) {
-    uint24[] memory data = new uint24[](3);
-    data[0] = __pack24(id1, __rarity(id1));
-    data[1] = __pack24(id2, __rarity(id2));
-    data[2] = __pack24(id3, __rarity(id3));
+  function __packCards(uint16[] memory ids) private pure returns (uint24[]) {
+    uint256 length = ids.length;
+    uint24[] memory data = new uint24[](length);
+    for(uint256 i = 0; i < length; i++) {
+      data[i] =  __pack24(ids[i], __rarity(ids[i]));
+    }
     return data;
   }
 

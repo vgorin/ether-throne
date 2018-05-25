@@ -535,6 +535,38 @@
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "sold",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "name": "left",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "name": "lastPrice",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "name": "currentPrice",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "name": "nextPrice",
+          "type": "uint64"
+        }
+      ],
+      "name": "PresaleStateChanged",
+      "type": "event"
+    },
+    {
       "constant": false,
       "inputs": [
         {
@@ -621,7 +653,7 @@
       "outputs": [
         {
           "name": "",
-          "type": "uint144"
+          "type": "uint224"
         }
       ],
       "payable": false,
@@ -663,15 +695,6 @@
     {
       "constant": false,
       "inputs": [],
-      "name": "buyRandom",
-      "outputs": [],
-      "payable": true,
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [],
       "name": "buyOneRandom",
       "outputs": [],
       "payable": true,
@@ -695,7 +718,21 @@
           "type": "address"
         }
       ],
-      "name": "buyRandomFor",
+      "name": "buyOneRandomFor",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "buyThreeRandomFor",
       "outputs": [],
       "payable": true,
       "stateMutability": "payable",
@@ -735,5 +772,5 @@
     "version": "0.4.23+commit.124ca40d.Emscripten.clang"
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-25T16:12:17.643Z"
+  "updatedAt": "2018-05-25T22:37:56.182Z"
 }

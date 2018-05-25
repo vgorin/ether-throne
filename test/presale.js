@@ -71,10 +71,6 @@ contract('Presale', function(accounts) {
 		// buying one random card,
 		// sending not enough ether
 		await assertThrowsAsync(async() => {
-			await presale.buyRandom.sendTransaction({from: player, value: INITIAL_PRICE.minus(1)});
-		});
-		// sending not enough ether
-		await assertThrowsAsync(async() => {
 			await presale.buyOneRandom.sendTransaction({from: player, value: INITIAL_PRICE.minus(1)});
 		});
 		// sending not enough ether
@@ -82,49 +78,44 @@ contract('Presale', function(accounts) {
 			await presale.buyThreeRandom.sendTransaction({from: player, value: INITIAL_PRICE.times(2).minus(1)});
 		});
 		// sending enough ether
-		await presale.buyRandom.sendTransaction({from: player, value: INITIAL_PRICE});
-		assert.equal(4, await card.balanceOf(player), "wrong card balance after buying a single card");
-		// sending enough ether
 		await presale.buyOneRandom.sendTransaction({from: player, value: INITIAL_PRICE});
-		assert.equal(5, await card.balanceOf(player), "wrong card balance after buying a single card");
+		assert.equal(4, await card.balanceOf(player), "wrong card balance after buying a single card");
 
 		// buying 3 random cards at once
-		await presale.buyRandom.sendTransaction({from: player, value: INITIAL_PRICE.times(2)});
-		assert.equal(8, await card.balanceOf(player), "wrong card balance after buying three cards");
 		await presale.buyThreeRandom.sendTransaction({from: player, value: INITIAL_PRICE.times(2)});
-		assert.equal(11, await card.balanceOf(player), "wrong card balance after buying three cards");
+		assert.equal(7, await card.balanceOf(player), "wrong card balance after buying three cards");
 
 		// buying random card for
-		await presale.buyRandomFor.sendTransaction(player, {value: INITIAL_PRICE});
-		assert.equal(12, await card.balanceOf(player), "wrong balance after buying a card for " + player);
+		await presale.buyOneRandomFor.sendTransaction(player, {value: INITIAL_PRICE});
+		assert.equal(8, await card.balanceOf(player), "wrong balance after buying a card for " + player);
 
 		// buying 3 random cards for at once
-		await presale.buyRandomFor.sendTransaction(player, {value: INITIAL_PRICE.times(2)});
-		assert.equal(15, await card.balanceOf(player), "wrong balance after buying a card for " + player);
+		await presale.buyThreeRandomFor.sendTransaction(player, {value: INITIAL_PRICE.times(2)});
+		assert.equal(11, await card.balanceOf(player), "wrong balance after buying three cards for " + player);
 
 		// check it throws when buying to invalid address
 		await assertThrowsAsync(async() => {
-			await presale.buyRandomFor.sendTransaction(0, {value: INITIAL_PRICE})
+			await presale.buyOneRandomFor.sendTransaction(0, {value: INITIAL_PRICE})
 		});
 		await assertThrowsAsync(async() => {
-			await presale.buyRandomFor.sendTransaction(presale.address, {value: INITIAL_PRICE})
+			await presale.buyOneRandomFor.sendTransaction(presale.address, {value: INITIAL_PRICE})
 		});
 		await assertThrowsAsync(async() => {
-			await presale.buyRandomFor.sendTransaction(card.address, {value: INITIAL_PRICE})
+			await presale.buyOneRandomFor.sendTransaction(card.address, {value: INITIAL_PRICE})
 		});
 
 		// main test cycle
 		const beneficiary = await presale.beneficiary();
 		assert.equal(accounts[2], beneficiary, "wrong beneficiary");
 		const initialBeneficiaryBalance = await web3.eth.getBalance(beneficiary);
-		await presale.buyRandom.sendTransaction({from: accounts[1], value: INITIAL_PRICE});
+		await presale.buyOneRandom.sendTransaction({from: accounts[1], value: INITIAL_PRICE});
 		const beneficiaryBalanceDelta = (await web3.eth.getBalance(beneficiary)).minus(initialBeneficiaryBalance);
 
 		assert(INITIAL_PRICE.eq(beneficiaryBalanceDelta),
 			"beneficiary balance is incorrect after selling one card");
 
 		const initialPlayerBalance = await web3.eth.getBalance(player);
-		const txHash = await presale.buyRandom.sendTransaction({
+		const txHash = await presale.buyOneRandom.sendTransaction({
 			from: player,
 			value: INITIAL_PRICE.plus(1),
 			gasPrice: 1
@@ -142,12 +133,13 @@ contract('Presale', function(accounts) {
 			const valueToSend = currentPrice.times(random(0, 3, 2));
 			if(valueToSend.lt(currentPrice)) {
 				await assertThrowsAsync(async() => {
-					await presale.buyRandom.sendTransaction({from: player, value: valueToSend});
+					await presale.buyOneRandom.sendTransaction({from: player, value: valueToSend});
 				});
 			}
 			else {
 				const initialPlayerBalance = await web3.eth.getBalance(player);
-				const txHash = await presale.buyRandom.sendTransaction({
+				const fn = valueToSend.lt(currentPrice.times(2)) ? presale.buyOneRandom : presale.buyThreeRandom;
+				const txHash = await fn.sendTransaction({
 					from: player,
 					value: valueToSend,
 					gasPrice: 1

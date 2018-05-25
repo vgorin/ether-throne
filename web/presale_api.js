@@ -21,7 +21,7 @@ String.prototype.pad = function(size) {
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	const CHAR_CARD_VERSION = 0xC;
-	const PRESALE_VERSION = 0xA;
+	const PRESALE_VERSION = 0xB;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -30,11 +30,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	let presaleInstance;
 
 	// logs an error into console, triggers logger's error callback if provided
-	function logError(msg) {
-		console.error(msg);
+	function logError(...msg) {
+		console.error(msg.join(""));
 		if(logger && logger.error) {
 			try {
-				logger.error(msg);
+				logger.error(...msg);
 			}
 			catch(e) {
 				console.error("external logger call [error] failed: " + e);
@@ -43,11 +43,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	}
 
 	// logs a warning into console, triggers logger's warning callback if provided
-	function logWarning(msg) {
-		console.warn(msg);
+	function logWarning(...msg) {
+		console.warn(msg.join(""));
 		if(logger && logger.warning) {
 			try {
-				logger.warning(msg);
+				logger.warning(...msg);
 			}
 			catch(e) {
 				console.error("external logger call [warning] failed: " + e);
@@ -56,11 +56,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	}
 
 	// logs a message into console, triggers logger's info callback if provided
-	function logInfo(msg) {
-		console.log(msg);
+	function logInfo(...msg) {
+		console.log(msg.join(""));
 		if(logger && logger.info) {
 			try {
-				logger.info(msg);
+				logger.info(...msg);
 			}
 			catch(e) {
 				console.error("external logger call [info] failed: " + e);
@@ -69,11 +69,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	}
 
 	// logs a message into console, triggers logger's trace callback if provided
-	function logTrace(msg) {
-		console.log(msg);
+	function logTrace(...msg) {
+		console.log(msg.join(""));
 		if(logger && logger.trace) {
 			try {
-				logger.trace(msg);
+				logger.trace(...msg);
 			}
 			catch(e) {
 				console.error("external logger call [info] failed: " + e);
@@ -82,11 +82,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	}
 
 	// logs a message into console, triggers logger's success callback if provided
-	function logSuccess(msg) {
-		console.log(msg);
+	function logSuccess(...msg) {
+		console.log(msg.join(""));
 		if(logger && logger.success) {
 			try {
-				logger.success(msg);
+				logger.success(...msg);
 			}
 			catch(e) {
 				console.error("external logger call [success] failed: " + e);
@@ -95,7 +95,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	}
 
 	// register Mint event listener
-	function registerMintEventListener(cardInstance, callback) {
+	this.registerMintEventListener = function(callback) {
+		if(!(myWeb3 && myAccount && cardInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x2;
+		}
 		const mintEvent = cardInstance.Minted({_to: myAccount});
 		mintEvent.watch(function(err, receipt) {
 			if(err) {
@@ -108,14 +112,25 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			}
 			const by = receipt.args._by;
 			const to = receipt.args._to;
-			const cardId = receipt.args._tokenId.toString(10);
-			logInfo("Minted(" + by + ", " + to + ", " + cardId + ")");
+			const tokenId = receipt.args._tokenId.toString(10);
+			logInfo("Minted(", by, ", ", to, ", ", tokenId, ")");
+			tryCallbackIfProvided(callback, null, {
+				event: "minted",
+				by: by,
+				to: to,
+				tokenId: tokenId,
+				txHash: receipt.transactionHash
+			});
 		});
 		logInfo("Successfully registered Minted(uint16, address, address) event listener");
-	}
+	};
 
 	// register ERC721 TokenTransfer event listener
-	function registerTokenTransferEventListener(cardInstance, callback) {
+	this.registerTokenTransferEventListener = function(callback) {
+		if(!(myWeb3 && myAccount && cardInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x2;
+		}
 		const tokenTransferEvent = cardInstance.TokenTransfer();
 		tokenTransferEvent.watch(function(err, receipt) {
 			if(err) {
@@ -128,14 +143,25 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			}
 			const from = receipt.args._from;
 			const to = receipt.args._to;
-			const cardId = receipt.args._tokenId.toString(10);
-			logInfo("ERC721 CardTransfer(" + from + ", " + to + ", " + cardId + ")");
+			const tokenId = receipt.args._tokenId.toString(10);
+			logInfo("ERC721 CardTransfer(", from, ", ", to, ", ", tokenId, ")");
+			tryCallbackIfProvided(callback, null, {
+				event: "token_transfer",
+				from: from,
+				to: to,
+				tokenId: tokenId,
+				txHash: receipt.transactionHash
+			});
 		});
 		logInfo("Successfully registered ERC721 CardTransfer(uint16, address, address) event listener");
-	}
+	};
 
 	// register ERC20 Transfer event listener
-	function registerTransferEventListener(cardInstance, callback) {
+	this.registerTransferEventListener = function(callback) {
+		if(!(myWeb3 && myAccount && cardInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x2;
+		}
 		const transferEvent = cardInstance.Transfer();
 		transferEvent.watch(function(err, receipt) {
 			if(err) {
@@ -149,11 +175,19 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			const from = receipt.args._from;
 			const to = receipt.args._to;
 			const value = receipt.args._value.toString(10);
-			logInfo("ERC20 Transfer(" + from + ", " + to + ", " + value + ")");
+			logInfo("ERC20 Transfer(", from, ", ", to, ", ", value, ")");
+			tryCallbackIfProvided(callback, null, {
+				event: "transfer",
+				from: from,
+				to: to,
+				value: value,
+				txHash: receipt.transactionHash
+			});
 		});
 		logInfo("Successfully registered ERC20 Transfer(address, address, uint16) event listener");
-	}
+	};
 
+/*
 	// register BattleComplete event listener
 	function registerBattleCompleteEventListener(battleProviderInstance) {
 		const battleCompleteEvent = battleProviderInstance.BattleComplete();
@@ -180,9 +214,14 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		});
 		logInfo("Successfully registered BattleComplete(uint16, uint16, uint32, uint32, uint32, uint8) event listener");
 	}
+*/
 
 	// register PurchaseComplete event listener
-	function registerPurchaseCompleteEventListener(presaleInstance, callback) {
+	this.registerPurchaseCompleteEventListener = function(callback) {
+		if(!(myWeb3 && myAccount && presaleInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x3;
+		}
 		const purchaseCompleteEvent = presaleInstance.PurchaseComplete();
 		purchaseCompleteEvent.watch(function(err, receipt) {
 			if(err) {
@@ -197,23 +236,66 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			const to = receipt.args.to;
 			const q = receipt.args.quantity;
 			const price = receipt.args.totalPrice;
-			logInfo("PurchaseComplete(" + from + ", " + to + ", " + q + ", " + price + ")");
-			logSuccess("successfully bought " + q + " card" + (q > 1? "s": ""));
+			logInfo("PurchaseComplete(", from, ", ", to, ", ", q, ", ", price, ")");
 			tryCallbackIfProvided(callback, null, {
 				event: "purchase_complete",
 				quantity: q,
-				totalPrice: price
+				totalPrice: price,
+				txHash: receipt.transactionHash
 			});
 		});
 		logInfo("Successfully registered PurchaseComplete(address, address, uint16, uint64) event listener");
-	}
+	};
+
+	// register PresaleStateChanged event listener
+	this.registerPresaleStateChangedEventListener = function(callback) {
+		if(!(myWeb3 && myAccount && presaleInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x3;
+		}
+		const presaleStateChangedEvent = presaleInstance.PresaleStateChanged();
+		presaleStateChangedEvent.watch(function(err, receipt) {
+			if(err) {
+				logError("Error receiving PresaleStateChanged event: ", err);
+				return;
+			}
+			if(!(receipt && receipt.args
+					&& receipt.args.sold
+					&& receipt.args.left
+					&& receipt.args.lastPrice
+					&& receipt.args.currentPrice
+					&& receipt.args.nextPrice)) {
+				logError("PresaleStateChanged event received in wrong format: wrong arguments - ", receipt);
+				return;
+			}
+			const cardsSold = receipt.args.sold;
+			const cardsLeft = receipt.args.left;
+			const lastPrice = receipt.args.lastPrice;
+			const currentPrice = receipt.args.currentPrice;
+			const nextPrice = receipt.args.nextPrice;
+			logInfo("PresaleStateChanged(", cardsSold, ", ", cardsLeft, ", ", lastPrice, ", ", currentPrice, ",", nextPrice, ")");
+			tryCallbackIfProvided(callback, null, {
+				event: "presale_state_complete",
+				sold: cardsSold.toNumber(),
+				left: cardsLeft.toNumber(),
+				lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber(),
+				currentPrice: myWeb3.fromWei(currentPrice, "ether").toNumber(),
+				nextPrice: myWeb3.fromWei(nextPrice, "ether").toNumber(),
+				txHash: receipt.transactionHash
+			});
+		});
+		logInfo("Successfully registered PresaleStateChanged(uint16, uint16, uint64, uint64, uint64) event listener");
+	};
 
 	// Called once cardInstance or presaleInstance initialized
 	function instanceLoaded(callback) {
 		if(cardInstance && presaleInstance) {
 			logSuccess("Application loaded successfully.\nNetwork " + networkName(myNetwork));
 			if(callback) {
-				tryCallback(callback, null, {event: "init_complete"});
+				tryCallback(callback, null, {
+					event: "init_complete",
+					network: networkName(myNetwork)
+				});
 			}
 		}
 	}
@@ -260,7 +342,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		myWeb3 = new Web3(window.web3.currentProvider);
 		myWeb3.eth.getAccounts(function(err, accounts) {
 			if(err) {
-				logError("getAccounts() error: " + err);
+				logError("getAccounts() error: ", err);
 				tryCallbackIfProvided(callback, err, null);
 				return;
 			}
@@ -272,15 +354,15 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 				tryCallbackIfProvided(callback, err, null);
 				return;
 			}
-			logInfo("Web3 integration loaded. Your account is " + myAccount + ", network id " + networkName(myNetwork));
+			logInfo("Web3 integration loaded. Your account is ", myAccount, ", network id ", networkName(myNetwork));
 			myWeb3.eth.getBalance(myAccount, function(err, balance) {
 				if(err) {
-					logError("getBalance() error: " + err);
+					logError("getBalance() error: ", err);
 					tryCallbackIfProvided(callback, err, null);
 					return;
 				}
 				if(balance > 0) {
-					logInfo("Your balance is " + myWeb3.fromWei(balance, 'ether'));
+					logInfo("Your balance is ", myWeb3.fromWei(balance, 'ether'));
 				}
 				else {
 					logError("Your balance is zero.\nYou won't be able to send any transaction.");
@@ -297,7 +379,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 						try {
 							instance.CHAR_CARD_VERSION(function(err, version) {
 								if(err) {
-									logError("Error accessing Character Card (ERC721) Instance: " + err + "\nCannot access CHAR_CARD_VERSION.");
+									logError("Error accessing Character Card (ERC721) Instance: ", err, "\nCannot access CHAR_CARD_VERSION.");
 									tryCallbackIfProvided(callback, err, null);
 									return;
 								}
@@ -309,21 +391,16 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 									tryCallbackIfProvided(callback, err, null);
 									return;
 								}
-								logInfo("Successfully connected to Character Card (ERC721) Instance at " + cardAddr);
-								// registerMintEventListener(instance);
-								// registerTokenTransferEventListener(instance);
-								// registerTransferEventListener(instance);
-								// registerBattleCompleteEventListener(instance);
-								// loadCards(instance, myAccount);
+								logInfo("Successfully connected to Character Card (ERC721) Instance at ", cardAddr);
 								cardInstance = instance;
 								instanceLoaded(callback);
 								cardInstance.getCollection(myAccount, function(err, result) {
 									if(err) {
-										logError("Unable to get cards list for account " + myAccount + ": " + err);
+										logError("Unable to get cards list for account ", myAccount, ": ", err);
 										return;
 									}
 									if(result.length > 0) {
-										logInfo("List of the cards you own: " + result);
+										logInfo("List of the cards you own: ", result.join(", "));
 									}
 									else {
 										logInfo("You don't own any cards");
@@ -332,12 +409,12 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 							});
 						}
 						catch(err) {
-							logError("Cannot access Character Card (ERC721) Instance: " + err);
+							logError("Cannot access Character Card (ERC721) Instance: ", err);
 							tryCallbackIfProvided(callback, err, null);
 						}
 					},
 					error: function(jqXHR, textStatus, errorThrown) {
-						logError("Cannot load Character Card ABI: " + errorThrown);
+						logError("Cannot load Character Card ABI: ", errorThrown);
 						tryCallbackIfProvided(callback, errorThrown, null);
 					}
 				});
@@ -353,27 +430,29 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 						try {
 							instance.PRESALE_VERSION(function(err, version) {
 								if(err) {
-									logError("Error accessing Presale Instance: " + err + "\nCannot access PRESALE_VERSION.");
+									logError("Error accessing Presale Instance: ", err, "\nCannot access PRESALE_VERSION.");
 									tryCallbackIfProvided(callback, err, null);
 									return;
 								}
 								if(PRESALE_VERSION != version) {
-									logError("Error accessing Presale Instance: not a valid instance.\nCheck if the address specified points to a Presale instance with a valid PRESALE_VERSION.\nVersion required: " + PRESALE_VERSION + ". Version found: " + version);
-									tryCallbackIfProvided(callback, "version mismatch", null);
+									const err = "Error accessing Presale Instance: not a valid instance.\n" +
+										"Check if the address specified points to a Presale instance with a valid PRESALE_VERSION.\n" +
+										"Version required: " + PRESALE_VERSION + ". Version found: " + version;
+									logError(err);
+									tryCallbackIfProvided(callback, err, null);
 									return;
 								}
-								logInfo("Successfully connected to Presale Instance at " + presaleAddr);
-								registerPurchaseCompleteEventListener(instance, callback);
+								logInfo("Successfully connected to Presale Instance at ", presaleAddr);
 								presaleInstance = instance;
 								instanceLoaded(callback);
 							});
 						}
 						catch(err) {
-							logError("Cannot access Presale Instance: " + err);
+							logError("Cannot access Presale Instance: ", err);
 						}
 					},
 					error: function(jqXHR, textStatus, errorThrown) {
-						logError("Cannot load Presale ABI: " + errorThrown);
+						logError("Cannot load Presale ABI: ", errorThrown);
 						tryCallbackIfProvided(callback, errorThrown, null);
 					}
 				});
@@ -399,18 +478,22 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		}
 		presaleInstance.specificPrice(cardId, function(err, result) {
 			if(err) {
-				logError("Unable to get card price for " + cardId + ": " + err);
+				logError("Unable to get card price for ", cardId, ": ", err);
 				tryCallbackIfProvided(callback, err, null);
 				return;
 			}
 			presaleInstance.buySpecific.sendTransaction(cardId, {value: result}, function(err, txHash) {
 				if(err) {
-					logError("buySpecific transaction wasn't sent: " + err.toString().split("\n")[0]);
+					logError("buySpecific(", cardId, ") transaction wasn't sent: ", err.toString().split("\n")[0]);
 					tryCallbackIfProvided(callback, err, null);
 					return;
 				}
-				logInfo("buySpecific transaction sent: " + txHash);
-				logSuccess("Transaction sent");
+				logInfo("buySpecific(", cardId, ") transaction sent: ", txHash);
+				tryCallbackIfProvided(callback, null, {
+					event: "transaction_sent",
+					name: "buySpecific",
+					txHash: txHash
+				});
 
 				// TODO: wait for this particular event to return and call callback
 			});
@@ -432,18 +515,22 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		}
 		presaleInstance.currentPrice(function(err, result) {
 			if(err) {
-				logError("Unable to get random card price: " + err);
+				logError("Unable to get random card price: ", err);
 				tryCallbackIfProvided(callback, err, null);
 				return;
 			}
 			presaleInstance.buyOneRandom.sendTransaction({value: result}, function(err, txHash) {
 				if(err) {
-					logError("buyRandom transaction wasn't sent: " + err.toString().split("\n")[0]);
+					logError("buyRandom(1) transaction wasn't sent: ", err.toString().split("\n")[0]);
 					tryCallbackIfProvided(callback, err, null);
 					return;
 				}
-				logInfo("buyRandom transaction sent: " + txHash);
-				logSuccess("Transaction sent")
+				logInfo("buyRandom(1) transaction sent: ", txHash);
+				tryCallbackIfProvided(callback, null, {
+					event: "transaction_sent",
+					name: "buyRandom(1)",
+					txHash: txHash
+				});
 
 				// TODO: wait for this particular event to return and call callback
 			});
@@ -465,19 +552,22 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		}
 		presaleInstance.currentPrice(function(err, result) {
 			if(err) {
-				logError("Unable to get random card price: " + err);
+				logError("Unable to get random card price: ", err);
 				tryCallbackIfProvided(callback, err, null);
 				return;
 			}
 			presaleInstance.buyThreeRandom.sendTransaction({value: result.times(2)}, function(err, txHash) {
 					if(err) {
-						logError("buyRandom(3) transaction wasn't sent: " + err.toString().split("\n")[0]);
+						logError("buyRandom(3) transaction wasn't sent: ", err.toString().split("\n")[0]);
 						tryCallbackIfProvided(callback, err, null);
 						return;
 					}
-					logInfo("buyRandom(3) transaction sent: " + txHash);
-					logSuccess("Transaction sent");
-
+					logInfo("buyRandom(3) transaction sent: ", txHash);
+					tryCallbackIfProvided(callback, null, {
+						event: "transaction_sent",
+						name: "buyRandom(3)",
+						txHash: txHash
+					});
 					// TODO: wait for this particular event to return and call callback
 				}
 			);
@@ -485,7 +575,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	};
 
 	/**
-	 * Gets the presale status to be used in the web page to fill in:
+	 * Gets the presale state to be used in the web page to fill in:
 	 * 	* Character Cards Sold Counter
 	 * 	* Last Being Price
 	 * 	* Next Being Price
@@ -494,7 +584,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	 * @param callback a function to call on error / success
 	 * @return {number} error code, if it occurred synchronously, undefined otherwise
 	 */
-	this.presaleStatus = function(callback) {
+	this.presaleState = function(callback) {
 		if(!callback || {}.toString.call(callback) !== '[object Function]') {
 			logError("callback is undefined or is not a function");
 			return 0x10;
@@ -506,24 +596,30 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		}
 		presaleInstance.getPacked(function(err, result) {
 			if(err) {
-				logError("Error getting presale status: " + err);
+				logError("Error getting presale state: " + err);
 				tryCallback(callback, err, null);
 				return;
 			}
 			try {
 				const uint64 = myWeb3.toBigNumber("0x10000000000000000");
-				const soldCards = result.dividedToIntegerBy(uint64).dividedToIntegerBy(uint64);
+				const uint128 = uint64.times(uint64);
+				const uint192 = uint128.times(uint64);
+				const soldCards = result.dividedToIntegerBy(uint192).dividedToIntegerBy(65536);
+				const leftCards = result.dividedToIntegerBy(uint192).modulo(65536);
+				const lastPrice = result.dividedToIntegerBy(uint128).modulo(uint64);
 				const currentPrice = result.dividedToIntegerBy(uint64).modulo(uint64);
-				const lastPrice = result.modulo(uint64);
-				logInfo("sold cards: " + soldCards + ", current price: " + currentPrice + ", last price: " + lastPrice);
+				const nextPrice = result.modulo(uint64);
+				logInfo("sold: ", soldCards, " left: ", leftCards, ", last price: ", lastPrice, ", current price: ", currentPrice, " next price: ", nextPrice);
 				tryCallback(callback, null, {
 					sold: soldCards.toNumber(),
+					left: leftCards.toNumber(),
+					lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber(),
 					currentPrice: myWeb3.fromWei(currentPrice, "ether").toNumber(),
-					lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber()
+					nextPrice: myWeb3.fromWei(nextPrice, "ether").toNumber(),
 				});
 			}
 			catch(e) {
-				logError("Error parsing presale status: " + e);
+				logError("Error parsing presale state: ", e);
 				tryCallback(callback, e, null);
 			}
 		});
@@ -545,15 +641,15 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		}
 		presaleInstance.TOTAL_CARDS(function(err, result) {
 			if(err) {
-				logError("Unable to get TOTAL_CARDS for sale: " + err);
+				logError("Unable to get TOTAL_CARDS for sale: ", err);
 				tryCallback(callback, err, null);
 				return;
 			}
 			const totalCards = result.toNumber();
-			logInfo("TOTAL_CARDS for sale: " + totalCards);
+			logInfo("TOTAL_CARDS for sale: ", totalCards);
 			presaleInstance.getBitmap(function(err, result) {
 				if(err) {
-					logError("Error getting presale bitmap: " + err);
+					logError("Error getting presale bitmap: ", err);
 					tryCallback(callback, err, null);
 					return;
 				}
@@ -581,13 +677,19 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		}
 		if(!(myWeb3 && myAccount && cardInstance)) {
 			logError("Presale API is not properly initialized. Reload the page.");
-			return 0x3;
+			return 0x2;
 		}
 		cardInstance.getCollection(owner, function(err, collection) {
 			if(err) {
-				logError("Cannot load list of the cards: " + err);
+				logError("Cannot load list of the cards: ", err);
 				tryCallback(callback, err, null);
 				return;
+			}
+			if(collection.length > 0) {
+				logInfo("Cards owned by ", owner, ": ", ...collection);
+			}
+			else {
+				logInfo("Address ", owner, " doesn't own any cards");
 			}
 			tryCallback(callback, null, collection);
 		});
@@ -606,11 +708,11 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 		}
 		if(!(myWeb3 && myAccount && cardInstance)) {
 			logError("Presale API is not properly initialized. Reload the page.");
-			return 0x3;
+			return 0x2;
 		}
 		cardInstance.getCollection(owner, function(err, collection) {
 			if(err) {
-				logError("Cannot load list of the cards: " + err);
+				logError("Cannot load list of the cards: ", err);
 				tryCallback(callback, err, null);
 				return;
 			}
@@ -619,21 +721,29 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 				size: collection.length
 			};
 			let fetched = 0;
-			for(let i = 0; i < collection.length; i++) {
-				const cardId = collection[i];
-				cardInstance.getPacked(cardId, function(err, packed) {
-					if(err) {
-						logError("Cannot load card " + cardId + ": " + err);
-						tryCallback(callback, err, null);
-						return;
-					}
-					cards["ids"].push(cardId);
-					cards[cardId] = cardToString(packed);
-					fetched++;
-					if(fetched === collection.length) {
-						tryCallback(callback, null, cards);
-					}
-				});
+			if(collection.length > 0) {
+				logInfo("Cards owned by ", owner, ": ", ...collection);
+				for(let i = 0; i < collection.length; i++) {
+					const cardId = collection[i];
+					cardInstance.getPacked(cardId, function(err, packed) {
+						if(err) {
+							logError("Cannot load card ", cardId, ": ", err);
+							tryCallback(callback, err, null);
+							return;
+						}
+						cards["ids"].push(cardId);
+						cards[cardId] = cardToString(packed);
+						fetched++;
+						if(fetched === collection.length) {
+							cards.ids.sort();
+							tryCallback(callback, null, cards);
+						}
+					});
+				}
+			}
+			else {
+				logInfo("Address ", owner, " doesn't own any cards");
+				tryCallback(callback, null, cards);
 			}
 		});
 	};
@@ -658,7 +768,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			callback(err, result);
 		}
 		catch(e) {
-			logWarning("couldn't execute callback: " + e);
+			logWarning("couldn't execute callback: ", e);
 		}
 	}
 

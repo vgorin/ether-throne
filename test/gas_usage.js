@@ -103,12 +103,12 @@ contract('Gas Usage', function(accounts) {
 		const presale = await createPresale(card.address, accounts[2]);
 		await card.addOperator(presale.address, ROLE_TOKEN_CREATOR);
 
-		const txHash1 = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE});
+		const txHash1 = await presale.buyOneRandom.sendTransaction({value: INITIAL_CARD_PRICE});
 		const txReceipt1 = await web3.eth.getTransactionReceipt(txHash1);
 		const gasUsed1 = txReceipt1.gasUsed;
 		assertEqual(216483, gasUsed1, "buying a card gas usage doesn't match: " + gasUsed1);
 
-		const txHash3 = await presale.buyRandom.sendTransaction({value: INITIAL_CARD_PRICE.times(2)});
+		const txHash3 = await presale.buyThreeRandom.sendTransaction({value: INITIAL_CARD_PRICE.times(2)});
 		const txReceipt3 = await web3.eth.getTransactionReceipt(txHash3);
 		const gasUsed3 = txReceipt3.gasUsed;
 		assertEqual(498066, gasUsed3, "buying three cards gas usage doesn't match: " + gasUsed3);
