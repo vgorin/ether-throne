@@ -21,7 +21,7 @@ String.prototype.pad = function(size) {
  */
 function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	const CHAR_CARD_VERSION = 0xC;
-	const PRESALE_VERSION = 0x9;
+	const PRESALE_VERSION = 0xA;
 	const jQuery3 = jQuery_instance? jQuery_instance: jQuery;
 	let myWeb3;
 	let myAccount;
@@ -206,49 +206,6 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			});
 		});
 		logInfo("Successfully registered PurchaseComplete(address, address, uint16, uint64) event listener");
-	}
-
-	function loadCardsFor(cardInstance, myAccount, callback) {
-		cardInstance.balanceOf(myAccount, function(err, balance) {
-			if(err) {
-				logError("Unable to read card balance: " + err);
-				tryCallback(callback, err, null);
-				return;
-			}
-			if(balance > 0) {
-				logInfo("You own " + balance + " card(s):");
-				cardInstance.getCollection(myAccount, function(err, collection) {
-					if(err) {
-						logError("Cannot load list of the cards: " + err);
-						tryCallback(callback, err, null);
-						return;
-					}
-					const cards = new Array(collection.length);
-					let fetched = 0;
-					for(let i = 0; i < collection.length; i++) {
-						const j = i;
-						const cardId = collection[i];
-						cardInstance.getCard(cardId, function(err, card) {
-							if(err) {
-								logError("Cannot load card " + cardId + ": " + err);
-								tryCallback(callback, err, null);
-								return;
-							}
-							cards[j] = cardToString(card);
-							fetched++;
-							if(fetched === cards.length) {
-								tryCallback(callback, null, cards);
-							}
-							logInfo("0x" + cardId.toString(16) + ": " + cardToString(card));
-						});
-					}
-				});
-			}
-			else {
-				logInfo("You don't own any cards");
-				tryCallback(callback, null, []);
-			}
-		});
 	}
 
 	// Called once cardInstance or presaleInstance initialized
@@ -479,7 +436,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 				tryCallbackIfProvided(callback, err, null);
 				return;
 			}
-			presaleInstance.buyRandom.sendTransaction({value: result}, function(err, txHash) {
+			presaleInstance.buyOneRandom.sendTransaction({value: result}, function(err, txHash) {
 				if(err) {
 					logError("buyRandom transaction wasn't sent: " + err.toString().split("\n")[0]);
 					tryCallbackIfProvided(callback, err, null);
@@ -512,7 +469,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 				tryCallbackIfProvided(callback, err, null);
 				return;
 			}
-			presaleInstance.buyRandom.sendTransaction({value: result.times(2)}, function(err, txHash) {
+			presaleInstance.buyThreeRandom.sendTransaction({value: result.times(2)}, function(err, txHash) {
 					if(err) {
 						logError("buyRandom(3) transaction wasn't sent: " + err.toString().split("\n")[0]);
 						tryCallbackIfProvided(callback, err, null);
@@ -538,36 +495,38 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	 * @return {number} error code, if it occurred synchronously, undefined otherwise
 	 */
 	this.presaleStatus = function(callback) {
-		if(callback && {}.toString.call(callback) === '[object Function]') {
-			if(!(myWeb3 && myAccount && presaleInstance)) {
-				logError("Presale API is not properly initialized. Reload the page.");
-				tryCallback(callback, "Presale API is not properly initialized", null);
-				return 0x3;
-			}
-			presaleInstance.getPacked(function(err, result) {
-				if(err) {
-					logError("Error getting presale status: " + err);
-					tryCallback(callback, err, null);
-					return;
-				}
-				try {
-					const uint64 = myWeb3.toBigNumber("0x10000000000000000");
-					const soldCards = result.dividedToIntegerBy(uint64).dividedToIntegerBy(uint64);
-					const currentPrice = result.dividedToIntegerBy(uint64).modulo(uint64);
-					const lastPrice = result.modulo(uint64);
-					logInfo("sold cards: " + soldCards + ", current price: " + currentPrice + ", last price: " + lastPrice);
-					tryCallback(callback, null, {
-						sold: soldCards.toNumber(),
-						currentPrice: myWeb3.fromWei(currentPrice, "ether").toNumber(),
-						lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber()
-					});
-				}
-				catch(e) {
-					logError("Error parsing presale status: " + e);
-					tryCallback(callback, e, null);
-				}
-			});
+		if(!callback || {}.toString.call(callback) !== '[object Function]') {
+			logError("callback is undefined or is not a function");
+			return 0x10;
 		}
+		if(!(myWeb3 && myAccount && presaleInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			tryCallback(callback, "Presale API is not properly initialized", null);
+			return 0x3;
+		}
+		presaleInstance.getPacked(function(err, result) {
+			if(err) {
+				logError("Error getting presale status: " + err);
+				tryCallback(callback, err, null);
+				return;
+			}
+			try {
+				const uint64 = myWeb3.toBigNumber("0x10000000000000000");
+				const soldCards = result.dividedToIntegerBy(uint64).dividedToIntegerBy(uint64);
+				const currentPrice = result.dividedToIntegerBy(uint64).modulo(uint64);
+				const lastPrice = result.modulo(uint64);
+				logInfo("sold cards: " + soldCards + ", current price: " + currentPrice + ", last price: " + lastPrice);
+				tryCallback(callback, null, {
+					sold: soldCards.toNumber(),
+					currentPrice: myWeb3.fromWei(currentPrice, "ether").toNumber(),
+					lastPrice: myWeb3.fromWei(lastPrice, "ether").toNumber()
+				});
+			}
+			catch(e) {
+				logError("Error parsing presale status: " + e);
+				tryCallback(callback, e, null);
+			}
+		});
 	};
 
 	/**
@@ -576,36 +535,122 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 	 * @return {number} error code, if it occurred synchronously, undefined otherwise
 	 */
 	this.availableCardsBitmap = function(callback) {
-		if(callback && {}.toString.call(callback) === '[object Function]') {
-			if(!(myWeb3 && myAccount && presaleInstance)) {
-				logError("Presale API is not properly initialized. Reload the page.");
-				return 0x3;
+		if(!callback || {}.toString.call(callback) !== '[object Function]') {
+			logError("callback is undefined or is not a function");
+			return 0x10;
+		}
+		if(!(myWeb3 && myAccount && presaleInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x3;
+		}
+		presaleInstance.TOTAL_CARDS(function(err, result) {
+			if(err) {
+				logError("Unable to get TOTAL_CARDS for sale: " + err);
+				tryCallback(callback, err, null);
+				return;
 			}
-			presaleInstance.TOTAL_CARDS(function(err, result) {
+			const totalCards = result.toNumber();
+			logInfo("TOTAL_CARDS for sale: " + totalCards);
+			presaleInstance.getBitmap(function(err, result) {
 				if(err) {
-					logError("Unable to get TOTAL_CARDS for sale: " + err);
+					logError("Error getting presale bitmap: " + err);
 					tryCallback(callback, err, null);
 					return;
 				}
-				const totalCards = result.toNumber();
-				logInfo("TOTAL_CARDS for sale: " + totalCards);
-				presaleInstance.getBitmap(function(err, result) {
+				let bitmap = "";
+				for(let i = 0; i < result.length; i++) {
+					bitmap += result[i].toString(2).pad(256).split("").reverse().join("");
+				}
+				bitmap = bitmap.substr(0, totalCards);
+				logTrace(bitmap);
+				tryCallback(callback, null, bitmap);
+			});
+		});
+	};
+
+	/**
+	 * Retrieves list of card IDs owned by a particular address
+	 * @param owner address to query cards collection (IDs only) for
+	 * @param callback a function to pass a result (if successful) or an error
+	 * @return {number} error code, if it occurred synchronously, undefined otherwise
+	 */
+	this.cardIdsByOwner = function(owner, callback) {
+		if(!callback || {}.toString.call(callback) !== '[object Function]') {
+			logError("callback is undefined or is not a function");
+			return 0x10;
+		}
+		if(!(myWeb3 && myAccount && cardInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x3;
+		}
+		cardInstance.getCollection(owner, function(err, collection) {
+			if(err) {
+				logError("Cannot load list of the cards: " + err);
+				tryCallback(callback, err, null);
+				return;
+			}
+			tryCallback(callback, null, collection);
+		});
+	};
+
+	/**
+	 * Retrieves list of cards (full objects) owned by a particular address
+	 * @param owner address to query cards collection for
+	 * @param callback a function to pass a result (if successful) or an error
+	 * @return {number} error code, if it occurred synchronously, undefined otherwise
+	 */
+	this.cardsByOwner = function(owner, callback) {
+		if(!callback || {}.toString.call(callback) !== '[object Function]') {
+			logError("callback is undefined or is not a function");
+			return 0x10;
+		}
+		if(!(myWeb3 && myAccount && cardInstance)) {
+			logError("Presale API is not properly initialized. Reload the page.");
+			return 0x3;
+		}
+		cardInstance.getCollection(owner, function(err, collection) {
+			if(err) {
+				logError("Cannot load list of the cards: " + err);
+				tryCallback(callback, err, null);
+				return;
+			}
+			const cards = {
+				ids: [],
+				size: collection.length
+			};
+			let fetched = 0;
+			for(let i = 0; i < collection.length; i++) {
+				const cardId = collection[i];
+				cardInstance.getPacked(cardId, function(err, packed) {
 					if(err) {
-						logError("Error getting presale bitmap: " + err);
+						logError("Cannot load card " + cardId + ": " + err);
 						tryCallback(callback, err, null);
 						return;
 					}
-					let bitmap = "";
-					for(let i = 0; i < result.length; i++) {
-						bitmap += result[i].toString(2).pad(256).split("").reverse().join("");
+					cards["ids"].push(cardId);
+					cards[cardId] = cardToString(packed);
+					fetched++;
+					if(fetched === collection.length) {
+						tryCallback(callback, null, cards);
 					}
-					bitmap = bitmap.substr(0, totalCards);
-					logTrace(bitmap);
-					tryCallback(callback, null, bitmap);
 				});
-			});
-		}
+			}
+		});
 	};
+
+	function cardToString(packed512) {
+		let left = packed512[0].toString(16);
+		const leftZeros = 64 - left.length;
+		let right = packed512[1].toString(16);
+		const rightZeros = 64 - right.length;
+		for(let i = 0; i < leftZeros; i++) {
+			left = "0" + left;
+		}
+		for(let i = 0; i < rightZeros; i++) {
+			right = "0" + right;
+		}
+		return left + right;
+	}
 
 	// call callback function safely in a try..catch block
 	function tryCallback(callback, err, result) {

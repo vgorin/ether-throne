@@ -158,6 +158,20 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "THREE_CARDS_PRICE",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "RARITY_USUAL",
       "outputs": [
         {
@@ -205,6 +219,20 @@
         {
           "name": "",
           "type": "uint16"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "INITIAL_PRICE",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
         }
       ],
       "payable": false,
@@ -643,6 +671,24 @@
     },
     {
       "constant": false,
+      "inputs": [],
+      "name": "buyOneRandom",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "buyThreeRandom",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": false,
       "inputs": [
         {
           "name": "to",
@@ -654,6 +700,34 @@
       "payable": true,
       "stateMutability": "payable",
       "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "buyOneRandomFor",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "buyThreeRandomFor",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
     }
   ],
   "compiler": {
@@ -661,5 +735,5 @@
     "version": "0.4.23+commit.124ca40d.Emscripten.clang"
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-24T15:32:13.955Z"
+  "updatedAt": "2018-05-25T16:12:17.643Z"
 }
