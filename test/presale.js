@@ -29,6 +29,9 @@ contract('Presale', function(accounts) {
 	it("presale: create presale and check it", async() => {
 		const card = await CharacterCard.new();
 		const presale = await Presale.new(card.address, accounts[0]);
+		const currentPrice = await presale.currentPrice();
+		const nextPrice = await presale.nextPrice();
+		assert(currentPrice.eq(nextPrice), "current / next price initial mismatch");
 		const bitmap = await presale.getBitmap();
 		assert.equal(16, bitmap.length, "available card bitmap is corrupted");
 		for(let i = 0; i < bitmap.length - 1; i++) {

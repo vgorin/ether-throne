@@ -194,7 +194,7 @@ contract Presale {
   /// @dev A convenient function to retrieve available cards bitmap data
   /// @dev Making _bitmap public is not convenient since Solidity creates
   ///      a parametrized getter in that case
-  function getBitmap() public constant returns(uint256[]) {
+  function getBitmap() public constant returns (uint256[]) {
     // just return whole array
     return bitmap;
   }

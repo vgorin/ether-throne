@@ -32,9 +32,9 @@ const logger = {
 // create an API client
 const presale = new PresaleApi(
 	// deployed card instance address
-	"0x6b1ba4617a22e468d684c8773540b4f786146a3e",
+	"0xe634583206eab6db8d03240bb861ba024ed34bc3",
 	// deployed presale instance address
-	"0xb0b08df91eb6df58615359362fbed53e74a88527",
+	"0x781e3d5d13e6cb82c75abcf75cc641e1028f74ed",
 	// callback handlers, use bootstrap notify
 	logger,
 	// jQuery instance to use to load ABI for smart contracts

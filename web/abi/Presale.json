@@ -739,38 +739,24 @@
       "type": "function"
     },
     {
-      "constant": false,
-      "inputs": [
+      "constant": true,
+      "inputs": [],
+      "name": "nextPrice",
+      "outputs": [
         {
-          "name": "to",
-          "type": "address"
+          "name": "",
+          "type": "uint64"
         }
       ],
-      "name": "buyOneRandomFor",
-      "outputs": [],
-      "payable": true,
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "to",
-          "type": "address"
-        }
-      ],
-      "name": "buyThreeRandomFor",
-      "outputs": [],
-      "payable": true,
-      "stateMutability": "payable",
+      "payable": false,
+      "stateMutability": "view",
       "type": "function"
     }
   ],
-  "compiler": {
+ "compiler": {
     "name": "solc",
     "version": "0.4.23+commit.124ca40d.Emscripten.clang"
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-25T22:37:56.182Z"
+  "updatedAt": "2018-05-25T23:35:31.586Z"
 }

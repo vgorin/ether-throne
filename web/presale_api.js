@@ -513,7 +513,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			logError("Presale API is not properly initialized. Reload the page.");
 			return 0x3;
 		}
-		presaleInstance.currentPrice(function(err, result) {
+		presaleInstance.nextPrice(function(err, result) {
 			if(err) {
 				logError("Unable to get random card price: ", err);
 				tryCallbackIfProvided(callback, err, null);
@@ -550,7 +550,7 @@ function PresaleApi(cardAddr, presaleAddr, logger, jQuery_instance) {
 			logError("Presale API is not properly initialized. Reload the page.");
 			return 0x3;
 		}
-		presaleInstance.currentPrice(function(err, result) {
+		presaleInstance.nextPrice(function(err, result) {
 			if(err) {
 				logError("Unable to get random card price: ", err);
 				tryCallbackIfProvided(callback, err, null);
