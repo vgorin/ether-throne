@@ -15,11 +15,11 @@ contract Presale {
   /// @dev Smart contract version
   /// @dev Should be incremented manually in this source code
   ///      each time smart contact source code is changed
-  uint32 public constant PRESALE_VERSION = 0xB;
+  uint32 public constant PRESALE_VERSION = 0xC;
 
   /// @dev Version of the CharacterCard smart contract to work with
-  /// @dev See `CharacterCard.CHAR_CARD_VERSION`
-  uint32 public constant CHAR_CARD_VERSION_REQUIRED = 0xC;
+  /// @dev See `CharacterCard.TOKEN_VERSION`
+  uint32 public constant TOKEN_VERSION_REQUIRED = 0xD;
 
   /// @dev Six different card types defined in presale:
   /// @dev Hologram card, has 10 attributes
@@ -56,8 +56,8 @@ contract Presale {
   /// @dev Initial price of one random card, this is a base price
   uint64 public constant INITIAL_PRICE = 50 finney;
 
-  /// @dev ID of the first card to sell is 1025
-  uint16 public constant FIRST_CARD_ID = 0x401;
+  /// @dev ID of the first card to sell is 32769
+  uint16 public constant FIRST_CARD_ID = 0x8001;
   /// @dev Total number of cards for sale is 4000, including
   uint16 public constant TOTAL_CARDS = 4000;
 
@@ -117,7 +117,7 @@ contract Presale {
   address public beneficiary;
 
   /// @dev Emits when smart contract sells a card
-  event PurchaseComplete(address indexed from, address indexed to, uint16 quantity, uint256 totalPrice);
+  event PurchaseComplete(address indexed _from, address indexed _to, uint16 quantity, uint256 totalPrice);
 
   /// @dev Emits when presale state changes (after buying a card)
   event PresaleStateChanged(uint16 sold, uint16 left, uint64 lastPrice, uint64 currentPrice, uint64 nextPrice);
@@ -140,7 +140,7 @@ contract Presale {
 
     // validate if character card instance is valid
     // by validating smart contract version
-    require(CHAR_CARD_VERSION_REQUIRED == cardInstance.CHAR_CARD_VERSION());
+    require(TOKEN_VERSION_REQUIRED == cardInstance.TOKEN_VERSION());
 
     // setup all the parameters left
     beneficiary = _beneficiary;
@@ -223,7 +223,7 @@ contract Presale {
     return result;
   }
 
-  /// @dev Returns the presale state data as a packed uint144 tuple structure
+  /// @dev Returns the presale state data as a packed uint224 tuple structure
   function getPacked() public constant returns (uint224) {
     // pack and return
     return uint224(sold) << 208 | uint208(left()) << 192 | uint192(lastPrice) << 128 | uint128(currentPrice) << 64 | nextPrice();

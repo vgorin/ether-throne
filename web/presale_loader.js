@@ -31,10 +31,6 @@ const logger = {
 
 // create an API client
 const presale = new PresaleApi(
-	// deployed card instance address
-	"0xe634583206eab6db8d03240bb861ba024ed34bc3",
-	// deployed presale instance address
-	"0x781e3d5d13e6cb82c75abcf75cc641e1028f74ed",
 	// callback handlers, use bootstrap notify
 	logger,
 	// jQuery instance to use to load ABI for smart contracts
@@ -42,7 +38,7 @@ const presale = new PresaleApi(
 );
 
 const displayStateCallback = (err, state) => {
-	if(err) {
+	if(err || err > 0) {
 		return;
 	}
 	$('span:contains(Character Cards Sold)').parent().prev().find("span").html(state.sold);
@@ -52,7 +48,7 @@ const displayStateCallback = (err, state) => {
 };
 
 const transactionSentCallback = (err, result) => {
-	if(err) {
+	if(err || err > 0) {
 		return;
 	}
 	if(result.event === "transaction_sent") {
@@ -61,19 +57,25 @@ const transactionSentCallback = (err, result) => {
 };
 
 // init Web3
-presale.init((err, result) => {
-	if(err) {
-		return;
-	}
-	presale.presaleState(displayStateCallback);
-	presale.registerPurchaseCompleteEventListener((err, result) => {
-		if(err) {
+presale.init(
+	// deployed card instance address
+	"0xb1b45d07a2eecdeb6a0c1dc394dd13e44ac48f43",
+	// deployed presale instance address
+	"0x4491aa0be95fe879b489e6665a0e8455d5d95ba1",
+	(err, result) => {
+		if(err || err > 0) {
 			return;
 		}
-		logger.success("successfully bought " + result.quantity + " card" + (result.quantity > 1? "s": ""));
-	});
-	presale.registerPresaleStateChangedEventListener(displayStateCallback);
-});
+		presale.presaleState(displayStateCallback);
+		presale.registerPurchaseCompleteEventListener((err, result) => {
+			if(err || err > 0) {
+				return;
+			}
+			logger.success("successfully bought " + result.quantity + " card" + (result.quantity > 1? "s": ""));
+		});
+		presale.registerPresaleStateChangedEventListener(displayStateCallback);
+	}
+);
 
 // register button listeners, display presale status
 $(document).ready(() => {
@@ -84,27 +86,27 @@ $(document).ready(() => {
 		presale.buyRandom3(transactionSentCallback);
 	});
 	$('img[src="img/mcard-1.png"]').bind("click", () => {
-		presale.buySpecific(1085, transactionSentCallback);
+		presale.buySpecific(0x803D, transactionSentCallback);
 	});
 	$('img[src="img/small_aldamean_card.png"]').bind("click", () => {
-		presale.buySpecific(1086, transactionSentCallback);
+		presale.buySpecific(0x803E, transactionSentCallback);
 	});
 	$('img[src="img/small_chupatelo_card.png"]').bind("click", () => {
-		presale.buySpecific(1087, transactionSentCallback);
+		presale.buySpecific(0x803F, transactionSentCallback);
 	});
 	$('img[src="img/small_droodoo_card.png"]').bind("click", () => {
-		presale.buySpecific(1088, transactionSentCallback);
+		presale.buySpecific(0x8040, transactionSentCallback);
 	});
 	$('img[src="img/small_lizzaro_card.png"]').bind("click", () => {
-		presale.buySpecific(1089, transactionSentCallback);
+		presale.buySpecific(0x8041, transactionSentCallback);
 	});
 	$('img[src="img/small_shinderra_card.png"]').bind("click", () => {
-		presale.buySpecific(1090, transactionSentCallback);
+		presale.buySpecific(0x8042, transactionSentCallback);
 	});
 	$('img[src="img/small_spike_card.png"]').bind("click", () => {
-		presale.buySpecific(1091, transactionSentCallback);
+		presale.buySpecific(0x8043, transactionSentCallback);
 	});
 	$('img[src="img/small_vipassana_card.png"]').bind("click", () => {
-		presale.buySpecific(1092, transactionSentCallback);
+		presale.buySpecific(0x8044, transactionSentCallback);
 	});
 });

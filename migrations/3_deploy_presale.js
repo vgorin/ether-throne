@@ -1,6 +1,8 @@
 const Card = artifacts.require("./CharacterCard");
 const Presale = artifacts.require("./Presale");
 const Bitmaps = artifacts.require("./Bitmaps");
+const AddressUtils = artifacts.require("./AddressUtils");
+const StringUtils = artifacts.require("./StringUtils");
 
 const ROLE_TOKEN_CREATOR = 0x00040000;
 
@@ -20,6 +22,12 @@ module.exports = async function(deployer, network, accounts) {
 
 	await deployer.deploy(Bitmaps);
 	await deployer.link(Bitmaps, Presale);
+
+	await deployer.deploy(AddressUtils);
+	await deployer.link(AddressUtils, Presale);
+
+	await deployer.deploy(StringUtils);
+	await deployer.link(StringUtils, Presale);
 
 	await deployer.deploy(
 		Presale,

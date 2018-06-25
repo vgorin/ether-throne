@@ -1,0 +1,32 @@
+{
+  "name": "ether-throne",
+  "version": "1.12.11",
+  "description": "ERC721 based game on Ethereum ledger",
+  "main": "truffle-config.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "dependencies": {
+    "solidity-coverage": "^0.5.0",
+    "truffle-hdwallet-provider": "^0.0.3",
+    "web3-eth-abi": "^1.0.0-beta.34"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vgorin/ether-throne.git"
+  },
+  "keywords": [
+    "ERC721"
+  ],
+  "author": "vgorin",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vgorin/ether-throne/issues"
+  },
+  "homepage": "https://etherthrone.io/"
+}

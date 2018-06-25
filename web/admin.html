@@ -40,11 +40,11 @@
 	<table>
 		<tr>
 			<td><label for="card_instance" title="Deployed Instance Address">Character Card (ERC721) Instance Address:</label></td>
-			<td><input name="card_instance" id="card_instance" type="text" value="0xe634583206eab6db8d03240bb861ba024ed34bc3" size="42"/></td>
+			<td><input name="card_instance" id="card_instance" type="text" value="0xb1b45d07a2eecdeb6a0c1dc394dd13e44ac48f43" size="42"/></td>
 		</tr>
 		<tr>
 			<td><label for="presale_instance" title="Deployed Instance Address">Presale Instance Address:</label></td>
-			<td><input name="presale_instance" id="presale_instance" type="text" value="0x781e3d5d13e6cb82c75abcf75cc641e1028f74ed" size="42"/></td>
+			<td><input name="presale_instance" id="presale_instance" type="text" value="0x4491aa0be95fe879b489e6665a0e8455d5d95ba1" size="42"/></td>
 		</tr>
 		<tr>
 			<td></td>
@@ -99,11 +99,6 @@ function api_init(token_address, presale_address) {
 		presale_address = jQuery3("#presale_instance").val();
 	}
 	api = new PresaleApi(
-		// deployed card instance address
-		token_address,
-		// deployed presale instance address
-		presale_address,
-		// callback handlers, use bootstrap notify
 		{
 			error: function(...msg) {
 				console_writeln('<span style="color: red;">', ...msg, '</span>');
@@ -122,7 +117,13 @@ function api_init(token_address, presale_address) {
 		jQuery3
 	);
 
-	api.init((err, response) => {
+	api.init(
+		// deployed card instance address
+		token_address,
+		// deployed presale instance address
+		presale_address,
+		// callback handlers, use bootstrap notify
+		(err, response) => {
 		if(err) {
 			console.log(err);
 			api = null;
@@ -139,7 +140,7 @@ function display_collection(owner_address) {
 	if(!owner_address) {
 		owner_address = jQuery3("#owner_address").val();
 	}
-	api.cardsByOwner(owner_address, function(err, cards) {
+	api.getCollection(owner_address, function(err, cards) {
 		if(err) {
 			console.log(err);
 			return;

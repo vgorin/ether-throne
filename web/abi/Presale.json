@@ -158,6 +158,20 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "TOKEN_VERSION_REQUIRED",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "THREE_CARDS_PRICE",
       "outputs": [
         {
@@ -453,20 +467,6 @@
     {
       "constant": true,
       "inputs": [],
-      "name": "CHAR_CARD_VERSION_REQUIRED",
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint32"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [],
       "name": "RARITY_LEGENDARY",
       "outputs": [
         {
@@ -512,12 +512,12 @@
       "inputs": [
         {
           "indexed": true,
-          "name": "from",
+          "name": "_from",
           "type": "address"
         },
         {
           "indexed": true,
-          "name": "to",
+          "name": "_to",
           "type": "address"
         },
         {
@@ -758,5 +758,5 @@
     "version": "0.4.23+commit.124ca40d.Emscripten.clang"
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-05-25T23:35:31.586Z"
+  "updatedAt": "2018-06-25T17:34:02.815Z"
 }

@@ -54,22 +54,22 @@ contract('Presale', function(accounts) {
 		// buying usual card,
 		// sending not enough ether
 		await assertThrowsAsync(async() => {
-			await presale.buySpecific.sendTransaction(0x440, {from: player, value: INITIAL_PRICE.times(10).minus(1)});
+			await presale.buySpecific.sendTransaction(0x8040, {from: player, value: INITIAL_PRICE.times(10).minus(1)});
 		});
 		// sending enough ether
-		await presale.buySpecific.sendTransaction(0x440, {from: player, value: INITIAL_PRICE.times(10)});
+		await presale.buySpecific.sendTransaction(0x8040, {from: player, value: INITIAL_PRICE.times(10)});
 		assert.equal(1, await card.balanceOf(player), "wrong card balance after buying usual card");
 
 		// buying usual card for
-		await presale.buySpecificFor.sendTransaction(player, 0x441, {value: INITIAL_PRICE.times(10)});
+		await presale.buySpecificFor.sendTransaction(player, 0x8041, {value: INITIAL_PRICE.times(10)});
 		assert.equal(2, await card.balanceOf(player), "wrong card balance after buying usual card for");
 
 		// check Presale.bitmap vs CharacterCard.exists consistency
-		// card ID 0x1130 bitmap pos 0x1130 - 0x401 = 0xD2F, bucket 0xD (13), pos 0x2F or 0xD0 from the left
-		await presale.buySpecific.sendTransaction(0x1130, {from: player, value: INITIAL_PRICE.times(10)});
-		assert(await card.exists(0x1130), "card 0x1130 doesn't exist after it was bought");
+		// card ID 0x8D30 bitmap pos 0x8D30 - 0x8001 = 0xD2F, bucket 0xD (13), pos 0x2F or 0xD0 from the left
+		await presale.buySpecific.sendTransaction(0x8D30, {from: player, value: INITIAL_PRICE.times(10)});
+		assert(await card.exists(0x8D30), "card 0x8D30 doesn't exist after it was bought");
 		const bitmap0xD = (await presale.getBitmap())[0xD].toString(2);
-		assert.equal("0", bitmap0xD.charAt(0xD0), "cards 0x1130 is not absent in presale bitmap after it was bought");
+		assert.equal("0", bitmap0xD.charAt(0xD0), "cards 0x8D30 is not absent in presale bitmap after it was bought");
 
 		// buying one random card,
 		// sending not enough ether
