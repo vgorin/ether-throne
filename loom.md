@@ -39,3 +39,12 @@
    ```
    ../../loom run
    ```
+
+7. Send Transaction
+   ```
+   cd blueprint/build
+   ../../loom genkey -k priv_key -a pub_key
+   ./blueprint call create-acct -p priv_key
+   ./blueprint call set -v 1 -p priv_key
+   ./blueprint call get
+   ```
