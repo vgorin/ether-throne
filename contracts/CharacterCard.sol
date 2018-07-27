@@ -19,9 +19,7 @@ import "./AccessControl.sol";
  *      `transfer` and `transferFrom` functions support sending only entire balance
  *      (`n = balanceOf(owner)`) by default; this behavior can be controlled using
  *      `ERC20_INSECURE_TRANSFERS` feature flag
- * @dev ERC721-compatibility: partial
- *      Note: ERC721 is still a draft at the moment of writing this smart contract,
- *      therefore implementing this "standard" fully doesn't make any sense
+ * @dev ERC721-compatibility: full ERC721 compatibility
  */
 contract CharacterCard is AccessControl, ERC165 {
   /// @dev Smart contract version
@@ -368,7 +366,7 @@ contract CharacterCard is AccessControl, ERC165 {
    * @dev A locked card cannot be transferred
    * @dev The card is locked if it contains any bits
    *      from the `lockedBitmask` in its `state` set
-   * @dev Requires sender to have `ROLE_COMBAT_PROVIDER` permission
+   * @dev Requires sender to have `ROLE_STATE_LOCK_PROVIDER` permission
    * @param bitmask a value to set `lockedBitmask` to
    */
   function setLockedBitmask(uint32 bitmask) public {
@@ -397,7 +395,7 @@ contract CharacterCard is AccessControl, ERC165 {
 
   /**
    * @dev Sets the state of a card
-   * @dev Requires sender to have `ROLE_COMBAT_PROVIDER` permission
+   * @dev Requires sender to have `ROLE_STATE_PROVIDER` permission
    * @param _tokenId ID of the card to set state for
    * @param state new state to set for the card
    */
