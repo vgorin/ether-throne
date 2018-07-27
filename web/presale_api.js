@@ -289,42 +289,42 @@ function PresaleApi(logger, jQuery_instance) {
 					const contract = myWeb3.eth.contract(abi);
 					const address = token.address || token;
 					const instance = contract.at(address);
-					try {
-						instance.TOKEN_VERSION(function(err, version) {
-							if(err) {
-								logError("Error accessing ERC721 instance: ", err, "\nCannot access TOKEN_VERSION.");
-								tryCallbackIfProvided(callback, ERR_WEB3_ERROR, err);
-								return;
-							}
-							if(TOKEN_VERSION != version) {
-								const err = "Error accessing ERC721 instance: not a valid instance.\n" +
-									"Check if the address specified points to an ERC721 instance with a valid TOKEN_VERSION.\n" +
-									"Version required: " + TOKEN_VERSION + ". Version found: " + version;
-								logError(err);
-								tryCallbackIfProvided(callback, ERR_CONTRACT_VERSION_MISMATCH, err);
-								return;
-							}
-							logInfo("Successfully connected to ERC721 instance at ", address);
-							tokenInstance = instance;
-							instanceLoaded(callback);
-							tokenInstance.balanceOf(myAccount, function(err, result) {
-								if(err) {
-									logError("Unable to get ERC721 token balance for account ", myAccount, ": ", err);
-									return;
-								}
-								if(result > 0) {
-									logInfo("You own ", result, " ERC721 tokens");
-								}
-								else {
-									logInfo("You don't own any ERC721 tokens");
-								}
-							});
-						});
-					}
-					catch(err) {
-						logError("Wrong ERC721 ABI format: ", err);
+					if(!instance.TOKEN_VERSION) {
+						const err = "Wrong ERC721 ABI format: TOKEN_VERSION is undefined";
+						logError(err);
 						tryCallbackIfProvided(callback, ERR_WRONG_ABI, err);
+						return;
 					}
+					instance.TOKEN_VERSION(function(err, version) {
+						if(err) {
+							logError("Error accessing ERC721 instance: ", err, "\nCannot access TOKEN_VERSION.");
+							tryCallbackIfProvided(callback, ERR_WEB3_ERROR, err);
+							return;
+						}
+						if(TOKEN_VERSION != version) {
+							const err = "Error accessing ERC721 instance: not a valid instance.\n" +
+								"Check if the address specified points to an ERC721 instance with a valid TOKEN_VERSION.\n" +
+								"Version required: " + TOKEN_VERSION + ". Version found: " + version;
+							logError(err);
+							tryCallbackIfProvided(callback, ERR_CONTRACT_VERSION_MISMATCH, err);
+							return;
+						}
+						logInfo("Successfully connected to ERC721 instance at ", address);
+						tokenInstance = instance;
+						instanceLoaded(callback);
+						tokenInstance.balanceOf(myAccount, function(err, result) {
+							if(err) {
+								logError("Unable to get ERC721 token balance for account ", myAccount, ": ", err);
+								return;
+							}
+							if(result > 0) {
+								logInfo("You own ", result, " ERC721 tokens");
+							}
+							else {
+								logInfo("You don't own any ERC721 tokens");
+							}
+						});
+					});
 				}
 
 				// helper function to load presale contract by ABI
@@ -332,30 +332,30 @@ function PresaleApi(logger, jQuery_instance) {
 					const contract = myWeb3.eth.contract(abi);
 					const address = presale.address || presale;
 					const instance = contract.at(address);
-					try {
-						instance.PRESALE_VERSION(function(err, version) {
-							if(err) {
-								logError("Error accessing Presale instance: ", err, "\nCannot access PRESALE_VERSION.");
-								tryCallbackIfProvided(callback, ERR_WEB3_ERROR, err);
-								return;
-							}
-							if(PRESALE_VERSION != version) {
-								const err = "Error accessing Presale instance: not a valid instance.\n" +
-									"Check if the address specified points to a Presale instance with a valid PRESALE_VERSION.\n" +
-									"Version required: " + PRESALE_VERSION + ". Version found: " + version;
-								logError(err);
-								tryCallbackIfProvided(callback, ERR_CONTRACT_VERSION_MISMATCH, err);
-								return;
-							}
-							logInfo("Successfully connected to Presale instance at ", address);
-							presaleInstance = instance;
-							instanceLoaded(callback);
-						});
-					}
-					catch(err) {
-						logError("Wrong Presale ABI format: ", err);
+					if(!instance.PRESALE_VERSION) {
+						const err = "Wrong Presale ABI format: PRESALE_VERSION is undefined";
+						logError(err);
 						tryCallbackIfProvided(callback, ERR_WRONG_ABI, err);
+						return;
 					}
+					instance.PRESALE_VERSION(function(err, version) {
+						if(err) {
+							logError("Error accessing Presale instance: ", err, "\nCannot access PRESALE_VERSION.");
+							tryCallbackIfProvided(callback, ERR_WEB3_ERROR, err);
+							return;
+						}
+						if(PRESALE_VERSION != version) {
+							const err = "Error accessing Presale instance: not a valid instance.\n" +
+								"Check if the address specified points to a Presale instance with a valid PRESALE_VERSION.\n" +
+								"Version required: " + PRESALE_VERSION + ". Version found: " + version;
+							logError(err);
+							tryCallbackIfProvided(callback, ERR_CONTRACT_VERSION_MISMATCH, err);
+							return;
+						}
+						logInfo("Successfully connected to Presale instance at ", address);
+						presaleInstance = instance;
+						instanceLoaded(callback);
+					});
 				}
 				// --- END: Internal Section to Load Contracts ---
 
@@ -731,7 +731,7 @@ function PresaleApi(logger, jQuery_instance) {
 			const to = receipt.args._to;
 			const tokenId = receipt.args._tokenId.toString(10);
 			logInfo("Minted(", by, ", ", to, ", ", tokenId, ")");
-			tryCallbackIfProvided(callback, null, {
+			tryCallback(callback, null, {
 				event: "minted",
 				by: by,
 				to: to,
@@ -769,7 +769,7 @@ function PresaleApi(logger, jQuery_instance) {
 			const tokenId = receipt.args._tokenId.toString(10);
 			const value = receipt.args._value.toString(10);
 			logInfo("ERC20/ERC721 Transfer(", from, ", ", to, ", ", value, ")");
-			tryCallbackIfProvided(callback, null, {
+			tryCallback(callback, null, {
 				event: "transfer",
 				from: from,
 				to: to,
@@ -808,7 +808,7 @@ function PresaleApi(logger, jQuery_instance) {
 			const q = receipt.args.quantity;
 			const price = receipt.args.totalPrice;
 			logInfo("PurchaseComplete(", from, ", ", to, ", ", q, ", ", price, ")");
-			tryCallbackIfProvided(callback, null, {
+			tryCallback(callback, null, {
 				event: "purchase_complete",
 				quantity: q,
 				totalPrice: price,
@@ -851,7 +851,7 @@ function PresaleApi(logger, jQuery_instance) {
 			const currentPrice = receipt.args.currentPrice;
 			const nextPrice = receipt.args.nextPrice;
 			logInfo("PresaleStateChanged(", sold, ", ", left, ", ", lastPrice, ", ", currentPrice, ", ", nextPrice, ")");
-			tryCallbackIfProvided(callback, null, {
+			tryCallback(callback, null, {
 				event: "presale_state_changed",
 				sold: sold.toNumber(),
 				left: left.toNumber(),
