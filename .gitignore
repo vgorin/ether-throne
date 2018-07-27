@@ -4,4 +4,4 @@ node_modules
 coverage.json
 *.iml
 package-lock.json
-priv_key
+private_key
