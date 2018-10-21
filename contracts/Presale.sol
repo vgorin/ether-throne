@@ -1,5 +1,6 @@
 pragma solidity 0.4.23;
 
+import "./RandomSeq.sol";
 import "./Bitmaps.sol";
 import "./CharacterCard.sol";
 
@@ -280,7 +281,7 @@ contract Presale {
     // get some randomness to work pick up a card randomly
     // this randomness is not cryptographically secure of course
     // and may be heavily influenced by miners, but its cheap though
-    uint256 randomness = __rawRandom();
+    uint256 randomness = RandomSeq.__rawRandom();
 
     // issue one card
     uint16[] memory cards = new uint16[](1);
@@ -308,7 +309,7 @@ contract Presale {
     // get some randomness to work pick up a card randomly
     // this randomness is not cryptographically secure of course
     // and may be heavily influenced by miners, but its cheap though
-    uint256 randomness = __rawRandom();
+    uint256 randomness = RandomSeq.__rawRandom();
 
     // pick 3 random cards
     // using low 32 bits of `randomness`
@@ -445,7 +446,7 @@ contract Presale {
   /// @dev Removes random card from `cardsForSale`
   function __popRandom(uint32 randomness) private returns (uint16) {
     // using 32 bits of randomness provided, pick random index
-    uint256 index = __rndVal(randomness, 0xFFFFFFFF, 0, cardsForSale.length);
+    uint256 index = RandomSeq.__rndVal(randomness, 0xFFFFFFFF, 0, cardsForSale.length);
 
     // delegate call to `__popCard` to remove the card from buffer
     return __popByIndex(index);
@@ -562,70 +563,6 @@ contract Presale {
   function __pack24(uint16 cardId, uint32 rarity) private pure returns (uint24) {
     // cardId (16 bits) | rarity (8 bits)
     return uint24(cardId) << 8 | uint8(0x1F & rarity);
-  }
-
-  /**
-   * @dev Extracts a random value in range [offset, offset + length),
-   *      from the `randomness` given after applying a `mask`
-   * @dev mask - maximum value the `randomness` can have,
-   *      for example, if `randomness` is 32-bits long, `mask` = 0xFFFFFFFF,
-   *                   if `randomness` is 16-bits long, `mask` = 0xFFFF
-   * @param randomness source of randomness
-   * @param mask maximum value the `randomness` can have
-   * @param offset lower output bound
-   * @param length number of possible output values, upper bound is `offset + length - 1`
-   * @return random value in range [offset, offset + length)
-   */
-  function __rndVal(uint256 randomness, uint256 mask, uint256 offset, uint256 length) private pure returns (uint256) {
-    // return random value in range [offset, offset + length)
-    return offset + (mask & randomness) * length / (mask + 1);
-  }
-
-  /**
-   * @dev Generates random value in range [offset, offset + length)
-   *      based on the `__rawRandom` as a source of a randomness
-   * @dev The random value generated is not cryptographically secure
-   *      and may be heavily influenced by miners, but its cheap though
-   * @param offset lower output bound
-   * @param length number of possible output values, upper bound is `offset + length - 1`
-   * @return random value in range [offset, offset + length)
-   */
-  function __randomValue(uint256 offset, uint256 length) private constant returns (uint256) {
-    // using `__rawRandom` as a source of randomness,
-    uint256 randomness = __rawRandom();
-
-    // delegate call to `__rndVal` using only 128 bits of randomness
-    return  __rndVal(randomness, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, offset, length);
-  }
-
-  /**
-   * @dev Generates random value based on keccak256 hash of
-   *      * block.difficulty,
-   *      * block.number,
-   *      * gasleft(),
-   *      * msg.data,
-   *      * msg.sender,
-   *      * msg.value,
-   *      * tx.gasprice,
-   *      * tx.origin
-   * @dev The random value generated is not cryptographically secure
-   *      and may be heavily influenced by miners, but its cheap though
-   * @return random value – all possible values of uint256
-   */
-  function __rawRandom() private constant returns (uint256) {
-    // build the keccak256 hash of the transaction dependent values
-    bytes32 hash = keccak256(
-      block.difficulty,
-      block.number,
-      gasleft(),
-      msg.data,
-      msg.sender,
-      msg.value,
-      tx.gasprice,
-      tx.origin
-    );
-    // and return the result
-    return uint256(hash);
   }
 
 }
